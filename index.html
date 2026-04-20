@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#1565C0" id="metaThemeColor">
+    <title>Cooptrans v1.0.0</title>
+    <style>
+        html, body { width: 100%; height: 100%; position: fixed; overflow: hidden; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; }
+        input, select, textarea, .modal { user-select: text; -webkit-user-select: text; font-family: inherit; }
+        .app-container { width: 100%; max-width: 100%; height: 100%; background-color: #ffffff; display: flex; flex-direction: column; position: absolute; top: 0; left: 0; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        
+        #splashScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #1565C0; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; transition: opacity 0.5s ease; }
+        .splash-titulo { font-size: 32px; font-weight: bold; letter-spacing: 1px; }
+        .splash-versao { font-size: 14px; margin-top: 5px; opacity: 0.8; }
+        #loadingOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; flex-direction: column; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px; text-align: center; padding: 20px; box-sizing: border-box; }
+        .spinner { border: 6px solid #f3f3f3; border-top: 6px solid #1565C0; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .header { background-color: #1565C0; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; color: white; flex-shrink: 0; }
+        .header-title { font-size: 20px; font-weight: bold; display: flex; align-items: center; gap: 10px; }
+        .header-title input[type="month"] { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 5px; border-radius: 4px; font-size: 14px; outline: none; }
+        .header-title input[type="month"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
+        .header-actions button { background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; margin-left: 15px;}
+        
+        .area-conteudo { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .scroll-area { overflow-y: auto; flex: 1; padding-bottom: 90px; -webkit-overflow-scrolling: touch; }
+        
+        .filters { padding: 10px 15px; display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; border-bottom: 1px solid #eee; background: white; flex-shrink: 0; }
+        .chip { background-color: #e0e0e0; color: #333; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: bold; border: 2px solid transparent; transition: 0.3s; }
+        .chip.active { background-color: #333; color: white; border-color: #000; }
+        .chip.alerta { background-color: #FFF3E0; color: #E65100; border-color: #FFB74D; }
+        .chip.alerta.active { background-color: #E65100; color: white; border-color: #E65100; }
+        .chip.pendente { background-color: #FFEBEE; color: #D32F2F; border-color: #EF9A9A; }
+        .chip.pendente.active { background-color: #D32F2F; color: white; border-color: #D32F2F; }
+        
+        .list { padding: 0; margin: 0; list-style: none; }
+        .item { display: flex; align-items: center; justify-content: space-between; padding: 12px; border-bottom: 1px solid #eee; position: relative; user-select: none; }
+        .item-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 12px; color: white; font-size: 16px; flex-shrink: 0; background-color: #1565C0;}
+        .item-info { flex: 1; display: flex; flex-direction: column; justify-content: center; overflow: hidden;}
+        .item-title { font-weight: bold; font-size: 15px; margin-bottom: 2px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+        .item-subtitle { color: #666; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+        
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 1000; }
+        .modal { background: white; padding: 20px; border-radius: 10px; width: 90%; max-width: 450px; max-height: 90vh; overflow-y: auto; box-shadow: 0 5px 20px rgba(0,0,0,0.3); }
+        .modal-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #1565C0; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
+        
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; margin-bottom: 4px; color: #555; font-weight: bold; font-size: 12px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 14px; }
+        
+        .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 15px; flex-wrap: wrap; }
+        .btn-cancel, .btn-action, .btn-danger, .btn-outline { padding: 12px; border-radius: 5px; cursor: pointer; font-weight: bold; flex: 1; text-align: center; border: none; font-size: 14px; }
+        .btn-cancel { background: #eee; color: #333; }
+        .btn-action { background: #1565C0; color: white; }
+        .btn-danger { background: #d32f2f; color: white; }
+        .btn-outline { background: transparent; border: 1px solid #1565C0; color: #1565C0; width: 100%; margin-bottom: 8px; text-align: left; }
+        
+        .section-title { background: #E3F2FD; padding: 8px; font-size: 13px; font-weight: bold; color: #0D47A1; border-radius: 4px; margin: 15px 0 10px 0; border-left: 4px solid #1565C0;}
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; margin-right: 8px; vertical-align: middle; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .3s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+        input:checked + .slider { background-color: #1565C0; }
+        input:checked + .slider:before { transform: translateX(20px); }
+        
+        .list-item-config { display: flex; justify-content: space-between; align-items: center; background: #fff; border: 1px solid #ddd; padding: 8px 10px; border-radius: 5px; margin-bottom: 5px; font-size: 13px; }
+        .list-item-config button { background: #ffcdd2; color: #d32f2f; border: none; border-radius: 4px; padding: 5px 8px; cursor: pointer; font-weight: bold; flex-shrink: 0; }
+        .btn-edit-small { background: #E3F2FD !important; color: #1565C0 !important; margin-right: 5px; }
+
+        .status-badge { padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; display: inline-block; margin-top: 4px; }
+        .status-ok { background: #E8F5E9; color: #2E7D32; border: 1px solid #A5D6A7; }
+        .status-pendente { background: #FFEBEE; color: #C62828; border: 1px solid #EF9A9A; }
+        .status-alerta { background: #FFF3E0; color: #EF6C00; border: 1px solid #FFCC80; }
+    </style>
+</head>
+<body>
+
+<div id="splashScreen">
+    <div class="splash-titulo">Cooptrans</div>
+    <div class="splash-versao">v1.0.0</div>
+    <button onclick="forcarAtualizacao()" style="margin-top: 30px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
+</div>
+
+<div id="syncIndicador"></div>
+<div id="loadingOverlay">
+    <div class="spinner"></div>
+    <div id="loadingText">Processando...<br><span style="font-size: 14px; font-weight: normal; margin-top: 10px; display: block;">Aguarde.</span></div>
+</div>
+
+<div class="app-container">
+    <div class="header">
+        <div class="header-title">
+            Mês: <input type="month" id="filtroMesGeral" onchange="renderizarLista()">
+        </div>
+        <div class="header-actions">
+            <button onclick="document.getElementById('modalPainelUnificado').style.display='flex'">⚙️</button>
+        </div>
+    </div>
+    
+    <div class="area-conteudo">
+        <div class="filters" id="containerFiltros">
+            <div class="chip active" id="chipTodos" onclick="setFiltroView('todos')">Todos</div>
+            <div class="chip pendente" id="chipPendentes" onclick="setFiltroView('pendentes')">Pagamento Pendente</div>
+            <div class="chip alerta" id="chipVencimentos" onclick="setFiltroView('vencimentos')">Licenças a Vencer</div>
+        </div>
+        <div class="scroll-area"><ul class="list" id="listaPrincipal"></ul></div>
+    </div>
+</div>
+
+<!-- MENU PRINCIPAL -->
+<div class="modal-overlay" id="modalPainelUnificado">
+    <div class="modal" style="padding-top: 25px;">
+        <h2 style="text-align: center; color: #1565C0; margin-top: 0; margin-bottom: 20px;">Menu Cooptrans</h2>
+        <button class="btn-outline" onclick="abrirModalCooperativa()">🏢 Dados da Cooperativa</button>
+        <button class="btn-outline" onclick="abrirGerenciarContribuintes()">👥 Gerenciar Contribuintes</button>
+        <button class="btn-outline" onclick="abrirModalConfigGerais()">⚙️ Configurações Gerais</button>
+        <button class="btn-outline" onclick="abrirGerenciar('administradores')">🛡️ Gerenciar Administradores</button>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        <h3 style="font-size: 16px; color: #d32f2f; margin-top: 15px; margin-bottom: 10px;">Avançado</h3>
+        <button class="btn-danger" style="width: 100%; margin-bottom: 10px;" onclick="solicitarAcessoAvancado()">⚠️ Configurações Avançadas</button>
+        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalPainelUnificado')">Fechar</button></div>
+    </div>
+</div>
+
+<!-- ZONA DE RISCO E NUVEM -->
+<div class="modal-overlay" id="modalSenhaAvancada">
+    <div class="modal">
+        <div class="modal-title" style="color:#d32f2f;">Zona de Risco</div>
+        <div class="form-group"><label>Senha Avançada:</label><input type="password" id="senhaAvancada" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')"></div>
+        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalSenhaAvancada')">Cancelar</button></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modalConfigAvancadas">
+    <div class="modal" style="max-height: 90vh; overflow-y: auto;">
+        <div class="modal-title" style="color:#d32f2f;">Zona de Risco</div>
+        <div class="form-group">
+            <label>URL Google Script:</label>
+            <input type="text" id="configUrlApp" placeholder="https://script.google.com/macros/s/...">
+            <button class="btn-action" style="width: 100%; margin-top: 10px; background-color: #4CAF50;" onclick="salvarURL()">💾 Salvar URL e Puxar Dados</button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
+            <button class="btn-action" style="margin: 0; width: 100%; font-size: 15px; margin-bottom: 10px;" onclick="forcarEnvioNuvemCompleto()">☁️ Forçar Envio Completo pra Nuvem</button>
+            <div style="display: flex; gap: 8px; width: 100%;">
+                <button class="btn-outline" style="margin: 0; flex: 1; font-size: 13px; border-color:#1565C0; color:#1565C0; text-align: center;" onclick="exportarDados()">⬇️ Exportar Dados</button>
+                <button class="btn-outline" style="margin: 0; flex: 1; font-size: 13px; border-color:#d32f2f; color:#d32f2f; text-align: center;" onclick="document.getElementById('fileImport').click()">⬆️ Importar Dados</button>
+                <input type="file" id="fileImport" style="display:none;" accept=".json" onchange="importarDados(event)">
+            </div>
+        </div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="font-size: 13px; color: #555; margin-bottom: 5px;">Atenção: A ação abaixo é irreversível.</p>
+        <div class="form-group"><label>Para apagar todo o histórico de lançamentos, digite: <b>quero excluir todo o histórico</b></label><input type="text" id="inputExcluirTudo" placeholder="digite a frase exata"><button class="btn-danger" style="margin-top: 10px; width: 100%;" onclick="excluirTodoHistorico()">🗑️ Apagar Todo o Histórico</button></div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+        <div class="form-group"><label>App travou ou quer puxar versão nova?</label><button class="btn-outline" style="border-color:#fbc02d; color:#fbc02d; width: 100%; text-align: center;" onclick="forcarAtualizacao()">🔄 Forçar Atualização do App</button></div>
+        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalConfigAvancadas'); document.getElementById('modalPainelUnificado').style.display='flex';">Voltar</button></div>
+    </div>
+</div>
+
+<!-- LISTAGENS GENÉRICAS (ADMINS, ETC) -->
+<div class="modal-overlay" id="modalListagem">
+    <div class="modal" style="width: 95%; height: 85vh; display: flex; flex-direction: column;">
+        <div class="modal-title" id="tituloListagem" style="flex-shrink: 0;">Gerenciar</div>
+        <div style="display: flex; gap: 5px; margin-bottom: 15px; flex-shrink: 0; flex-wrap:wrap;">
+            <button class="btn-action" id="btnNovoListagem" style="flex: 2; padding: 10px; font-size: 14px; border-radius: 8px; display: flex; justify-content: center; align-items: center; gap: 8px;">
+                <span style="font-size: 18px; font-weight: bold; line-height: 1;">+</span> Novo
+            </button>
+        </div>
+        <div id="conteudoListagem" style="flex: 1; overflow-y: auto; padding-right: 5px;"></div>
+        <div class="modal-actions" style="flex-shrink: 0;"><button class="btn-cancel" id="btnVoltarListagem" onclick="fecharModal('modalListagem'); document.getElementById('modalPainelUnificado').style.display='flex';" style="width: 100%;">Voltar</button></div>
+    </div>
+</div>
+
+<!-- DADOS DA COOPERATIVA -->
+<div class="modal-overlay" id="modalFormCooperativa">
+    <div class="modal">
+        <div class="modal-title">Dados da Cooperativa</div>
+        <div class="form-group">
+            <label>Logo:</label>
+            <input type="file" accept="image/*" onchange="converterLogo(this)">
+            <input type="hidden" id="coopLogoBase64">
+            <div id="previewLogo" style="margin-top:5px;"></div>
+        </div>
+        <div class="form-group"><label>Razão Social:</label><input type="text" id="coopRazao"></div>
+        <div class="form-group"><label>Nome Fantasia:</label><input type="text" id="coopFantasia"></div>
+        <div class="form-group"><label>CNPJ:</label><input type="text" id="coopCNPJ" inputmode="numeric" oninput="maskCNPJ(this)" placeholder="00.000.000/0000-00"></div>
+        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalFormCooperativa'); document.getElementById('modalPainelUnificado').style.display='flex';">Cancelar</button><button class="btn-action" onclick="salvarCooperativa()">Salvar</button></div>
+    </div>
+</div>
+
+<!-- CONFIG GERAIS (CATEGORIAS E AVISOS) -->
+<div class="modal-overlay" id="modalConfigGerais">
+    <div class="modal">
+        <div class="modal-title">Configurações Gerais</div>
+        
+        <div class="form-group">
+            <label>Avisar Vencimentos com (dias) de antecedência:</label>
+            <input type="number" id="confDiasAviso" placeholder="Ex: 7" value="7">
+        </div>
+
+        <div class="section-title">Categorias de Veículos e Valores</div>
+        <input type="hidden" id="editIdxCat" value="">
+        <div class="form-group" style="margin-bottom: 5px;">
+            <div style="display: flex; gap: 5px;">
+                <input type="text" id="novaCatNome" placeholder="Categoria (Ex: Van)" style="flex: 2;">
+                <input type="text" id="novaCatValor" placeholder="R$ 0,00" inputmode="numeric" oninput="maskMoeda(this)" style="flex: 1.5;">
+                <button class="btn-action" onclick="addCategoria()" style="flex: none; width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold;" id="btnSalvarCat">+</button>
+            </div>
+        </div>
+        <div id="listaCategorias" style="background: #f9f9f9; padding: 10px; border-radius: 5px; margin-bottom: 15px; max-height: 150px; overflow-y: auto;"></div>
+
+        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalConfigGerais'); document.getElementById('modalPainelUnificado').style.display='flex';">Cancelar</button><button class="btn-action" onclick="salvarConfigGerais()">Salvar Tudo</button></div>
+    </div>
+</div>
+
+<!-- FORM ADMINISTRADOR -->
+<div class="modal-overlay" id="modalFormAdmin">
+    <div class="modal">
+        <div class="modal-title">Administrador</div>
+        <input type="hidden" id="adminId">
+        <div class="form-group"><label>Nome do Perfil:</label><input type="text" id="adminNome"></div>
+        <div class="form-group"><label>Senha do Perfil:</label><input type="password" id="adminSenha" placeholder="Senha numérica" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')"></div>
+        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalFormAdmin'); abrirGerenciar('administradores');">Cancelar</button><button class="btn-action" onclick="salvarAdmin()">Salvar</button></div>
+    </div>
+</div>
+
+<!-- FORM CONTRIBUINTE -->
+<div class="modal-overlay" id="modalFormContribuinte">
+    <div class="modal" style="padding-top:15px; width: 95%; height: 90vh;">
+        <div class="modal-title">Cadastro de Contribuinte</div>
+        <input type="hidden" id="contId">
+        
+        <div class="section-title">Dados Pessoais</div>
+        <div class="form-group"><label>Nome Completo:</label><input type="text" id="contNome"></div>
+        
+        <div class="form-group">
+            <label>Telefones (WhatsApp):</label>
+            <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+                <input type="text" id="novoTelInput" placeholder="(00) 00000-0000" inputmode="numeric" oninput="maskTelefone(this)" style="flex: 1;">
+                <button class="btn-action" onclick="addTelefone()" style="flex: none; width: 45px; font-weight: bold;">+</button>
+            </div>
+            <div id="listaTelefones" style="background:#f9f9f9; padding:8px; border-radius:4px; max-height:80px; overflow-y:auto;"></div>
+        </div>
+
+        <div class="form-group" style="background:#E3F2FD; padding:10px; border-radius:5px;">
+            <label style="color:#0D47A1;">Valor Total da Contribuição (R$):</label>
+            <div style="display:flex; gap:5px;">
+                <input type="text" id="contValor" inputmode="numeric" oninput="maskMoeda(this)" placeholder="0,00" style="font-weight:bold; color:#1565C0;">
+                <button class="btn-action" onclick="somarValorCarros()" style="font-size:12px; width:auto; padding:0 10px;" title="Somar valor dos carros ativos">Somar Carros</button>
+            </div>
+        </div>
+
+        <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Veículos Vinculados</span>
+            <button class="btn-action" style="padding:4px 8px; font-size:12px; width:auto;" onclick="abrirFormCarro(null)">+ Carro</button>
+        </div>
+        <div id="listaCarros" style="background:#f9f9f9; padding:8px; border-radius:4px; min-height:50px; margin-bottom:15px;"></div>
+
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="fecharModal('modalFormContribuinte'); abrirGerenciarContribuintes();">Cancelar</button>
+            <button class="btn-action" onclick="salvarContribuinte()">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- FORM CARRO -->
+<div class="modal-overlay" id="modalFormCarro" style="z-index: 1500;">
+    <div class="modal">
+        <div class="modal-title" id="tituloModalCarro">Dados do Veículo</div>
+        <input type="hidden" id="carroEditId">
+        
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex:1;"><label>Placa:</label><input type="text" id="carPlaca" style="text-transform:uppercase;"></div>
+            <div class="form-group" style="flex:1;"><label>Ano (AAAA):</label><input type="text" id="carAno" inputmode="numeric" maxlength="4" oninput="this.value = this.value.replace(/[^0-9]/g, '')"></div>
+        </div>
+        
+        <div class="form-group">
+            <label>Categoria:</label>
+            <select id="carCategoria" onchange="autoFillValorCarro()"></select>
+        </div>
+        
+        <div class="form-group"><label>Valor Atribuído (R$):</label><input type="text" id="carValor" inputmode="numeric" oninput="maskMoeda(this)"></div>
+        
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex:1;"><label>Data Laudo:</label><input type="date" id="carLaudo"></div>
+            <div class="form-group" style="flex:1;"><label>Data Seguro:</label><input type="date" id="carSeguro"></div>
+        </div>
+        
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex:1;"><label>Data Licença:</label><input type="date" id="carLicenca"></div>
+            <div class="form-group" style="flex:1;"><label>Data Cadastro:</label><input type="date" id="carCadastro" readonly style="background:#eee;"></div>
+        </div>
+
+        <div class="form-group" style="display:flex; align-items:center; background:#ffebee; padding:10px; border-radius:5px; margin-bottom: 5px; margin-top:15px;">
+            <label class="switch"><input type="checkbox" id="carArquivado" onchange="toggleMotivoArquivamento()"><span class="slider"></span></label>
+            <span style="font-weight:bold; font-size:12px; color:#D32F2F;">Veículo Bloqueado / Arquivado</span>
+        </div>
+        <div class="form-group" id="boxMotivoArqv" style="display:none;">
+            <label>Motivo do Arquivamento:</label>
+            <textarea id="carMotivo" rows="2" placeholder="Vendeu o carro, troca, etc..."></textarea>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="fecharModal('modalFormCarro')">Cancelar</button>
+            <button class="btn-action" onclick="salvarCarroTemp()">Confirmar</button>
+        </div>
+    </div>
+</div>
+
+<!-- AÇÕES DO CONTRIBUINTE (PAGAMENTOS E RESUMO) -->
+<div class="modal-overlay" id="modalAcoesContribuinte">
+    <div class="modal">
+        <div class="modal-title" id="tituloAcoesContribuinte">Nome do Contribuinte</div>
+        <input type="hidden" id="acoesContId">
+        
+        <div class="section-title">Situação Mensal (<span id="lblMesAcoes"></span>)</div>
+        <div class="form-group" style="background:#f9f9f9; padding:15px; border-radius:5px; text-align:center;">
+            <div style="font-size:12px; color:#666;">Valor Esperado:</div>
+            <div style="font-size:24px; font-weight:bold; color:#1565C0; margin-bottom:10px;" id="lblAcoesValorTotal">R$ 0,00</div>
+            
+            <div id="boxStatusPagamento"></div>
+            
+            <div style="margin-top:15px; display:flex; gap:10px;" id="boxAddPagamento">
+                <input type="text" id="inputAcoesValorPago" inputmode="numeric" oninput="maskMoeda(this)" placeholder="Valor Pago R$" style="flex:1; padding:10px; border:1px solid #ccc; border-radius:5px;">
+                <button class="btn-action" style="flex:1; background:#2E7D32;" onclick="registrarPagamentoMes()">💲 Registrar Pgto</button>
+            </div>
+        </div>
+
+        <div class="section-title">Histórico de Pagamentos</div>
+        <div id="listaHistoricoPagamentos" style="background:#f9f9f9; padding:8px; border-radius:4px; max-height:150px; overflow-y:auto; font-size:13px; margin-bottom:15px;"></div>
+        
+        <div class="modal-actions"><button class="btn-cancel" style="width: 100%;" onclick="fecharModal('modalAcoesContribuinte')">Voltar</button></div>
+    </div>
+</div>
+
+<script>
+    function toggleDiv(id) { let el = document.getElementById(id); el.style.display = (el.style.display === 'none') ? 'block' : 'none'; }
+    function converterLogo(input) { if (input.files && input.files[0]) { let reader = new FileReader(); reader.onload = function(e) { document.getElementById('coopLogoBase64').value = e.target.result; document.getElementById('previewLogo').innerHTML = `<img src="${e.target.result}" style="max-height:50px;">`; }; reader.readAsDataURL(input.files[0]); } }
+    
+    // 1. MÁSCARAS
+    function maskCNPJ(el) { let v = el.value.replace(/\D/g, ""); if (v.length > 14) v = v.substring(0, 14); v = v.replace(/^(\d{2})(\d)/, "$1.$2"); v = v.replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3"); v = v.replace(/\.(\d{3})(\d)/, ".$1/$2"); v = v.replace(/(\d{4})(\d)/, "$1-$2"); el.value = v; }
+    function maskTelefone(el) { let v = el.value.replace(/\D/g,""); if (v.length > 11) v = v.substring(0, 11); v = v.replace(/^(\d{2})(\d)/g,"($1) $2"); v = v.replace(/(\d{5})(\d{4})$/,"$1-$2"); el.value = v; }
+    function maskMoeda(el) { let v = el.value.replace(/\D/g, ""); if(!v) { el.value = ""; return; } v = (parseFloat(v) / 100).toLocaleString('pt-BR', {minimumFractionDigits: 2}); el.value = v; }
+    function parseMoeda(str) { if(!str) return 0; return parseFloat(String(str).replace(/\./g, "").replace(",", ".")); }
+    function formatMoeda(val) { return parseFloat(val).toLocaleString('pt-BR', {minimumFractionDigits: 2}); }
+    function formatDataBR(dataStr) { if(!dataStr) return ""; const partes = dataStr.split('-'); if(partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`; return dataStr; }
+    function getHojeSTR() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+    function getMesAtualSTR() { return getHojeSTR().substring(0,7); }
+
+    // 2. DADOS BASE
+    let db = carregarBanco(); 
+    let isSyncingFundo = false;
+    let tempCategorias = [];
+    let tempTelefones = [];
+    let tempCarros = [];
+    let filtroViewAtual = 'todos'; // todos, pendentes, vencimentos
+
+    function carregarBanco() {
+        let base = {
+            app_id: "cooptrans",
+            cooperativa: { logo: "", razao: "", fantasia: "", cnpj: "" },
+            categorias: [], 
+            contribuintes: [], 
+            administradores: [],
+            configGerais: { diasAvisoLicenca: 7 },
+            configs: { url: "", dadosBaixados: false, ultimaMudancaLocal: 0, senhaAdmin: "1999" }
+        };
+        let salvo = localStorage.getItem('cooptrans_v1');
+        if(salvo) {
+            let parsed = JSON.parse(salvo);
+            if(!parsed.configs) parsed.configs = base.configs;
+            if(!parsed.configGerais) parsed.configGerais = base.configGerais;
+            return parsed;
+        }
+        return base;
+    }
+    
+    function salvarBanco() { localStorage.setItem('cooptrans_v1', JSON.stringify(db)); }
+    function fecharModal(id) { document.getElementById(id).style.display = 'none'; }
+    function marcarMudancaEstrutural() { db.configs.ultimaMudancaLocal = Date.now(); salvarBanco(); sincronizarFundo(false, true); }
+
+    window.onload = () => { 
+        setTimeout(() => {
+            document.getElementById('splashScreen').style.opacity = '0';
+            setTimeout(()=>{document.getElementById('splashScreen').style.display = 'none';}, 500); 
+        }, 1000); 
+        document.getElementById('filtroMesGeral').value = getMesAtualSTR();
+        renderizarLista(); 
+    };
+
+    // 3. MAIN LIST & FILTERS
+    function setFiltroView(view) {
+        filtroViewAtual = view;
+        document.getElementById('chipTodos').classList.remove('active');
+        document.getElementById('chipPendentes').classList.remove('active');
+        document.getElementById('chipVencimentos').classList.remove('active');
+        
+        if(view === 'todos') document.getElementById('chipTodos').classList.add('active');
+        if(view === 'pendentes') document.getElementById('chipPendentes').classList.add('active');
+        if(view === 'vencimentos') document.getElementById('chipVencimentos').classList.add('active');
+        renderizarLista();
+    }
+
+    function checarAlertasCarro(carro) {
+        let alertas = [];
+        if(!carro.ativo) return alertas;
+        let hoje = new Date();
+        hoje.setHours(0,0,0,0);
+        let diasAviso = parseInt(db.configGerais.diasAvisoLicenca) || 7;
+        
+        let checkData = (dataStr, nome) => {
+            if(!dataStr) return;
+            let d = new Date(dataStr + "T00:00:00");
+            let diffDias = Math.ceil((d - hoje) / (1000 * 60 * 60 * 24));
+            if(diffDias < 0) alertas.push(`${nome} Vencido (${carro.placa})`);
+            else if(diffDias <= diasAviso) alertas.push(`${nome} Vence em ${diffDias}d (${carro.placa})`);
+        };
+        checkData(carro.dataLaudo, "Laudo");
+        checkData(carro.dataSeguro, "Seguro");
+        checkData(carro.dataLicenca, "Licença");
+        return alertas;
+    }
+
+    function renderizarLista() {
+        const lista = document.getElementById('listaPrincipal');
+        let html = '';
+        let mesRef = document.getElementById('filtroMesGeral').value;
+        if(!mesRef) mesRef = getMesAtualSTR();
+
+        let contribs = [...db.contribuintes].sort((a,b) => a.nome.localeCompare(b.nome));
+        
+        contribs.forEach(c => {
+            // Verificar Pagamento
+            let valorEsperado = parseMoeda(c.valorTotal || "0");
+            let pgtoMes = (c.pagamentos || []).filter(p => p.mesAno === mesRef).reduce((acc, p) => acc + p.valorPago, 0);
+            let pendente = (valorEsperado - pgtoMes) > 0.01;
+
+            // Verificar Alertas Carros
+            let alertasArr = [];
+            (c.carros || []).forEach(car => {
+                alertasArr = alertasArr.concat(checarAlertasCarro(car));
+            });
+            let temAlerta = alertasArr.length > 0;
+
+            // Filtros
+            if(filtroViewAtual === 'pendentes' && !pendente) return;
+            if(filtroViewAtual === 'vencimentos' && !temAlerta) return;
+
+            let statusPgtoHtml = pendente 
+                ? `<span class="status-badge status-pendente">Falta Pagar R$ ${formatMoeda(valorEsperado - pgtoMes)}</span>` 
+                : `<span class="status-badge status-ok">Pago (R$ ${formatMoeda(pgtoMes)})</span>`;
+            
+            let alertasHtml = '';
+            if(temAlerta) {
+                alertasHtml = `<div style="margin-top:5px; font-size:11px; color:#E65100; line-height:1.2;"><b>⚠️ Alertas:</b><br>${alertasArr.join('<br>')}</div>`;
+            }
+
+            let carrosAtivos = (c.carros || []).filter(car=>car.ativo).length;
+
+            html += `<li class="item" onclick="abrirAcoesContribuinte('${c.id}')">
+                <div style="display: flex; align-items: flex-start; flex: 1; overflow:hidden;">
+                    <div class="item-avatar">${c.nome.charAt(0).toUpperCase()}</div>
+                    <div class="item-info">
+                        <div class="item-title">${c.nome}</div>
+                        <div class="item-subtitle">${carrosAtivos} veículo(s) ativos</div>
+                        <div>${statusPgtoHtml}</div>
+                        ${alertasHtml}
+                    </div>
+                </div>
+            </li>`;
+        });
+
+        if(html === '') html = `<li style="padding: 20px; text-align: center; color: #999;">Nenhum contribuinte encontrado para este filtro.</li>`;
+        lista.innerHTML = html;
+    }
+
+    // 4. CADASTRO DE CONTRIBUINTES
+    function abrirGerenciarContribuintes() {
+        fecharModal('modalPainelUnificado');
+        document.getElementById('tituloListagem').innerText = "Gerenciar Contribuintes";
+        document.getElementById('btnNovoListagem').onclick = () => abrirFormContribuinte(null);
+        document.getElementById('btnVoltarListagem').onclick = () => { fecharModal('modalListagem'); document.getElementById('modalPainelUnificado').style.display='flex'; };
+        
+        let htmlLista = '';
+        let contribs = [...db.contribuintes].sort((a,b) => a.nome.localeCompare(b.nome));
+        contribs.forEach((c) => { 
+            let carrosQtd = (c.carros || []).length;
+            htmlLista += `<div style="padding:10px; border-bottom:1px solid #ddd; display:flex; justify-content:space-between; align-items:center;">
+                <div style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><strong>${c.nome}</strong><br><small style="color:#666;">${carrosQtd} Veículo(s)</small></div>
+                <div style="flex-shrink:0; margin-left:10px;">
+                    <button style="background:none; border:none; font-size:20px; cursor:pointer;" onclick="abrirFormContribuinte('${c.id}')">✏️</button>
+                    <button style="background:none; border:none; font-size:20px; cursor:pointer; color:#d32f2f;" onclick="excluirContribuinte('${c.id}')">🗑️</button>
+                </div>
+            </div>`; 
+        });
+        document.getElementById('conteudoListagem').innerHTML = htmlLista;
+        document.getElementById('modalListagem').style.display = 'flex';
+    }
+
+    function excluirContribuinte(id) {
+        if(confirm("Deseja realmente excluir este contribuinte e todo o seu histórico?")) {
+            db.contribuintes = db.contribuintes.filter(x => x.id !== id);
+            salvarBanco();
+            abrirGerenciarContribuintes();
+            renderizarLista();
+        }
+    }
+
+    function abrirFormContribuinte(id) {
+        fecharModal('modalListagem');
+        tempTelefones = [];
+        tempCarros = [];
+        
+        if(id) {
+            let c = db.contribuintes.find(x => x.id === id);
+            document.getElementById('contId').value = c.id;
+            document.getElementById('contNome').value = c.nome || '';
+            document.getElementById('contValor').value = c.valorTotal || '';
+            if(c.telefones) tempTelefones = [...c.telefones];
+            if(c.carros) tempCarros = JSON.parse(JSON.stringify(c.carros));
+        } else {
+            document.getElementById('contId').value = '';
+            document.getElementById('contNome').value = '';
+            document.getElementById('contValor').value = '';
+        }
+        renderListaTelefones();
+        renderListaCarros();
+        document.getElementById('modalFormContribuinte').style.display = 'flex';
+    }
+
+    function renderListaTelefones() {
+        const box = document.getElementById('listaTelefones');
+        if(tempTelefones.length === 0) { box.innerHTML = '<div style="color:#999; font-size:12px; text-align:center;">Nenhum telefone.</div>'; return; }
+        box.innerHTML = tempTelefones.map((t, i) => `<div class="list-item-config"><span>${t}</span><button onclick="removerTelefone(${i})">X</button></div>`).join('');
+    }
+    function addTelefone() { let v = document.getElementById('novoTelInput').value.trim(); if(v) { tempTelefones.push(v); document.getElementById('novoTelInput').value = ''; renderListaTelefones(); } }
+    function removerTelefone(idx) { tempTelefones.splice(idx, 1); renderListaTelefones(); }
+
+    function somarValorCarros() {
+        let soma = tempCarros.filter(c => c.ativo).reduce((acc, c) => acc + parseMoeda(c.valor), 0);
+        document.getElementById('contValor').value = formatMoeda(soma);
+    }
+
+    function salvarContribuinte() {
+        let nome = document.getElementById('contNome').value.trim();
+        if(!nome) return alert("Digite o nome.");
+        
+        let id = document.getElementById('contId').value || 'cont_' + Date.now();
+        let novo = {
+            id: id,
+            nome: nome,
+            telefones: tempTelefones,
+            valorTotal: document.getElementById('contValor').value,
+            carros: tempCarros,
+            pagamentos: db.contribuintes.find(x=>x.id===id)?.pagamentos || []
+        };
+        
+        const idx = db.contribuintes.findIndex(x => x.id === id);
+        if(idx >= 0) db.contribuintes[idx] = novo; else db.contribuintes.push(novo);
+        
+        salvarBanco();
+        fecharModal('modalFormContribuinte');
+        abrirGerenciarContribuintes();
+        renderizarLista();
+    }
+
+    // 5. CARROS DO CONTRIBUINTE
+    function renderListaCarros() {
+        const box = document.getElementById('listaCarros');
+        if(tempCarros.length === 0) { box.innerHTML = '<div style="color:#999; font-size:12px; text-align:center;">Nenhum carro vinculado.</div>'; return; }
+        let html = '';
+        tempCarros.forEach((c, i) => {
+            let badge = c.ativo ? '<span style="color:#2E7D32; font-weight:bold; font-size:11px;">Ativo</span>' : '<span style="color:#D32F2F; font-weight:bold; font-size:11px;">Arquivado</span>';
+            html += `<div class="list-item-config" style="align-items:flex-start;">
+                <div><strong>${c.placa}</strong> - ${c.ano}<br><small>${c.categoria} | R$ ${c.valor}</small><br>${badge}</div>
+                <div><button class="btn-edit-small" onclick="abrirFormCarro(${i})">✏️</button></div>
+            </div>`;
+        });
+        box.innerHTML = html;
+    }
+
+    function abrirFormCarro(idx) {
+        let selectCat = document.getElementById('carCategoria');
+        selectCat.innerHTML = '<option value="">-- Selecione --</option>';
+        db.categorias.forEach(c => selectCat.innerHTML += `<option value="${c.nome}">${c.nome}</option>`);
+
+        if(idx !== null) {
+            let c = tempCarros[idx];
+            document.getElementById('carroEditId').value = idx;
+            document.getElementById('carPlaca').value = c.placa || '';
+            document.getElementById('carAno').value = c.ano || '';
+            document.getElementById('carCategoria').value = c.categoria || '';
+            document.getElementById('carValor').value = c.valor || '';
+            document.getElementById('carLaudo').value = c.dataLaudo || '';
+            document.getElementById('carSeguro').value = c.dataSeguro || '';
+            document.getElementById('carLicenca').value = c.dataLicenca || '';
+            document.getElementById('carCadastro').value = c.dataCadastro || getHojeSTR();
+            document.getElementById('carArquivado').checked = !c.ativo;
+            document.getElementById('carMotivo').value = c.motivoArquivamento || '';
+        } else {
+            document.getElementById('carroEditId').value = '';
+            document.getElementById('carPlaca').value = '';
+            document.getElementById('carAno').value = '';
+            document.getElementById('carCategoria').value = '';
+            document.getElementById('carValor').value = '';
+            document.getElementById('carLaudo').value = '';
+            document.getElementById('carSeguro').value = '';
+            document.getElementById('carLicenca').value = '';
+            document.getElementById('carCadastro').value = getHojeSTR();
+            document.getElementById('carArquivado').checked = false;
+            document.getElementById('carMotivo').value = '';
+        }
+        toggleMotivoArquivamento();
+        document.getElementById('modalFormCarro').style.display = 'flex';
+    }
+
+    function toggleMotivoArquivamento() {
+        let isArq = document.getElementById('carArquivado').checked;
+        document.getElementById('boxMotivoArqv').style.display = isArq ? 'block' : 'none';
+    }
+
+    function autoFillValorCarro() {
+        let catNome = document.getElementById('carCategoria').value;
+        let cat = db.categorias.find(x => x.nome === catNome);
+        if(cat && cat.valor) {
+            document.getElementById('carValor').value = cat.valor;
+        }
+    }
+
+    function salvarCarroTemp() {
+        let placa = document.getElementById('carPlaca').value.trim().toUpperCase();
+        if(!placa) return alert("Digite a Placa.");
+        
+        let idx = document.getElementById('carroEditId').value;
+        let isArq = document.getElementById('carArquivado').checked;
+        let motivo = document.getElementById('carMotivo').value.trim();
+        
+        if(isArq && !motivo) return alert("Por favor, informe o motivo do arquivamento.");
+
+        let novoCar = {
+            id: (idx !== '' && tempCarros[idx].id) ? tempCarros[idx].id : 'car_'+Date.now(),
+            placa: placa,
+            ano: document.getElementById('carAno').value,
+            categoria: document.getElementById('carCategoria').value,
+            valor: document.getElementById('carValor').value,
+            dataLaudo: document.getElementById('carLaudo').value,
+            dataSeguro: document.getElementById('carSeguro').value,
+            dataLicenca: document.getElementById('carLicenca').value,
+            dataCadastro: document.getElementById('carCadastro').value,
+            ativo: !isArq,
+            motivoArquivamento: isArq ? motivo : ''
+        };
+
+        if(idx !== '') tempCarros[idx] = novoCar;
+        else tempCarros.push(novoCar);
+
+        renderListaCarros();
+        fecharModal('modalFormCarro');
+    }
+
+    // 6. PAGAMENTOS
+    function abrirAcoesContribuinte(id) {
+        let c = db.contribuintes.find(x => x.id === id);
+        if(!c) return;
+        document.getElementById('acoesContId').value = id;
+        document.getElementById('tituloAcoesContribuinte').innerText = c.nome;
+        
+        let mesRef = document.getElementById('filtroMesGeral').value;
+        if(!mesRef) mesRef = getMesAtualSTR();
+        
+        let partes = mesRef.split('-');
+        document.getElementById('lblMesAcoes').innerText = `${partes[1]}/${partes[0]}`;
+        document.getElementById('lblAcoesValorTotal').innerText = `R$ ${c.valorTotal || '0,00'}`;
+        document.getElementById('inputAcoesValorPago').value = '';
+
+        renderizarStatusPagamento(c, mesRef);
+        renderizarHistPagamentos(c);
+        
+        document.getElementById('modalAcoesContribuinte').style.display = 'flex';
+    }
+
+    function renderizarStatusPagamento(c, mesRef) {
+        let valorEsperado = parseMoeda(c.valorTotal || "0");
+        let pgtoMes = (c.pagamentos || []).filter(p => p.mesAno === mesRef).reduce((acc, p) => acc + p.valorPago, 0);
+        let pendente = (valorEsperado - pgtoMes) > 0.01;
+
+        let box = document.getElementById('boxStatusPagamento');
+        if(pendente) {
+            box.innerHTML = `<div style="color:#C62828; font-weight:bold; background:#FFEBEE; padding:10px; border-radius:5px;">Falta Pagar: R$ ${formatMoeda(valorEsperado - pgtoMes)}</div>`;
+        } else {
+            box.innerHTML = `<div style="color:#2E7D32; font-weight:bold; background:#E8F5E9; padding:10px; border-radius:5px;">✅ Situação Regular (Pago R$ ${formatMoeda(pgtoMes)})</div>`;
+        }
+    }
+
+    function registrarPagamentoMes() {
+        let id = document.getElementById('acoesContId').value;
+        let c = db.contribuintes.find(x => x.id === id);
+        let mesRef = document.getElementById('filtroMesGeral').value || getMesAtualSTR();
+        let valorStr = document.getElementById('inputAcoesValorPago').value;
+        let valor = parseMoeda(valorStr);
+        
+        if(valor <= 0) return alert("Digite um valor válido.");
+        
+        if(!c.pagamentos) c.pagamentos = [];
+        c.pagamentos.push({
+            id: 'pg_' + Date.now(),
+            mesAno: mesRef,
+            valorPago: valor,
+            dataPagamento: getHojeSTR()
+        });
+        
+        salvarBanco();
+        abrirAcoesContribuinte(id); // Recarrega view
+        renderizarLista(); // Atualiza lista por trás
+    }
+
+    function excluirPagamento(contId, pgId) {
+        if(!confirm("Remover este pagamento?")) return;
+        let c = db.contribuintes.find(x => x.id === contId);
+        c.pagamentos = c.pagamentos.filter(p => p.id !== pgId);
+        salvarBanco();
+        abrirAcoesContribuinte(contId);
+        renderizarLista();
+    }
+
+    function renderizarHistPagamentos(c) {
+        let box = document.getElementById('listaHistoricoPagamentos');
+        if(!c.pagamentos || c.pagamentos.length === 0) { box.innerHTML = '<div style="color:#999; text-align:center;">Nenhum pagamento registrado.</div>'; return; }
+        
+        let html = '';
+        let pgtos = [...c.pagamentos].sort((a,b) => b.mesAno.localeCompare(a.mesAno) || new Date(b.dataPagamento) - new Date(a.dataPagamento));
+        
+        pgtos.forEach(p => {
+            let mesFmt = p.mesAno.split('-').reverse().join('/');
+            html += `<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ddd; padding:8px 0;">
+                <div><b>Ref: ${mesFmt}</b><br><small style="color:#666;">Pago em: ${formatDataBR(p.dataPagamento)}</small></div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <b style="color:#2E7D32;">R$ ${formatMoeda(p.valorPago)}</b>
+                    <button style="background:none; border:none; color:#d32f2f; cursor:pointer; font-weight:bold; font-size:16px;" onclick="excluirPagamento('${c.id}', '${p.id}')">X</button>
+                </div>
+            </div>`;
+        });
+        box.innerHTML = html;
+    }
+
+    // 7. CONFIGURAÇÕES GERAIS E COOPERATIVA
+    function abrirModalCooperativa() {
+        fecharModal('modalPainelUnificado');
+        document.getElementById('coopLogoBase64').value = db.cooperativa.logo || '';
+        document.getElementById('previewLogo').innerHTML = db.cooperativa.logo ? `<img src="${db.cooperativa.logo}" style="max-height:50px;">` : '';
+        document.getElementById('coopRazao').value = db.cooperativa.razao || '';
+        document.getElementById('coopFantasia').value = db.cooperativa.fantasia || '';
+        document.getElementById('coopCNPJ').value = db.cooperativa.cnpj || '';
+        document.getElementById('modalFormCooperativa').style.display = 'flex';
+    }
+
+    function salvarCooperativa() {
+        db.cooperativa.logo = document.getElementById('coopLogoBase64').value;
+        db.cooperativa.razao = document.getElementById('coopRazao').value;
+        db.cooperativa.fantasia = document.getElementById('coopFantasia').value;
+        db.cooperativa.cnpj = document.getElementById('coopCNPJ').value;
+        salvarBanco();
+        fecharModal('modalFormCooperativa');
+        document.getElementById('modalPainelUnificado').style.display = 'flex';
+    }
+
+    function abrirModalConfigGerais() {
+        fecharModal('modalPainelUnificado');
+        document.getElementById('confDiasAviso').value = db.configGerais.diasAvisoLicenca || 7;
+        tempCategorias = db.categorias ? JSON.parse(JSON.stringify(db.categorias)) : [];
+        renderListasCategorias();
+        document.getElementById('modalConfigGerais').style.display = 'flex';
+    }
+
+    function renderListasCategorias() {
+        const list = document.getElementById('listaCategorias');
+        list.innerHTML = tempCategorias.length ? tempCategorias.map((c, i) => `<div class="list-item-config">
+            <span><b>${c.nome}</b> - R$ ${c.valor}</span>
+            <div><button class="btn-edit-small" onclick="editarCategoria(${i})">✏️</button><button onclick="removerCategoria(${i})">X</button></div>
+        </div>`).join('') : '<div style="color:#999; font-size:12px; text-align:center;">Nenhuma categoria.</div>';
+    }
+
+    function addCategoria() {
+        let n = document.getElementById('novaCatNome').value.trim();
+        let v = document.getElementById('novaCatValor').value.trim();
+        let editIdx = document.getElementById('editIdxCat').value;
+        if(n && v) {
+            if(editIdx !== "") { tempCategorias[editIdx] = {nome: n, valor: v}; document.getElementById('editIdxCat').value = ""; document.getElementById('btnSalvarCat').innerText = "+"; }
+            else { tempCategorias.push({nome: n, valor: v}); }
+            document.getElementById('novaCatNome').value = ''; document.getElementById('novaCatValor').value = '';
+            renderListasCategorias();
+        }
+    }
+    function editarCategoria(idx) {
+        let c = tempCategorias[idx];
+        document.getElementById('novaCatNome').value = c.nome;
+        document.getElementById('novaCatValor').value = c.valor;
+        document.getElementById('editIdxCat').value = idx;
+        document.getElementById('btnSalvarCat').innerText = "OK";
+    }
+    function removerCategoria(idx) { tempCategorias.splice(idx, 1); renderListasCategorias(); }
+
+    function salvarConfigGerais() {
+        db.configGerais.diasAvisoLicenca = document.getElementById('confDiasAviso').value || 7;
+        db.categorias = tempCategorias;
+        salvarBanco();
+        fecharModal('modalConfigGerais');
+        document.getElementById('modalPainelUnificado').style.display='flex';
+        renderizarLista(); // para atualizar os alertas se mudar os dias
+    }
+
+    // 8. ADMINISTRADORES
+    function abrirGerenciar(tipo) {
+        if(tipo === 'administradores') {
+            fecharModal('modalPainelUnificado');
+            document.getElementById('tituloListagem').innerText = "Administradores";
+            document.getElementById('btnNovoListagem').onclick = () => abrirFormAdmin(null);
+            document.getElementById('btnVoltarListagem').onclick = () => { fecharModal('modalListagem'); document.getElementById('modalPainelUnificado').style.display='flex'; };
+            let htmlLista = '';
+            db.administradores.forEach((a) => { htmlLista += `<div style="padding:10px; border-bottom:1px solid #ddd; display:flex; justify-content:space-between; align-items:center;"><div><strong>${a.nome}</strong></div><div><button style="background:none; border:none; font-size:20px; cursor:pointer;" onclick="abrirFormAdmin('${a.id}')">✏️</button></div></div>`; });
+            document.getElementById('conteudoListagem').innerHTML = htmlLista;
+            document.getElementById('modalListagem').style.display = 'flex';
+        }
+    }
+
+    function abrirFormAdmin(id) {
+        fecharModal('modalListagem');
+        if(id) {
+            let a = db.administradores.find(x => x.id === id);
+            document.getElementById('adminId').value = a.id;
+            document.getElementById('adminNome').value = a.nome;
+            document.getElementById('adminSenha').value = a.senha;
+        } else {
+            document.getElementById('adminId').value = '';
+            document.getElementById('adminNome').value = '';
+            document.getElementById('adminSenha').value = '';
+        }
+        document.getElementById('modalFormAdmin').style.display = 'flex';
+    }
+
+    function salvarAdmin() {
+        let id = document.getElementById('adminId').value || 'adm_' + Date.now();
+        let novo = { id: id, nome: document.getElementById('adminNome').value, senha: document.getElementById('adminSenha').value };
+        const idx = db.administradores.findIndex(x => x.id === id);
+        if(idx >= 0) db.administradores[idx] = novo; else db.administradores.push(novo);
+        salvarBanco(); fecharModal('modalFormAdmin'); abrirGerenciar('administradores');
+    }
+
+    // AVANÇADO
+    function solicitarAcessoAvancado() { fecharModal('modalPainelUnificado'); document.getElementById('senhaAvancada').value = ''; document.getElementById('modalSenhaAvancada').style.display = 'flex'; setTimeout(()=>document.getElementById('senhaAvancada').focus(), 100); }
+    document.getElementById('senhaAvancada').addEventListener('input', function(e) { if(this.value === db.configs.senhaAdmin) { this.blur(); this.value = ''; fecharModal('modalSenhaAvancada'); document.getElementById('configUrlApp').value = db.configs.url || ''; document.getElementById('modalConfigAvancadas').style.display = 'flex'; } });
+    
+    async function salvarURL() { const inputUrl = document.getElementById('configUrlApp').value.trim(); if(!inputUrl) return alert("Digite a URL!"); document.getElementById('loadingOverlay').style.display = 'flex'; try { let fetchUrl = inputUrl + (inputUrl.includes('?') ? '&' : '?') + 'nocache=' + Date.now(); let res = await fetch(fetchUrl, { redirect: "follow", cache: "no-store" }); let nuvemDB = await res.json(); if(nuvemDB && nuvemDB.app_id === "cooptrans") { nuvemDB.configs = nuvemDB.configs || {}; nuvemDB.configs.url = inputUrl; nuvemDB.configs.dadosBaixados = true; db = nuvemDB; salvarBanco(); alert("✅ Concluído!"); location.reload(); } } catch(e) { alert("❌ Falha."); } finally { document.getElementById('loadingOverlay').style.display = 'none'; } }
+    async function sincronizarFundo(forcado = false, apenasEmpurrar = false) { if(!db.configs.url || isSyncingFundo) return; isSyncingFundo = true; let indicador = document.getElementById('syncIndicador'); indicador.style.opacity = '1'; try { await fetch(db.configs.url, { method: 'POST', redirect: "follow", headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'salvar_banco', dados: db }) }); } catch(e) { } finally { isSyncingFundo = false; indicador.style.opacity = '0'; } }
+    async function forcarEnvioNuvemCompleto() { if(!db.configs.url) return alert("Configure a URL!"); document.getElementById('loadingOverlay').style.display = 'flex'; try { let res = await fetch(db.configs.url, { method: 'POST', redirect: "follow", headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'salvar_banco', dados: db }) }); if(!res.ok) throw new Error("Erro"); alert("✅ Backup salvo!"); } catch(e) { alert("❌ Falha."); } finally { document.getElementById('loadingOverlay').style.display = 'none'; } }
+    
+    function exportarDados() { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db)); const downloadAnchorNode = document.createElement('a'); downloadAnchorNode.setAttribute("href", dataStr); downloadAnchorNode.setAttribute("download", "cooptrans_bkp_" + getHojeSTR() + ".json"); document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove(); }
+    function importarDados(event) { const file = event.target.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = function(e) { try { const importedDb = JSON.parse(e.target.result); if(importedDb && importedDb.app_id === "cooptrans") { let urlSalva = db.configs.url; db = importedDb; if(urlSalva) db.configs.url = urlSalva; salvarBanco(); alert("✅ Restaurado!"); location.reload(); } } catch(err) { alert("Erro ao ler."); } }; reader.readAsText(file); event.target.value = ''; }
+    async function excluirTodoHistorico() { let frase = document.getElementById('inputExcluirTudo').value.trim().toLowerCase(); if(frase === "quero excluir todo o histórico") { if(!confirm("⚠️ TEM CERTEZA?")) return; db.contribuintes.forEach(c => c.pagamentos = []); marcarMudancaEstrutural(); document.getElementById('inputExcluirTudo').value = ''; fecharModal('modalConfigAvancadas'); alert("✅ Limpo!"); renderizarLista(); } else { alert("Frase incorreta."); } }
+    function forcarAtualizacao() { if(confirm("Deseja forçar a atualização do aplicativo?")) { if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(function(registrations) { for(let registration of registrations) registration.update(); }); } window.location.href = window.location.pathname + '?nocache=' + new Date().getTime(); } }
+</script>
+</body>
+</html>
