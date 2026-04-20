@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#1565C0" id="metaThemeColor">
-    <title>Cooptrans v1.1.0</title>
+    <meta name="theme-color" content="#008C4A" id="metaThemeColor">
+    <title>Cooptrans v1.0.2</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -14,20 +14,19 @@
         input, select, textarea, .modal { user-select: text; -webkit-user-select: text; font-family: inherit; }
         .app-container { width: 100%; max-width: 100%; height: 100%; background-color: #ffffff; display: flex; flex-direction: column; position: absolute; top: 0; left: 0; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
         
-        #splashScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #1565C0; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; transition: opacity 0.5s ease; }
+        #splashScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #008C4A; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; transition: opacity 0.5s ease; }
         .splash-titulo { font-size: 32px; font-weight: bold; letter-spacing: 1px; }
         .splash-versao { font-size: 14px; margin-top: 5px; opacity: 0.8; }
         #loadingOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; flex-direction: column; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px; text-align: center; padding: 20px; box-sizing: border-box; }
-        .spinner { border: 6px solid #f3f3f3; border-top: 6px solid #1565C0; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        .spinner { border: 6px solid #f3f3f3; border-top: 6px solid #008C4A; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        .header { background-color: #1565C0; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; color: white; flex-shrink: 0; }
+        .header { background-color: #008C4A; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; color: white; flex-shrink: 0; }
         .header-title { flex: 1; display: flex; align-items: center; }
         
-        /* Nova caixa do mês */
-        .month-picker-box { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); padding: 8px 15px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; display: inline-flex; align-items: center; gap: 8px; position: relative; transition: 0.3s; }
+        /* Nova caixa do mês Custom */
+        .month-picker-box { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); padding: 8px 15px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; display: inline-flex; align-items: center; gap: 8px; transition: 0.3s; }
         .month-picker-box:active { background: rgba(255,255,255,0.4); }
-        .month-picker-box input[type="month"] { position: absolute; opacity: 0; top: 0; left: 0; width: 100%; height: 100%; cursor: pointer; }
         
         .header-actions button { background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; margin-left: 15px;}
         
@@ -44,14 +43,14 @@
         
         .list { padding: 0; margin: 0; list-style: none; }
         .item { display: flex; align-items: center; justify-content: space-between; padding: 12px; border-bottom: 1px solid #eee; position: relative; user-select: none; }
-        .item-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 12px; color: white; font-size: 16px; flex-shrink: 0; background-color: #1565C0;}
+        .item-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 12px; color: white; font-size: 16px; flex-shrink: 0; background-color: #008C4A;}
         .item-info { flex: 1; display: flex; flex-direction: column; justify-content: center; overflow: hidden;}
         .item-title { font-weight: bold; font-size: 15px; margin-bottom: 2px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
         .item-subtitle { color: #666; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
         
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 1000; }
         .modal { background: white; padding: 20px; border-radius: 10px; width: 90%; max-width: 450px; max-height: 90vh; overflow-y: auto; box-shadow: 0 5px 20px rgba(0,0,0,0.3); }
-        .modal-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #1565C0; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
+        .modal-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #008C4A; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
         
         .form-group { margin-bottom: 12px; }
         .form-group label { display: block; margin-bottom: 4px; color: #555; font-weight: bold; font-size: 12px; }
@@ -60,36 +59,45 @@
         .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 15px; flex-wrap: wrap; }
         .btn-cancel, .btn-action, .btn-danger, .btn-outline { padding: 12px; border-radius: 5px; cursor: pointer; font-weight: bold; flex: 1; text-align: center; border: none; font-size: 14px; }
         .btn-cancel { background: #eee; color: #333; }
-        .btn-action { background: #1565C0; color: white; }
+        .btn-action { background: #008C4A; color: white; }
         .btn-danger { background: #d32f2f; color: white; }
-        .btn-outline { background: transparent; border: 1px solid #1565C0; color: #1565C0; width: 100%; margin-bottom: 8px; text-align: left; }
+        .btn-outline { background: transparent; border: 1px solid #008C4A; color: #008C4A; width: 100%; margin-bottom: 8px; text-align: left; }
         
-        .section-title { background: #E3F2FD; padding: 8px; font-size: 13px; font-weight: bold; color: #0D47A1; border-radius: 4px; margin: 15px 0 10px 0; border-left: 4px solid #1565C0;}
+        .section-title { background: #E8F5E9; padding: 8px; font-size: 13px; font-weight: bold; color: #006030; border-radius: 4px; margin: 15px 0 10px 0; border-left: 4px solid #008C4A;}
         .switch { position: relative; display: inline-block; width: 44px; height: 24px; margin-right: 8px; vertical-align: middle; flex-shrink: 0; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .3s; border-radius: 24px; }
         .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
-        input:checked + .slider { background-color: #1565C0; }
+        input:checked + .slider { background-color: #008C4A; }
         input:checked + .slider:before { transform: translateX(20px); }
         
         .list-item-config { display: flex; justify-content: space-between; align-items: center; background: #fff; border: 1px solid #ddd; padding: 8px 10px; border-radius: 5px; margin-bottom: 5px; font-size: 13px; }
         .list-item-config button { background: #ffcdd2; color: #d32f2f; border: none; border-radius: 4px; padding: 5px 8px; cursor: pointer; font-weight: bold; flex-shrink: 0; }
-        .btn-edit-small { background: #E3F2FD !important; color: #1565C0 !important; margin-right: 5px; }
+        .btn-edit-small { background: #E8F5E9 !important; color: #008C4A !important; margin-right: 5px; }
 
         .status-badge { padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; display: inline-block; margin-top: 4px; }
         .status-ok { background: #E8F5E9; color: #2E7D32; border: 1px solid #A5D6A7; }
         .status-pendente { background: #FFEBEE; color: #C62828; border: 1px solid #EF9A9A; }
-        .status-alerta { background: #FFF3E0; color: #EF6C00; border: 1px solid #FFCC80; }
         
-        .radio-custom { display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px; color: #1565C0; font-weight: bold; }
-        .radio-custom input { margin: 0; width: 16px; height: 16px; accent-color: #1565C0; }
+        .radio-custom { display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px; color: #008C4A; font-weight: bold; }
+        .radio-custom input { margin: 0; width: 16px; height: 16px; accent-color: #008C4A; }
+
+        /* Botão Minimalista WhatsApp */
+        .btn-wa-minimal { background: #fff; border: 1px solid #ddd; color: #333; padding: 8px 12px; border-radius: 20px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.05); font-weight: bold; transition: 0.2s;}
+        .btn-wa-minimal:active { background: #f0f0f0; }
+
+        /* Grade do Modal de Mês */
+        .month-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px;}
+        .month-btn { background: #f9f9f9; border: 1px solid #ddd; padding: 12px 5px; border-radius: 8px; text-align: center; font-weight: bold; color: #555; cursor: pointer; transition: 0.2s; }
+        .month-btn.active { background: #008C4A; color: white; border-color: #008C4A; }
+        .month-btn:active { opacity: 0.7; }
     </style>
 </head>
 <body>
 
 <div id="splashScreen">
     <div class="splash-titulo">Cooptrans</div>
-    <div class="splash-versao">v1.1.0</div>
+    <div class="splash-versao">v1.0.2</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 30px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -102,10 +110,10 @@
 <div class="app-container">
     <div class="header">
         <div class="header-title">
-            <div class="month-picker-box" onclick="try{ document.getElementById('filtroMesGeral').showPicker(); } catch(e){}">
+            <div class="month-picker-box" onclick="abrirSeletorMes()">
                 📅 <span id="lblMesVisivel">Abril 2026</span>
-                <input type="month" id="filtroMesGeral" onchange="atualizarTextoMesGeral()">
             </div>
+            <input type="hidden" id="filtroMesGeral">
         </div>
         <div class="header-actions">
             <button onclick="document.getElementById('modalPainelUnificado').style.display='flex'">⚙️</button>
@@ -122,10 +130,27 @@
     </div>
 </div>
 
+<!-- Modal Personalizado para Selecionar Mês e Ano -->
+<div class="modal-overlay" id="modalMonthPicker" style="z-index: 2000;">
+    <div class="modal" style="width: 320px; padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+            <button onclick="mpChangeYear(-1)" style="background:none; border:none; font-size:24px; font-weight:bold; color:#008C4A; cursor:pointer;">&lt;</button>
+            <div style="font-size: 20px; font-weight: bold; color: #333;" id="mpYearLabel">2026</div>
+            <button onclick="mpChangeYear(1)" style="background:none; border:none; font-size:24px; font-weight:bold; color:#008C4A; cursor:pointer;">&gt;</button>
+        </div>
+        <div class="month-grid" id="mpMonthGrid">
+            <!-- Botões gerados via JS -->
+        </div>
+        <div class="modal-actions" style="margin-top: 20px;">
+            <button class="btn-cancel" style="width: 100%;" onclick="fecharModal('modalMonthPicker')">Cancelar</button>
+        </div>
+    </div>
+</div>
+
 <!-- MENU PRINCIPAL -->
 <div class="modal-overlay" id="modalPainelUnificado">
     <div class="modal" style="padding-top: 25px;">
-        <h2 style="text-align: center; color: #1565C0; margin-top: 0; margin-bottom: 20px;">Menu Cooptrans</h2>
+        <h2 style="text-align: center; color: #008C4A; margin-top: 0; margin-bottom: 20px;">Menu Cooptrans</h2>
         <button class="btn-outline" onclick="abrirModalCooperativa()">🏢 Dados da Cooperativa</button>
         <button class="btn-outline" onclick="abrirGerenciarContribuintes()">👥 Gerenciar Contribuintes</button>
         <button class="btn-outline" onclick="abrirModalConfigGerais()">⚙️ Configurações Gerais</button>
@@ -152,12 +177,12 @@
         <div class="form-group">
             <label>URL Google Script:</label>
             <input type="text" id="configUrlApp" placeholder="https://script.google.com/macros/s/...">
-            <button class="btn-action" style="width: 100%; margin-top: 10px; background-color: #4CAF50;" onclick="salvarURL()">💾 Salvar URL e Puxar Dados</button>
+            <button class="btn-action" style="width: 100%; margin-top: 10px;" onclick="salvarURL()">💾 Salvar URL e Puxar Dados</button>
         </div>
         <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
             <button class="btn-action" style="margin: 0; width: 100%; font-size: 15px; margin-bottom: 10px;" onclick="forcarEnvioNuvemCompleto()">☁️ Forçar Envio Completo pra Nuvem</button>
             <div style="display: flex; gap: 8px; width: 100%;">
-                <button class="btn-outline" style="margin: 0; flex: 1; font-size: 13px; border-color:#1565C0; color:#1565C0; text-align: center;" onclick="exportarDadosBackup()">⬇️ Exportar Backup</button>
+                <button class="btn-outline" style="margin: 0; flex: 1; font-size: 13px; text-align: center;" onclick="exportarDadosBackup()">⬇️ Exportar Backup</button>
                 <button class="btn-outline" style="margin: 0; flex: 1; font-size: 13px; border-color:#d32f2f; color:#d32f2f; text-align: center;" onclick="document.getElementById('fileImportBkp').click()">⬆️ Importar Backup</button>
                 <input type="file" id="fileImportBkp" style="display:none;" accept=".json" onchange="importarDadosBackup(event)">
             </div>
@@ -175,9 +200,9 @@
     <div class="modal" style="width: 95%; height: 85vh; display: flex; flex-direction: column;">
         <div class="modal-title" id="tituloListagem" style="flex-shrink: 0;">Gerenciar</div>
         
-        <!-- Botões Extras de Excel (Visíveis apenas nos contribuintes) -->
+        <!-- Botões Extras de Excel -->
         <div id="boxAcoesExtrasExcel" style="display:none; gap:5px; margin-bottom:10px;">
-            <button class="btn-action" style="background:#2E7D32; flex:1; font-size:11px;" onclick="exportarExcel()">⬇️ Exportar (.xlsx)</button>
+            <button class="btn-action" style="flex:1; font-size:11px;" onclick="exportarExcel()">⬇️ Exportar (.xlsx)</button>
             <button class="btn-action" style="background:#F57F17; flex:1; font-size:11px;" onclick="document.getElementById('fileImportExcel').click()">⬆️ Importar (.xlsx)</button>
             <button class="btn-outline" style="flex:1; font-size:11px;" onclick="baixarModeloExcel()">📄 Modelo</button>
             <input type="file" id="fileImportExcel" style="display:none;" accept=".xlsx, .xls" onchange="importarExcel(event)">
@@ -229,22 +254,51 @@
     </div>
 </div>
 
-<!-- CONFIG GERAIS -->
+<!-- CONFIG GERAIS (MODIFICADO OS ALERTAS) -->
 <div class="modal-overlay" id="modalConfigGerais">
     <div class="modal">
         <div class="modal-title">Configurações Gerais</div>
         
-        <div class="form-group">
-            <label>Avisar Vencimentos com (dias) de antecedência:</label>
-            <input type="number" id="confDiasAviso" placeholder="Ex: 7" value="7">
+        <div class="section-title">Avisos de Vencimento</div>
+        
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; background:#f9f9f9; padding:8px; border-radius:5px; margin-bottom:5px;">
+            <div style="display:flex; align-items:center;">
+                <label class="switch"><input type="checkbox" id="confAlertaLaudo" onchange="toggleConfAlerta('Laudo')"><span class="slider"></span></label>
+                <span style="font-weight:bold; font-size:12px; color:#333;">Laudo</span>
+            </div>
+            <div id="boxDiasLaudo" style="display:none; align-items:center; gap:5px;">
+                <span style="font-size:11px; color:#666;">Avisar (dias):</span>
+                <input type="number" id="confDiasLaudo" style="width:50px; padding:4px; text-align:center;" value="7">
+            </div>
+        </div>
+
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; background:#f9f9f9; padding:8px; border-radius:5px; margin-bottom:5px;">
+            <div style="display:flex; align-items:center;">
+                <label class="switch"><input type="checkbox" id="confAlertaSeguro" onchange="toggleConfAlerta('Seguro')"><span class="slider"></span></label>
+                <span style="font-weight:bold; font-size:12px; color:#333;">Seguro</span>
+            </div>
+            <div id="boxDiasSeguro" style="display:none; align-items:center; gap:5px;">
+                <span style="font-size:11px; color:#666;">Avisar (dias):</span>
+                <input type="number" id="confDiasSeguro" style="width:50px; padding:4px; text-align:center;" value="7">
+            </div>
+        </div>
+
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; background:#f9f9f9; padding:8px; border-radius:5px; margin-bottom:15px;">
+            <div style="display:flex; align-items:center;">
+                <label class="switch"><input type="checkbox" id="confAlertaLicenca" onchange="toggleConfAlerta('Licenca')"><span class="slider"></span></label>
+                <span style="font-weight:bold; font-size:12px; color:#333;">Licença</span>
+            </div>
+            <div id="boxDiasLicenca" style="display:none; align-items:center; gap:5px;">
+                <span style="font-size:11px; color:#666;">Avisar (dias):</span>
+                <input type="number" id="confDiasLicenca" style="width:50px; padding:4px; text-align:center;" value="7">
+            </div>
         </div>
 
         <div class="section-title">Categorias de Veículos e Valores</div>
         <input type="hidden" id="editIdxCat" value="">
         
-        <!-- Caixa de Edição Destacada -->
         <div id="boxEditCat" style="background: #f9f9f9; padding: 10px; border-radius: 5px; border: 1px solid #ccc; transition: 0.3s; margin-bottom: 10px;">
-            <div style="font-size:12px; font-weight:bold; color:#1565C0; margin-bottom:5px;" id="lblModoCat">Adicionar Nova Categoria</div>
+            <div style="font-size:12px; font-weight:bold; color:#008C4A; margin-bottom:5px;" id="lblModoCat">Adicionar Nova Categoria</div>
             <div style="display: flex; gap: 5px;">
                 <input type="text" id="novaCatNome" placeholder="Categoria (Ex: Van)" style="flex: 2;">
                 <input type="text" id="novaCatValor" placeholder="R$ 0,00" inputmode="numeric" oninput="maskMoeda(this)" style="flex: 1.5;">
@@ -288,16 +342,16 @@
             <div id="listaTelefones" style="background:#f9f9f9; padding:8px; border-radius:4px; max-height:80px; overflow-y:auto;"></div>
         </div>
 
-        <div class="form-group" style="background:#E3F2FD; padding:10px; border-radius:5px;">
+        <div class="form-group" style="background:#E8F5E9; padding:10px; border-radius:5px;">
             <div style="display: flex; gap: 10px; margin-bottom: 5px;">
-                <div style="flex:1;"><label style="color:#0D47A1;">Desconto (R$):</label><input type="text" id="contDesconto" inputmode="numeric" oninput="maskMoeda(this); calcTotalContribuinte();" placeholder="0,00"></div>
-                <div style="flex:1;"><label style="color:#0D47A1;">Total a Pagar (R$):</label><input type="text" id="contValor" readonly style="font-weight:bold; color:#1565C0; background:#eee;"></div>
+                <div style="flex:1;"><label style="color:#673AB7; font-weight:bold;">Desconto (R$):</label><input type="text" id="contDesconto" inputmode="numeric" oninput="maskMoeda(this); calcTotalContribuinte();" placeholder="0,00"></div>
+                <div style="flex:1;"><label style="color:#006030;">Total a Pagar (R$):</label><input type="text" id="contValor" readonly style="font-weight:bold; color:#008C4A; background:#eee;"></div>
             </div>
         </div>
 
-        <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
-            <span>Veículos Vinculados</span>
-            <button class="btn-action" style="padding:4px 8px; font-size:12px; width:auto; flex-shrink: 0;" onclick="abrirFormCarro(null)">+ Carro</button>
+        <div class="section-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <span style="flex:1;">Veículos Vinculados</span>
+            <button class="btn-action" style="padding:6px 12px; font-size:12px; width:auto; flex-shrink: 0;" onclick="abrirFormCarro(null)">+ Carro</button>
         </div>
         <div id="listaCarros" style="background:#f9f9f9; padding:8px; border-radius:4px; min-height:50px; margin-bottom:15px;"></div>
 
@@ -358,23 +412,23 @@
         <div class="modal-title" id="tituloAcoesContribuinte">Nome do Contribuinte</div>
         <input type="hidden" id="acoesContId">
 
-        <!-- Botões de WhatsApp Dinâmicos -->
-        <div id="boxWAAcoes" style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:15px;"></div>
-
-        <button class="btn-outline" style="width:100%; margin-bottom:15px; border-color:#0277BD; color:#0277BD;" onclick="enviarChavePixContribuinte()">
-            <span style="font-size:18px; vertical-align:middle;">🔗</span> Copiar Chave PIX da Cooperativa
-        </button>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; gap:10px;">
+            <div id="boxWAAcoes" style="display:flex; gap:5px; flex-wrap:wrap; flex:1;"></div>
+            <button class="btn-action" style="flex:none; padding:8px 12px; background:#008C4A; font-size:12px;" onclick="enviarChavePixWhatsApp()">
+                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:16px; vertical-align:middle; margin-right:4px; filter:brightness(0) invert(1);"> Enviar PIX
+            </button>
+        </div>
         
         <div class="section-title">Situação Mensal (<span id="lblMesAcoes"></span>)</div>
         <div class="form-group" style="background:#f9f9f9; padding:15px; border-radius:5px; text-align:center;">
             <div style="font-size:12px; color:#666;">Valor Esperado no Mês:</div>
-            <div style="font-size:24px; font-weight:bold; color:#1565C0; margin-bottom:10px;" id="lblAcoesValorTotal">R$ 0,00</div>
+            <div style="font-size:24px; font-weight:bold; color:#008C4A; margin-bottom:10px;" id="lblAcoesValorTotal">R$ 0,00</div>
             
             <div id="boxStatusPagamento"></div>
             
             <div style="margin-top:15px; display:flex; gap:10px;" id="boxAddPagamento">
                 <input type="text" id="inputAcoesValorPago" inputmode="numeric" oninput="maskMoeda(this)" placeholder="Valor Pago R$" style="flex:1; padding:10px; border:1px solid #ccc; border-radius:5px; font-weight:bold;">
-                <button class="btn-action" style="flex:1; background:#2E7D32;" onclick="registrarPagamentoMes()">💲 Registrar Pgto</button>
+                <button class="btn-action" style="flex:1;" onclick="registrarPagamentoMes()">💲 Registrar Pgto</button>
             </div>
         </div>
 
@@ -398,6 +452,7 @@
     function formatDataBR(dataStr) { if(!dataStr) return ""; const partes = dataStr.split('-'); if(partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`; return dataStr; }
     function getHojeSTR() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
     function getExtensoMes(mesNum) { const m = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]; return m[parseInt(mesNum)-1] || ""; }
+    function getAbrevMes(mesNum) { const m = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]; return m[parseInt(mesNum)-1] || ""; }
 
     // 2. DADOS BASE
     let db = carregarBanco(); 
@@ -415,14 +470,26 @@
             categorias: [], 
             contribuintes: [], 
             administradores: [],
-            configGerais: { diasAvisoLicenca: 7 },
+            configGerais: { 
+                alertas: {
+                    laudo: { ativo: true, dias: 7 },
+                    seguro: { ativo: true, dias: 7 },
+                    licenca: { ativo: true, dias: 7 }
+                }
+            },
             configs: { url: "", dadosBaixados: false, ultimaMudancaLocal: 0, senhaAdmin: "1999" }
         };
         let salvo = localStorage.getItem('cooptrans_v1');
         if(salvo) {
             let parsed = JSON.parse(salvo);
             if(!parsed.configs) parsed.configs = base.configs;
+            // Migração de config antiga
             if(!parsed.configGerais) parsed.configGerais = base.configGerais;
+            if(parsed.configGerais.diasAvisoLicenca !== undefined) {
+                let d = parseInt(parsed.configGerais.diasAvisoLicenca);
+                parsed.configGerais.alertas = { laudo: {ativo:true, dias:d}, seguro: {ativo:true, dias:d}, licenca: {ativo:true, dias:d} };
+                delete parsed.configGerais.diasAvisoLicenca;
+            }
             if(!parsed.cooperativa.pixList) parsed.cooperativa.pixList = [];
             return parsed;
         }
@@ -442,8 +509,40 @@
         let hjMes = getHojeSTR().substring(0,7);
         document.getElementById('filtroMesGeral').value = hjMes;
         atualizarTextoMesGeral();
-        renderizarLista(); 
     };
+
+    // LOGICA CUSTOM MONTH PICKER
+    let mpCurrentYear = new Date().getFullYear();
+    
+    function abrirSeletorMes() {
+        let val = document.getElementById('filtroMesGeral').value;
+        if(val) mpCurrentYear = parseInt(val.split('-')[0]);
+        renderizarGridMeses();
+        document.getElementById('modalMonthPicker').style.display = 'flex';
+    }
+    function mpChangeYear(dir) {
+        mpCurrentYear += dir;
+        renderizarGridMeses();
+    }
+    function renderizarGridMeses() {
+        document.getElementById('mpYearLabel').innerText = mpCurrentYear;
+        let valAt = document.getElementById('filtroMesGeral').value;
+        let mesAt = valAt.split('-')[1];
+        let anoAt = parseInt(valAt.split('-')[0]);
+
+        let html = '';
+        for(let i=1; i<=12; i++) {
+            let isActive = (i === parseInt(mesAt) && mpCurrentYear === anoAt);
+            html += `<div class="month-btn ${isActive ? 'active':''}" onclick="mpSelectMonth(${i})">${getAbrevMes(i)}</div>`;
+        }
+        document.getElementById('mpMonthGrid').innerHTML = html;
+    }
+    function mpSelectMonth(m) {
+        let mesStr = String(m).padStart(2,'0');
+        document.getElementById('filtroMesGeral').value = `${mpCurrentYear}-${mesStr}`;
+        fecharModal('modalMonthPicker');
+        atualizarTextoMesGeral();
+    }
 
     function atualizarTextoMesGeral() {
         let val = document.getElementById('filtroMesGeral').value;
@@ -473,18 +572,21 @@
         if(!carro.ativo) return alertas;
         let hoje = new Date();
         hoje.setHours(0,0,0,0);
-        let diasAviso = parseInt(db.configGerais.diasAvisoLicenca) || 7;
         
-        let checkData = (dataStr, nome) => {
-            if(!dataStr) return;
+        let confAlertas = db.configGerais.alertas || {};
+        
+        let checkData = (dataStr, nome, confKey) => {
+            if(!dataStr || !confAlertas[confKey] || !confAlertas[confKey].ativo) return;
             let d = new Date(dataStr + "T00:00:00");
             let diffDias = Math.ceil((d - hoje) / (1000 * 60 * 60 * 24));
+            let diasAviso = parseInt(confAlertas[confKey].dias) || 7;
+            
             if(diffDias < 0) alertas.push(`${nome} Vencido (${carro.placa})`);
-            else if(diffDias <= diasAviso) alertas.push(`${nome} Vence em ${diffDias}d (${carro.placa})`);
+            else if(diffDias <= diasAviso) alertas.push(`${nome} em ${diffDias}d (${carro.placa})`);
         };
-        checkData(carro.dataLaudo, "Laudo");
-        checkData(carro.dataSeguro, "Seguro");
-        checkData(carro.dataLicenca, "Licença");
+        checkData(carro.dataLaudo, "Laudo", "laudo");
+        checkData(carro.dataSeguro, "Seguro", "seguro");
+        checkData(carro.dataLicenca, "Licença", "licenca");
         return alertas;
     }
 
@@ -512,20 +614,20 @@
                 : `<span class="status-badge status-ok">Pago (R$ ${formatMoeda(pgtoMes)})</span>`;
             
             let alertasHtml = '';
-            if(temAlerta) alertasHtml = `<div style="margin-top:5px; font-size:11px; color:#E65100; line-height:1.2;"><b>⚠️ Alertas:</b><br>${alertasArr.join('<br>')}</div>`;
+            if(temAlerta) alertasHtml = alertasArr.join('<br>');
 
             let carrosAtivos = (c.carros || []).filter(car=>car.ativo).length;
 
             html += `<li class="item" onclick="abrirAcoesContribuinte('${c.id}')">
-                <div style="display: flex; align-items: flex-start; flex: 1; overflow:hidden;">
+                <div style="display: flex; align-items: center; flex: 1; overflow:hidden;">
                     <div class="item-avatar">${c.nome.charAt(0).toUpperCase()}</div>
                     <div class="item-info">
                         <div class="item-title">${c.nome}</div>
                         <div class="item-subtitle">${carrosAtivos} veículo(s) ativos</div>
                         <div>${statusPgtoHtml}</div>
-                        ${alertasHtml}
                     </div>
                 </div>
+                ${temAlerta ? `<div class="info-direita" style="text-align: right; margin-left: 10px; flex-shrink: 0; font-size: 10px; color: #D32F2F; font-weight: bold;">${alertasHtml}</div>` : ''}
             </li>`;
         });
 
@@ -559,7 +661,7 @@
         document.getElementById('modalListagem').style.display = 'flex';
     }
 
-    // Limpar o painel de listagem quando voltar pro menu principal para não deixar botões do excel
+    // Limpar o painel de listagem quando voltar pro menu principal
     let oldFecharModal = fecharModal;
     fecharModal = function(id) {
         if(id === 'modalListagem') document.getElementById('boxAcoesExtrasExcel').style.display = 'none';
@@ -650,7 +752,7 @@
             </div>`;
         });
         box.innerHTML = html;
-        calcTotalContribuinte(); // Força atualização do total sempre que renderizar carros
+        calcTotalContribuinte(); 
     }
 
     function abrirFormCarro(idx) {
@@ -733,20 +835,33 @@
     }
 
     // 6. PAGAMENTOS E AÇÕES
+    function enviarChavePixWhatsApp() {
+        let c = db.contribuintes.find(x => x.id === document.getElementById('acoesContId').value);
+        if(!c || !c.telefones || c.telefones.length === 0) return alert('O contribuinte não possui nenhum telefone (WhatsApp) cadastrado.');
+        let num = c.telefones[0].replace(/\D/g, ''); 
+        
+        if(!db.cooperativa.pixList || db.cooperativa.pixList.length === 0) return alert("Nenhuma chave cadastrada nos dados da Cooperativa!");
+        let p = db.cooperativa.pixList.find(x => x.principal) || db.cooperativa.pixList[0];
+        
+        let txt = `Olá ${c.nome}! Segue a Chave PIX da cooperativa para sua contribuição:\n\n*Tipo:* ${p.tipo}\n*Chave:* ${p.chave}\n*Beneficiário:* ${p.beneficiario}`;
+        window.open(`https://wa.me/55${num}?text=${encodeURIComponent(txt)}`, '_blank');
+    }
+
     function abrirAcoesContribuinte(id) {
         let c = db.contribuintes.find(x => x.id === id);
         if(!c) return;
         document.getElementById('acoesContId').value = id;
         document.getElementById('tituloAcoesContribuinte').innerText = c.nome;
         
-        // Render Botões Whatsapp
+        // Render Botões Whatsapp Minimalista
         let waBox = document.getElementById('boxWAAcoes');
         waBox.innerHTML = '';
         if(c.telefones && c.telefones.length > 0) {
-            c.telefones.forEach(tel => {
-                let num = tel.replace(/\D/g, '');
-                waBox.innerHTML += `<button class="btn-outline" style="flex:1; padding:10px; border-color:#25D366; color:#25D366; font-size:14px; margin-bottom:0;" onclick="window.open('https://wa.me/55${num}','_blank')">💬 Falar no WhatsApp<br><small>${tel}</small></button>`;
-            });
+            let primeiro = c.telefones[0];
+            let num = primeiro.replace(/\D/g, '');
+            waBox.innerHTML = `<button class="btn-wa-minimal" onclick="window.open('https://wa.me/55${num}','_blank')">
+                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:20px; height:20px;"> Falar no WhatsApp
+            </button>`;
         }
 
         let mesRef = document.getElementById('filtroMesGeral').value;
@@ -880,20 +995,33 @@
         document.getElementById('modalPainelUnificado').style.display = 'flex';
     }
 
-    function enviarChavePixContribuinte() {
-        if(!db.cooperativa.pixList || db.cooperativa.pixList.length === 0) return alert("Nenhuma chave cadastrada nos dados da Cooperativa!");
-        let p = db.cooperativa.pixList.find(x => x.principal) || db.cooperativa.pixList[0];
-        let txt = `Segue a Chave PIX da cooperativa:\n\n*Tipo:* ${p.tipo}\n*Chave:* ${p.chave}\n*Beneficiário:* ${p.beneficiario}`;
-        navigator.clipboard.writeText(txt).then(() => alert("Chave copiada! Você já pode colar na sua conversa do WhatsApp.")).catch(()=>alert('Erro ao copiar'));
-    }
-
+    // Config Gerais / Alertas
     function abrirModalConfigGerais() {
         fecharModal('modalPainelUnificado');
-        document.getElementById('confDiasAviso').value = db.configGerais.diasAvisoLicenca || 7;
+        
+        let confAlertas = db.configGerais.alertas || { laudo: {ativo:true, dias:7}, seguro: {ativo:true, dias:7}, licenca: {ativo:true, dias:7} };
+        
+        document.getElementById('confAlertaLaudo').checked = confAlertas.laudo.ativo;
+        document.getElementById('confDiasLaudo').value = confAlertas.laudo.dias;
+        toggleConfAlerta('Laudo');
+
+        document.getElementById('confAlertaSeguro').checked = confAlertas.seguro.ativo;
+        document.getElementById('confDiasSeguro').value = confAlertas.seguro.dias;
+        toggleConfAlerta('Seguro');
+
+        document.getElementById('confAlertaLicenca').checked = confAlertas.licenca.ativo;
+        document.getElementById('confDiasLicenca').value = confAlertas.licenca.dias;
+        toggleConfAlerta('Licenca');
+
         tempCategorias = db.categorias ? JSON.parse(JSON.stringify(db.categorias)) : [];
         renderListasCategorias();
         cancelarEditCategoria();
         document.getElementById('modalConfigGerais').style.display = 'flex';
+    }
+
+    function toggleConfAlerta(nome) {
+        let isAtivo = document.getElementById(`confAlerta${nome}`).checked;
+        document.getElementById(`boxDias${nome}`).style.display = isAtivo ? 'flex' : 'none';
     }
 
     function renderListasCategorias() {
@@ -926,8 +1054,8 @@
         document.getElementById('editIdxCat').value = idx;
         
         let box = document.getElementById('boxEditCat');
-        box.style.background = "#E3F2FD";
-        box.style.borderColor = "#1565C0";
+        box.style.background = "#E8F5E9";
+        box.style.borderColor = "#008C4A";
         document.getElementById('lblModoCat').innerText = "Editando Categoria";
         document.getElementById('btnSalvarCat').innerText = "OK";
         document.getElementById('btnCancelarEditCat').style.display = "flex";
@@ -949,12 +1077,16 @@
     function removerCategoria(idx) { tempCategorias.splice(idx, 1); renderListasCategorias(); }
 
     function salvarConfigGerais() {
-        db.configGerais.diasAvisoLicenca = document.getElementById('confDiasAviso').value || 7;
+        db.configGerais.alertas = {
+            laudo: { ativo: document.getElementById('confAlertaLaudo').checked, dias: document.getElementById('confDiasLaudo').value || 7 },
+            seguro: { ativo: document.getElementById('confAlertaSeguro').checked, dias: document.getElementById('confDiasSeguro').value || 7 },
+            licenca: { ativo: document.getElementById('confAlertaLicenca').checked, dias: document.getElementById('confDiasLicenca').value || 7 }
+        };
         db.categorias = tempCategorias;
         salvarBanco();
         fecharModal('modalConfigGerais');
         document.getElementById('modalPainelUnificado').style.display='flex';
-        renderizarLista(); // para atualizar os alertas se mudar os dias
+        renderizarLista(); 
     }
 
     // 8. ADMINISTRADORES
@@ -994,17 +1126,33 @@
         salvarBanco(); fecharModal('modalFormAdmin'); abrirGerenciar('administradores');
     }
 
-    // EXCEL IMPORT & EXPORT
+    // EXCEL IMPORT & EXPORT CUSTOMIZADO
+    let colunasExcelMeses = ['01-26', '02-26', '03-26', '04-26'];
+
     function exportarExcel() {
         if(!window.XLSX) return alert("A biblioteca do Excel não foi carregada. Verifique sua conexão com a internet.");
         let data = [];
         db.contribuintes.forEach(c => {
-            let telefones = (c.telefones || []).join('; ');
             if(!c.carros || c.carros.length === 0) {
-                data.push({ "Nome": c.nome, "Telefones": telefones, "Desconto (R$)": c.desconto || "0,00", "Placa": "", "Ano": "", "Categoria": "", "Valor Carro": "", "Data Cadastro": "" });
+                let row = { "Nome": c.nome, "Placa": "", "Ano": "", "Categoria": "", "Data Laudo": "", "Data Seguro": "", "Data Licença": "" };
+                colunasExcelMeses.forEach(mesRef => row[mesRef] = "");
+                data.push(row);
             } else {
                 c.carros.forEach(car => {
-                    data.push({ "Nome": c.nome, "Telefones": telefones, "Desconto (R$)": c.desconto || "0,00", "Placa": car.placa, "Ano": car.ano, "Categoria": car.categoria, "Valor Carro": car.valor, "Data Cadastro": formatDataBR(car.dataCadastro) });
+                    let row = { "Nome": c.nome, "Placa": car.placa, "Ano": car.ano, "Categoria": car.categoria, "Data Laudo": car.dataLaudo ? formatDataBR(car.dataLaudo) : "", "Data Seguro": car.dataSeguro ? formatDataBR(car.dataSeguro) : "", "Data Licença": car.dataLicenca ? formatDataBR(car.dataLicenca) : "" };
+                    // Exibir dias de pagamento nesses meses
+                    colunasExcelMeses.forEach(col => {
+                        let partesCol = col.split('-');
+                        let keyBusca = `20${partesCol[1]}-${partesCol[0]}`; // ex: 2026-01
+                        let pg = (c.pagamentos || []).find(p => p.mesAno === keyBusca);
+                        if(pg) {
+                            let dia = pg.dataPagamento.split('-')[2];
+                            row[col] = dia;
+                        } else {
+                            row[col] = "";
+                        }
+                    });
+                    data.push(row);
                 });
             }
         });
@@ -1016,8 +1164,10 @@
 
     function baixarModeloExcel() {
         if(!window.XLSX) return alert("A biblioteca do Excel não foi carregada. Verifique sua conexão com a internet.");
-        let data = [{ "Nome": "João Silva", "Telefones": "84999999999; 84888888888", "Desconto (R$)": "10,00", "Placa": "ABC1D23", "Ano": "2020", "Categoria": "Van", "Valor Carro": "50,00", "Data Cadastro": "20/04/2026" }];
-        let ws = XLSX.utils.json_to_sheet(data);
+        let row = { "Nome": "João Silva", "Placa": "ABC1D23", "Ano": "2020", "Categoria": "Van", "Data Laudo": "20/04/2026", "Data Seguro": "20/04/2026", "Data Licença": "20/04/2026" };
+        colunasExcelMeses.forEach(mes => row[mes] = "15"); // Exemplo de pagamento dia 15
+        
+        let ws = XLSX.utils.json_to_sheet([row]);
         let wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Modelo");
         XLSX.writeFile(wb, "Modelo_Importacao.xlsx");
@@ -1040,39 +1190,76 @@
                 rows.forEach(r => {
                     let nome = r["Nome"];
                     if(!nome) return;
-                    if(!agrupado[nome]) agrupado[nome] = { telefones: r["Telefones"] ? r["Telefones"].toString().split(';').map(t=>t.trim()) : [], desconto: r["Desconto (R$)"] || "0,00", carros: [] };
+                    if(!agrupado[nome]) agrupado[nome] = { telefones: [], desconto: "0,00", carros: [], pagamentosTemp: [] };
                     
                     if(r["Placa"]) {
-                        // Tratamento basico da data para fallback (se falhar, usa data de hoje)
-                        let dtRaw = r["Data Cadastro"] || "";
-                        let dataFormat = dtRaw.includes('/') ? dtRaw.split('/').reverse().join('-') : getHojeSTR();
+                        // Função para desformatar data BR
+                        let parseData = (dRaw) => {
+                            if(!dRaw) return "";
+                            let str = dRaw.toString();
+                            return str.includes('/') ? str.split('/').reverse().join('-') : str;
+                        };
 
                         agrupado[nome].carros.push({
                             id: 'car_'+Date.now()+Math.random(),
-                            placa: r["Placa"].toString().toUpperCase(), ano: r["Ano"] ? r["Ano"].toString() : "", categoria: r["Categoria"]||"", valor: r["Valor Carro"]||"0,00", dataCadastro: dataFormat, ativo: true
+                            placa: r["Placa"].toString().toUpperCase(), ano: r["Ano"] ? r["Ano"].toString() : "", 
+                            categoria: r["Categoria"]||"", valor: "0,00", // Valor será atualizado pela categoria depois
+                            dataLaudo: parseData(r["Data Laudo"]),
+                            dataSeguro: parseData(r["Data Seguro"]),
+                            dataLicenca: parseData(r["Data Licença"]),
+                            dataCadastro: getHojeSTR(),
+                            ativo: true
                         });
                     }
+
+                    // Processar Pagamentos Customizados
+                    colunasExcelMeses.forEach(col => {
+                        if(r[col]) {
+                            let dia = String(r[col]).padStart(2, '0');
+                            let pCol = col.split('-');
+                            let mesAnoRef = `20${pCol[1]}-${pCol[0]}`;
+                            let dtPgto = `20${pCol[1]}-${pCol[0]}-${dia}`;
+                            
+                            // Guardar para inserir se não existir
+                            agrupado[nome].pagamentosTemp.push({ ref: mesAnoRef, dt: dtPgto });
+                        }
+                    });
                 });
 
                 Object.keys(agrupado).forEach(nome => {
                     let d = agrupado[nome];
-                    // Procura se ja existe pra nao duplicar
                     let cExistente = db.contribuintes.find(c => c.nome.toLowerCase() === nome.toLowerCase());
                     
+                    // Recuperar valores base de carro
+                    d.carros.forEach(car => {
+                        let cat = db.categorias.find(x => x.nome === car.categoria);
+                        if(cat && cat.valor) car.valor = cat.valor;
+                    });
+
                     if(cExistente) {
-                        cExistente.telefones = d.telefones;
-                        cExistente.desconto = d.desconto;
                         cExistente.carros = d.carros;
                     } else {
-                        let contId = 'cont_'+Date.now()+Math.random();
-                        db.contribuintes.push({ id: contId, nome: nome, telefones: d.telefones, desconto: d.desconto, carros: d.carros, pagamentos: [] });
+                        cExistente = { id: 'cont_'+Date.now()+Math.random(), nome: nome, telefones: [], desconto: "0,00", carros: d.carros, pagamentos: [] };
+                        db.contribuintes.push(cExistente);
                     }
-                });
-                
-                db.contribuintes.forEach(c => {
-                    let soma = c.carros.filter(car=>car.ativo).reduce((acc, car) => acc + parseMoeda(car.valor), 0);
-                    let desc = parseMoeda(c.desconto || "0");
-                    c.valorTotal = formatMoeda(Math.max(0, soma - desc));
+
+                    // Recalcula total esperado do contribuinte
+                    let soma = cExistente.carros.filter(car=>car.ativo).reduce((acc, car) => acc + parseMoeda(car.valor), 0);
+                    let desc = parseMoeda(cExistente.desconto || "0");
+                    cExistente.valorTotal = formatMoeda(Math.max(0, soma - desc));
+
+                    // Aplica pagamentos achados
+                    d.pagamentosTemp.forEach(pTmp => {
+                        let pgExiste = cExistente.pagamentos.some(pg => pg.mesAno === pTmp.ref);
+                        if(!pgExiste) {
+                            cExistente.pagamentos.push({
+                                id: 'pg_' + Date.now() + Math.random(),
+                                mesAno: pTmp.ref,
+                                valorPago: parseMoeda(cExistente.valorTotal),
+                                dataPagamento: pTmp.dt
+                            });
+                        }
+                    });
                 });
                 
                 salvarBanco();
