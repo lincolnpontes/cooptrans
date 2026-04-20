@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#008C4A" id="metaThemeColor">
-    <title>Cooptrans v1.0.4</title>
+    <title>Cooptrans v1.0.5</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -85,8 +85,9 @@
         .radio-custom { display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px; color: var(--theme-base); font-weight: bold; }
         .radio-custom input { margin: 0; width: 16px; height: 16px; accent-color: var(--theme-base); }
 
-        .btn-wa-minimal { background: #fff; border: 1px solid #ddd; color: #333; padding: 8px 12px; border-radius: 20px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.05); font-weight: bold; transition: 0.2s;}
-        .btn-wa-minimal:active { background: #f0f0f0; }
+        /* Novos Botões do WhatsApp */
+        .btn-whatsapp { background: #25D366; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.15); transition: 0.2s; flex: 1;}
+        .btn-whatsapp:active { background: #1ebe56; }
 
         .month-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px;}
         .month-btn { background: #f9f9f9; border: 1px solid #ddd; padding: 12px 5px; border-radius: 8px; text-align: center; font-weight: bold; color: #555; cursor: pointer; transition: 0.2s; }
@@ -100,7 +101,7 @@
 
 <div id="splashScreen">
     <div class="splash-titulo">Cooptrans</div>
-    <div class="splash-versao">v1.0.4</div>
+    <div class="splash-versao">v1.0.5</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 30px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -119,9 +120,9 @@
             <input type="hidden" id="filtroMesGeral">
         </div>
         
-        <!-- Logo Ampliada e Sobreposta -->
-        <div style="position: absolute; left: 50%; transform: translateX(-50%); top: 5px; z-index: 100;">
-            <img id="headerLogo" src="" style="height: 55px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); display: none; background: white; padding: 2px;">
+        <!-- Logo Ampliada e Transparente -->
+        <div style="position: absolute; left: 50%; transform: translateX(-50%); top: 8px; z-index: 100;">
+            <img id="headerLogo" src="" style="height: 65px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2)); display: none;">
         </div>
 
         <div style="flex: 1; text-align: right;" class="header-actions">
@@ -357,9 +358,10 @@
 
         <div class="form-group" style="background:var(--theme-light); padding:10px; border-radius:5px;">
             <div style="display: flex; gap: 10px; margin-bottom: 5px;">
-                <div style="flex:1;"><label style="color:#673AB7; font-weight:bold;">Desconto Base (R$):</label><input type="text" id="contDesconto" inputmode="numeric" oninput="maskMoeda(this)" placeholder="0,00"></div>
-                <div style="flex:1; display:flex; align-items:flex-end;"><span style="font-size:11px; color:#555; padding-bottom:12px;">*Desconto fixo cobrado por mês.</span></div>
+                <div style="flex:1;"><label style="color:#673AB7; font-weight:bold;">Desconto Base (R$):</label><input type="text" id="contDesconto" inputmode="numeric" oninput="maskMoeda(this); calcTotalContribuinte();" placeholder="0,00"></div>
+                <div style="flex:1;"><label style="color:var(--theme-base);">Total a Pagar (R$):</label><input type="text" id="contValor" readonly style="font-weight:bold; color:var(--theme-base); background:#eee;"></div>
             </div>
+            <div style="font-size:11px; color:#555;">*Desconto fixo cobrado por mês.</div>
         </div>
 
         <div class="section-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
@@ -430,8 +432,8 @@
 
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; gap:10px;">
             <div id="boxWAAcoes" style="display:flex; gap:5px; flex-wrap:wrap; flex:1;"></div>
-            <button class="btn-action" style="flex:none; padding:8px 12px; font-size:12px;" onclick="enviarChavePixWhatsApp()">
-                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:16px; vertical-align:middle; margin-right:4px; filter:brightness(0) invert(1);"> PIX WhatsApp
+            <button class="btn-whatsapp" style="flex:none; padding:8px 12px; background:var(--theme-base);" onclick="enviarChavePixWhatsApp()">
+                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:20px; height:20px; filter:brightness(0) invert(1);"> Enviar Chave PIX
             </button>
         </div>
         
@@ -783,6 +785,12 @@
         }
     }
 
+    function calcTotalContribuinte() {
+        let somaCarros = tempCarros.filter(c => c.ativo).reduce((acc, c) => acc + parseMoeda(c.valor), 0);
+        let desc = parseMoeda(document.getElementById('contDesconto').value);
+        document.getElementById('contValor').value = formatMoeda(Math.max(0, somaCarros - desc));
+    }
+
     function renderListaTelefones() {
         const box = document.getElementById('listaTelefones');
         if(tempTelefones.length === 0) { box.innerHTML = '<div style="color:#999; font-size:12px; text-align:center;">Nenhum telefone.</div>'; return; }
@@ -801,6 +809,7 @@
             nome: nome,
             telefones: tempTelefones,
             desconto: document.getElementById('contDesconto').value,
+            valorTotal: document.getElementById('contValor').value,
             carros: tempCarros,
             pagamentos: db.contribuintes.find(x=>x.id===id)?.pagamentos || []
         };
@@ -823,7 +832,7 @@
     // 5. CARROS DO CONTRIBUINTE
     function renderListaCarros() {
         const box = document.getElementById('listaCarros');
-        if(tempCarros.length === 0) { box.innerHTML = '<div style="color:#999; font-size:12px; text-align:center;">Nenhum carro vinculado.</div>'; return; }
+        if(tempCarros.length === 0) { box.innerHTML = '<div style="color:#999; font-size:12px; text-align:center;">Nenhum carro vinculado.</div>'; calcTotalContribuinte(); return; }
         let html = '';
         tempCarros.forEach((c, i) => {
             let badge = c.ativo ? '<span style="color:#2E7D32; font-weight:bold; font-size:11px;">Ativo</span>' : '<span style="color:#D32F2F; font-weight:bold; font-size:11px;">Arquivado</span>';
@@ -833,6 +842,7 @@
             </div>`;
         });
         box.innerHTML = html;
+        calcTotalContribuinte();
     }
 
     function abrirFormCarro(idx) {
@@ -924,7 +934,7 @@
         let p = db.cooperativa.pixList.find(x => x.principal) || db.cooperativa.pixList[0];
         let fan = db.cooperativa.fantasia || "Cooperativa";
 
-        let txt = `Segue a Chave PIX da *${fan}:*\n*Tipo:* ${p.tipo}\n*Chave:* ${p.chave}\n*Beneficiário:* ${p.beneficiario}`;
+        let txt = `> PIX da *${fan}:*\n*Tipo:* ${p.tipo}\n*Chave:* ${p.chave}\n*Beneficiário:* ${p.beneficiario}`;
         window.open(`https://wa.me/55${num}?text=${encodeURIComponent(txt)}`, '_blank');
     }
 
@@ -946,8 +956,8 @@
         if(c.telefones && c.telefones.length > 0) {
             let primeiro = c.telefones[0];
             let num = primeiro.replace(/\D/g, '');
-            waBox.innerHTML = `<button class="btn-wa-minimal" onclick="window.open('https://wa.me/55${num}','_blank')">
-                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:16px; height:16px;"> Falar no App
+            waBox.innerHTML = `<button class="btn-whatsapp" onclick="window.open('https://wa.me/55${num}','_blank')">
+                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:20px; height:20px; filter:brightness(0) invert(1);"> Falar no WhatsApp
             </button>`;
         }
 
@@ -966,6 +976,7 @@
         document.getElementById('pgDataMulti').value = getHojeSTR();
         
         renderizarStatusPagamento(c, mesRef);
+        calcPgtoMulti(); // Calcula o preenchimento automático inicial
         renderizarHistPagamentos(c);
         
         document.getElementById('modalAcoesContribuinte').style.display = 'flex';
