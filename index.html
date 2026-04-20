@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#008C4A" id="metaThemeColor">
-    <title>Cooptrans v1.0.5</title>
+    <title>Cooptrans v1.0.7</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root {
             --theme-base: #008C4A;
             --theme-light: rgba(0, 140, 74, 0.1);
+            --theme-sub: #ffffff;
         }
 
         html, body { width: 100%; height: 100%; position: fixed; overflow: hidden; margin: 0; padding: 0; }
@@ -36,8 +37,8 @@
         .area-conteudo { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
         .scroll-area { overflow-y: auto; flex: 1; padding-bottom: 90px; -webkit-overflow-scrolling: touch; }
         
-        .filters { padding: 10px 15px; display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; border-bottom: 1px solid #eee; background: white; flex-shrink: 0; }
-        .chip { background-color: #e0e0e0; color: #333; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: bold; border: 2px solid transparent; transition: 0.3s; }
+        .filters { padding: 10px 15px; display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; border-bottom: 1px solid #eee; background-color: var(--theme-sub); flex-shrink: 0; }
+        .chip { background-color: #e0e0e0; color: #333; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: bold; border: 2px solid transparent; transition: 0.3s; }
         .chip.active { background-color: var(--theme-base); color: white; border-color: var(--theme-base); }
         .chip.alerta { background-color: #FFF3E0; color: #E65100; border-color: #FFB74D; }
         .chip.alerta.active { background-color: #E65100; color: white; border-color: #E65100; }
@@ -45,11 +46,11 @@
         .chip.pendente.active { background-color: #D32F2F; color: white; border-color: #D32F2F; }
         
         .list { padding: 0; margin: 0; list-style: none; }
-        .item { display: flex; align-items: center; justify-content: space-between; padding: 12px; border-bottom: 1px solid #eee; position: relative; user-select: none; }
-        .item-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 12px; color: white; font-size: 16px; flex-shrink: 0; background-color: var(--theme-base);}
+        .item { display: flex; align-items: center; justify-content: space-between; padding: 15px; border-bottom: 1px solid #eee; position: relative; user-select: none; }
+        .item-avatar { width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 15px; color: white; font-size: 18px; flex-shrink: 0; background-color: var(--theme-base);}
         .item-info { flex: 1; display: flex; flex-direction: column; justify-content: center; overflow: hidden;}
-        .item-title { font-weight: bold; font-size: 16px; margin-bottom: 2px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-        .item-subtitle { color: #666; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+        .item-title { font-weight: bold; font-size: 18px; margin-bottom: 4px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+        .item-subtitle { color: #666; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
         
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 1000; }
         .modal { background: white; padding: 20px; border-radius: 10px; width: 90%; max-width: 450px; max-height: 90vh; overflow-y: auto; box-shadow: 0 5px 20px rgba(0,0,0,0.3); }
@@ -78,30 +79,29 @@
         .list-item-config button { background: #ffcdd2; color: #d32f2f; border: none; border-radius: 4px; padding: 5px 8px; cursor: pointer; font-weight: bold; flex-shrink: 0; }
         .btn-edit-small { background: var(--theme-light) !important; color: var(--theme-base) !important; margin-right: 5px; }
 
-        .status-badge { padding: 6px 10px; border-radius: 6px; font-size: 13px; font-weight: bold; display: inline-block; margin-top: 6px; }
+        /* Etiquetas Maiores */
+        .status-badge { padding: 6px 10px; border-radius: 6px; font-size: 14px; font-weight: bold; display: inline-block; margin-top: 6px; }
         .status-ok { background: #E8F5E9; color: #2E7D32; border: 1px solid #A5D6A7; }
         .status-pendente { background: #FFEBEE; color: #C62828; border: 1px solid #EF9A9A; }
         
         .radio-custom { display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px; color: var(--theme-base); font-weight: bold; }
         .radio-custom input { margin: 0; width: 16px; height: 16px; accent-color: var(--theme-base); }
 
-        /* Novos Botões do WhatsApp */
-        .btn-whatsapp { background: #25D366; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.15); transition: 0.2s; flex: 1;}
-        .btn-whatsapp:active { background: #1ebe56; }
-
+        /* Grade do Modal de Mês */
         .month-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px;}
         .month-btn { background: #f9f9f9; border: 1px solid #ddd; padding: 12px 5px; border-radius: 8px; text-align: center; font-weight: bold; color: #555; cursor: pointer; transition: 0.2s; }
         .month-btn.active { background: var(--theme-base); color: white; border-color: var(--theme-base); }
         .month-btn:active { opacity: 0.7; }
         
-        .alert-home-text { margin-top: 6px; font-size: 13px; color: #E65100; line-height: 1.3; font-weight: 500;}
+        /* Alertas Maiores */
+        .alert-home-text { margin-top: 8px; font-size: 15px; color: #E65100; line-height: 1.4; font-weight: 500;}
     </style>
 </head>
 <body>
 
 <div id="splashScreen">
     <div class="splash-titulo">Cooptrans</div>
-    <div class="splash-versao">v1.0.5</div>
+    <div class="splash-versao">v1.0.7</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 30px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -120,9 +120,9 @@
             <input type="hidden" id="filtroMesGeral">
         </div>
         
-        <!-- Logo Ampliada e Transparente -->
-        <div style="position: absolute; left: 50%; transform: translateX(-50%); top: 8px; z-index: 100;">
-            <img id="headerLogo" src="" style="height: 65px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2)); display: none;">
+        <!-- Logo Ampliada, Transparente e Sobreposta -->
+        <div style="position: absolute; left: 50%; transform: translateX(-50%); top: 5px; z-index: 100;">
+            <img id="headerLogo" src="" style="height: 85px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); display: none; background: transparent;">
         </div>
 
         <div style="flex: 1; text-align: right;" class="header-actions">
@@ -267,10 +267,16 @@
     <div class="modal" style="max-height: 90vh;">
         <div class="modal-title">Configurações Gerais</div>
         
-        <div class="section-title">Cor do Sistema</div>
+        <div class="section-title">Cores do Sistema</div>
         <div class="form-group" style="display:flex; align-items:center; gap:10px; background:#f9f9f9; padding:10px; border-radius:5px;">
-            <input type="color" id="confCorTema" style="height:40px; padding:0; border:none; cursor:pointer;">
-            <button class="btn-outline" style="margin:0; padding:10px; flex:1;" onclick="document.getElementById('confCorTema').value='#008C4A'">Restaurar Padrão</button>
+            <label style="margin:0; flex:1;">Cor Principal:</label>
+            <input type="color" id="confCorTema" style="height:40px; width:60px; padding:0; border:none; cursor:pointer;">
+            <button class="btn-outline" style="margin:0; padding:8px; font-size:12px;" onclick="document.getElementById('confCorTema').value='#008C4A'">Restaurar</button>
+        </div>
+        <div class="form-group" style="display:flex; align-items:center; gap:10px; background:#f9f9f9; padding:10px; border-radius:5px; margin-top:5px;">
+            <label style="margin:0; flex:1;">Cor do Sub-Cabeçalho:</label>
+            <input type="color" id="confCorSub" style="height:40px; width:60px; padding:0; border:none; cursor:pointer;">
+            <button class="btn-outline" style="margin:0; padding:8px; font-size:12px;" onclick="document.getElementById('confCorSub').value='#ffffff'">Restaurar</button>
         </div>
 
         <div class="section-title">Avisos de Vencimento</div>
@@ -342,7 +348,7 @@
     <div class="modal" style="padding-top:15px; width: 95%; height: 90vh;">
         <div class="modal-title">Cadastro de Contribuinte</div>
         <input type="hidden" id="contId">
-        <input type="hidden" id="contFromAcoes" value="false"> <!-- Flag para Navegação -->
+        <input type="hidden" id="contFromAcoes" value="false">
         
         <div class="section-title">Dados Pessoais</div>
         <div class="form-group"><label>Nome Completo:</label><input type="text" id="contNome"></div>
@@ -432,8 +438,8 @@
 
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; gap:10px;">
             <div id="boxWAAcoes" style="display:flex; gap:5px; flex-wrap:wrap; flex:1;"></div>
-            <button class="btn-whatsapp" style="flex:none; padding:8px 12px; background:var(--theme-base);" onclick="enviarChavePixWhatsApp()">
-                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:20px; height:20px; filter:brightness(0) invert(1);"> Enviar Chave PIX
+            <button class="btn-action" style="flex:none; padding:10px 12px; font-size:14px; border-radius:8px;" onclick="enviarChavePixWhatsApp()">
+                <span style="font-size:18px; margin-right:4px;">🔗</span> Enviar Chave PIX
             </button>
         </div>
         
@@ -453,7 +459,7 @@
             <!-- SWITCH MULTI MONTH -->
             <div style="margin-top:20px; display:flex; align-items:center; justify-content:center; gap:10px; border-top:1px solid #ccc; padding-top:15px;">
                 <label class="switch"><input type="checkbox" id="switchMultiMes" onchange="toggleMultiMes()"><span class="slider"></span></label>
-                <span style="font-size:13px; font-weight:bold; color:#333;">Receber Múltiplos Meses / Período</span>
+                <span style="font-size:14px; font-weight:bold; color:#333;">Receber Múltiplos Meses / Período</span>
             </div>
 
             <!-- MULTI MONTH PAYMENT (Hidden) -->
@@ -466,6 +472,7 @@
                     <div style="flex:1;"><label style="color:#673AB7;">Desconto Extra (R$):</label><input type="text" id="pgDescontoMulti" oninput="maskMoeda(this); calcPgtoMulti();" placeholder="0,00"></div>
                     <div style="flex:1;"><label>Total a Pagar (R$):</label><input type="text" id="pgValorMulti" readonly style="font-weight:bold; color:var(--theme-base); background:#eee;"></div>
                 </div>
+                <div id="avisoErroMulti" style="display:none; text-align:center; margin-bottom:10px;"></div>
                 <div style="display:flex; gap:10px; margin-bottom:10px;">
                     <div style="flex:1;"><label>Data Pgto:</label><input type="date" id="pgDataMulti"></div>
                     <div style="flex:1; display:flex; align-items:flex-end;">
@@ -515,6 +522,7 @@
             administradores: [],
             configGerais: { 
                 corTema: "#008C4A",
+                corSubHeader: "#ffffff",
                 alertas: {
                     laudo: { ativo: true, dias: 7 },
                     seguro: { ativo: true, dias: 7 },
@@ -540,7 +548,9 @@
 
     function aplicarTema() {
         let cor = db.configGerais.corTema || '#008C4A';
+        let corSub = db.configGerais.corSubHeader || '#ffffff';
         document.documentElement.style.setProperty('--theme-base', cor);
+        document.documentElement.style.setProperty('--theme-sub', corSub);
         document.getElementById('metaThemeColor').setAttribute('content', cor);
     }
 
@@ -615,7 +625,6 @@
         let soma = 0;
         (c.carros || []).forEach(car => {
             if(!car.ativo) return;
-            // Só cobra o carro a partir do mes de cadastro do veículo
             let cadMonth = car.dataCadastro ? car.dataCadastro.substring(0,7) : '2000-01'; 
             if(mesRef >= cadMonth) {
                 soma += parseMoeda(car.valor);
@@ -646,18 +655,27 @@
         
         let confAlertas = db.configGerais.alertas || {};
         
-        let checkData = (dataStr, nome, confKey) => {
+        let checkData = (dataStr, nome, confKey, genero) => {
             if(!dataStr || !confAlertas[confKey] || !confAlertas[confKey].ativo) return;
             let d = new Date(dataStr + "T00:00:00");
             let diffDias = Math.ceil((d - hoje) / (1000 * 60 * 60 * 24));
             let diasAviso = parseInt(confAlertas[confKey].dias) || 7;
             
-            if(diffDias < 0) alertas.push(`${nome} Vencido (${carro.placa})`);
-            else if(diffDias <= diasAviso) alertas.push(`${nome} em ${diffDias}d (${carro.placa})`);
+            let vencidoWord = genero === 'a' ? 'vencida' : 'vencido';
+            
+            if(diffDias < 0) {
+                let diasPassados = Math.abs(diffDias);
+                alertas.push(`<b>${nome} ${vencidoWord}</b> há ${diasPassados} dias (${carro.placa})`);
+            } else if(diffDias === 0) {
+                alertas.push(`<b>${nome} vence HOJE</b> (${carro.placa})`);
+            } else if(diffDias <= diasAviso) {
+                alertas.push(`<b>${nome} vence em ${diffDias} dias</b> (${carro.placa})`);
+            }
         };
-        checkData(carro.dataLaudo, "Laudo", "laudo");
-        checkData(carro.dataSeguro, "Seguro", "seguro");
-        checkData(carro.dataLicenca, "Licença", "licenca");
+        
+        checkData(carro.dataLaudo, "Laudo", "laudo", "o");
+        checkData(carro.dataSeguro, "Seguro", "seguro", "o");
+        checkData(carro.dataLicenca, "Licença", "licenca", "a");
         return alertas;
     }
 
@@ -703,7 +721,7 @@
                         <div>${statusPgtoHtml}</div>
                     </div>
                 </div>
-                ${temAlerta ? `<div style="text-align: right; margin-left: 10px; flex-shrink: 0;"><div class="alert-home-text">⚠️<br>${alertasHtml}</div></div>` : ''}
+                ${temAlerta ? `<div style="text-align: right; margin-left: 10px; flex-shrink: 0;"><div class="alert-home-text">${alertasHtml}</div></div>` : ''}
             </li>`;
         });
 
@@ -725,7 +743,7 @@
         contribs.forEach((c) => { 
             let carrosQtd = (c.carros || []).length;
             htmlLista += `<div style="padding:10px; border-bottom:1px solid #ddd; display:flex; justify-content:space-between; align-items:center;">
-                <div style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><strong>${c.nome}</strong><br><small style="color:#666;">${carrosQtd} Veículo(s)</small></div>
+                <div style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><strong>${c.nome}</strong><br><small style="color:#666;">${carrosQtd} Veículo(s) | Total Base: R$ ${c.valorTotal}</small></div>
                 <div style="flex-shrink:0; margin-left:10px;">
                     <button style="background:none; border:none; font-size:20px; cursor:pointer;" onclick="abrirFormContribuinte('${c.id}')">✏️</button>
                     <button style="background:none; border:none; font-size:20px; cursor:pointer; color:#d32f2f;" onclick="excluirContribuinte('${c.id}')">🗑️</button>
@@ -924,7 +942,7 @@
         fecharModal('modalFormCarro');
     }
 
-    // 6. PAGAMENTOS E AÇÕES (RECEBIMENTOS)
+    // 6. PAGAMENTOS E AÇÕES
     function enviarChavePixWhatsApp() {
         let c = db.contribuintes.find(x => x.id === document.getElementById('acoesContId').value);
         if(!c || !c.telefones || c.telefones.length === 0) return alert('O contribuinte não possui nenhum telefone (WhatsApp) cadastrado.');
@@ -957,7 +975,7 @@
             let primeiro = c.telefones[0];
             let num = primeiro.replace(/\D/g, '');
             waBox.innerHTML = `<button class="btn-whatsapp" onclick="window.open('https://wa.me/55${num}','_blank')">
-                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:20px; height:20px; filter:brightness(0) invert(1);"> Falar no WhatsApp
+                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:20px; height:20px;"> Falar no WhatsApp
             </button>`;
         }
 
@@ -974,9 +992,9 @@
         document.getElementById('pgFim').value = mesRef;
         document.getElementById('pgDescontoMulti').value = '';
         document.getElementById('pgDataMulti').value = getHojeSTR();
+        document.getElementById('avisoErroMulti').style.display = 'none';
         
         renderizarStatusPagamento(c, mesRef);
-        calcPgtoMulti(); // Calcula o preenchimento automático inicial
         renderizarHistPagamentos(c);
         
         document.getElementById('modalAcoesContribuinte').style.display = 'flex';
@@ -1064,7 +1082,7 @@
         let erro = null;
         
         meses.forEach(m => {
-            if(isMesPago(c, m)) erro = `Um dos meses do período (${m.split('-').reverse().join('/')}) já está pago!`;
+            if(isMesPago(c, m)) erro = `Mês ${m.split('-').reverse().join('/')} já consta como pago!`;
             else total += calcularValorEsperado(c, m);
         });
         
@@ -1072,13 +1090,17 @@
         let descExtra = parseMoeda(document.getElementById('pgDescontoMulti').value);
         let finalVal = Math.max(0, total - descExtra);
 
+        let boxAviso = document.getElementById('avisoErroMulti');
+
         if(erro) {
             iptValor.value = '0,00';
             iptValor.dataset.esperado = 0;
-            alert(erro);
+            boxAviso.innerHTML = `<span style="color:#D32F2F; font-size:13px; font-weight:bold;">⚠️ ${erro}</span>`;
+            boxAviso.style.display = 'block';
         } else {
             iptValor.value = formatMoeda(finalVal);
             iptValor.dataset.esperado = finalVal;
+            boxAviso.style.display = 'none';
         }
     }
 
@@ -1110,9 +1132,8 @@
 
         let meses = getMesesRange(ini, fim);
         
-        // Validation dupla
         for(let m of meses) {
-            if(isMesPago(c, m)) return alert(`O mês ${m.split('-').reverse().join('/')} já consta como pago!`);
+            if(isMesPago(c, m)) return alert(`O mês ${m.split('-').reverse().join('/')} já consta como pago no histórico!`);
         }
 
         if(!c.pagamentos) c.pagamentos = [];
@@ -1220,6 +1241,7 @@
         let confAlertas = db.configGerais.alertas || { laudo: {ativo:true, dias:7}, seguro: {ativo:true, dias:7}, licenca: {ativo:true, dias:7} };
         
         document.getElementById('confCorTema').value = db.configGerais.corTema || '#008C4A';
+        document.getElementById('confCorSub').value = db.configGerais.corSubHeader || '#ffffff';
 
         document.getElementById('confAlertaLaudo').checked = confAlertas.laudo.ativo;
         document.getElementById('confDiasLaudo').value = confAlertas.laudo.dias;
@@ -1298,6 +1320,7 @@
 
     function salvarConfigGerais() {
         db.configGerais.corTema = document.getElementById('confCorTema').value;
+        db.configGerais.corSubHeader = document.getElementById('confCorSub').value;
         db.configGerais.alertas = {
             laudo: { ativo: document.getElementById('confAlertaLaudo').checked, dias: document.getElementById('confDiasLaudo').value || 7 },
             seguro: { ativo: document.getElementById('confAlertaSeguro').checked, dias: document.getElementById('confDiasSeguro').value || 7 },
