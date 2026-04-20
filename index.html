@@ -5,27 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#008C4A" id="metaThemeColor">
-    <title>Cooptrans v1.0.2</title>
+    <title>Cooptrans v1.0.3</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
+        :root {
+            --theme-base: #008C4A;
+            --theme-light: rgba(0, 140, 74, 0.1);
+        }
+
         html, body { width: 100%; height: 100%; position: fixed; overflow: hidden; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; }
         input, select, textarea, .modal { user-select: text; -webkit-user-select: text; font-family: inherit; }
         .app-container { width: 100%; max-width: 100%; height: 100%; background-color: #ffffff; display: flex; flex-direction: column; position: absolute; top: 0; left: 0; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
         
-        #splashScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #008C4A; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; transition: opacity 0.5s ease; }
+        #splashScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--theme-base); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; transition: opacity 0.5s ease; }
         .splash-titulo { font-size: 32px; font-weight: bold; letter-spacing: 1px; }
         .splash-versao { font-size: 14px; margin-top: 5px; opacity: 0.8; }
         #loadingOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; flex-direction: column; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px; text-align: center; padding: 20px; box-sizing: border-box; }
-        .spinner { border: 6px solid #f3f3f3; border-top: 6px solid #008C4A; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        .spinner { border: 6px solid #f3f3f3; border-top: 6px solid var(--theme-base); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        .header { background-color: #008C4A; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; color: white; flex-shrink: 0; }
-        .header-title { flex: 1; display: flex; align-items: center; }
+        .header { background-color: var(--theme-base); padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; color: white; flex-shrink: 0; }
         
-        /* Nova caixa do mês Custom */
-        .month-picker-box { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); padding: 8px 15px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; display: inline-flex; align-items: center; gap: 8px; transition: 0.3s; }
+        .month-picker-box { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold; display: inline-flex; align-items: center; gap: 6px; transition: 0.3s; }
         .month-picker-box:active { background: rgba(255,255,255,0.4); }
         
         .header-actions button { background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; margin-left: 15px;}
@@ -35,7 +38,7 @@
         
         .filters { padding: 10px 15px; display: flex; gap: 10px; overflow-x: auto; white-space: nowrap; border-bottom: 1px solid #eee; background: white; flex-shrink: 0; }
         .chip { background-color: #e0e0e0; color: #333; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: bold; border: 2px solid transparent; transition: 0.3s; }
-        .chip.active { background-color: #333; color: white; border-color: #000; }
+        .chip.active { background-color: var(--theme-base); color: white; border-color: var(--theme-base); }
         .chip.alerta { background-color: #FFF3E0; color: #E65100; border-color: #FFB74D; }
         .chip.alerta.active { background-color: #E65100; color: white; border-color: #E65100; }
         .chip.pendente { background-color: #FFEBEE; color: #D32F2F; border-color: #EF9A9A; }
@@ -43,14 +46,14 @@
         
         .list { padding: 0; margin: 0; list-style: none; }
         .item { display: flex; align-items: center; justify-content: space-between; padding: 12px; border-bottom: 1px solid #eee; position: relative; user-select: none; }
-        .item-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 12px; color: white; font-size: 16px; flex-shrink: 0; background-color: #008C4A;}
+        .item-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 12px; color: white; font-size: 16px; flex-shrink: 0; background-color: var(--theme-base);}
         .item-info { flex: 1; display: flex; flex-direction: column; justify-content: center; overflow: hidden;}
-        .item-title { font-weight: bold; font-size: 15px; margin-bottom: 2px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-        .item-subtitle { color: #666; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+        .item-title { font-weight: bold; font-size: 16px; margin-bottom: 2px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+        .item-subtitle { color: #666; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
         
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 1000; }
         .modal { background: white; padding: 20px; border-radius: 10px; width: 90%; max-width: 450px; max-height: 90vh; overflow-y: auto; box-shadow: 0 5px 20px rgba(0,0,0,0.3); }
-        .modal-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid #008C4A; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
+        .modal-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid var(--theme-base); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
         
         .form-group { margin-bottom: 12px; }
         .form-group label { display: block; margin-bottom: 4px; color: #555; font-weight: bold; font-size: 12px; }
@@ -59,45 +62,45 @@
         .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 15px; flex-wrap: wrap; }
         .btn-cancel, .btn-action, .btn-danger, .btn-outline { padding: 12px; border-radius: 5px; cursor: pointer; font-weight: bold; flex: 1; text-align: center; border: none; font-size: 14px; }
         .btn-cancel { background: #eee; color: #333; }
-        .btn-action { background: #008C4A; color: white; }
+        .btn-action { background: var(--theme-base); color: white; }
         .btn-danger { background: #d32f2f; color: white; }
-        .btn-outline { background: transparent; border: 1px solid #008C4A; color: #008C4A; width: 100%; margin-bottom: 8px; text-align: left; }
+        .btn-outline { background: transparent; border: 1px solid var(--theme-base); color: var(--theme-base); width: 100%; margin-bottom: 8px; text-align: left; }
         
-        .section-title { background: #E8F5E9; padding: 8px; font-size: 13px; font-weight: bold; color: #006030; border-radius: 4px; margin: 15px 0 10px 0; border-left: 4px solid #008C4A;}
+        .section-title { background: var(--theme-light); padding: 8px; font-size: 13px; font-weight: bold; color: var(--theme-base); border-radius: 4px; margin: 15px 0 10px 0; border-left: 4px solid var(--theme-base);}
         .switch { position: relative; display: inline-block; width: 44px; height: 24px; margin-right: 8px; vertical-align: middle; flex-shrink: 0; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .3s; border-radius: 24px; }
         .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
-        input:checked + .slider { background-color: #008C4A; }
+        input:checked + .slider { background-color: var(--theme-base); }
         input:checked + .slider:before { transform: translateX(20px); }
         
         .list-item-config { display: flex; justify-content: space-between; align-items: center; background: #fff; border: 1px solid #ddd; padding: 8px 10px; border-radius: 5px; margin-bottom: 5px; font-size: 13px; }
         .list-item-config button { background: #ffcdd2; color: #d32f2f; border: none; border-radius: 4px; padding: 5px 8px; cursor: pointer; font-weight: bold; flex-shrink: 0; }
-        .btn-edit-small { background: #E8F5E9 !important; color: #008C4A !important; margin-right: 5px; }
+        .btn-edit-small { background: var(--theme-light) !important; color: var(--theme-base) !important; margin-right: 5px; }
 
-        .status-badge { padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; display: inline-block; margin-top: 4px; }
+        .status-badge { padding: 6px 10px; border-radius: 6px; font-size: 13px; font-weight: bold; display: inline-block; margin-top: 6px; }
         .status-ok { background: #E8F5E9; color: #2E7D32; border: 1px solid #A5D6A7; }
         .status-pendente { background: #FFEBEE; color: #C62828; border: 1px solid #EF9A9A; }
         
-        .radio-custom { display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px; color: #008C4A; font-weight: bold; }
-        .radio-custom input { margin: 0; width: 16px; height: 16px; accent-color: #008C4A; }
+        .radio-custom { display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px; color: var(--theme-base); font-weight: bold; }
+        .radio-custom input { margin: 0; width: 16px; height: 16px; accent-color: var(--theme-base); }
 
-        /* Botão Minimalista WhatsApp */
         .btn-wa-minimal { background: #fff; border: 1px solid #ddd; color: #333; padding: 8px 12px; border-radius: 20px; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.05); font-weight: bold; transition: 0.2s;}
         .btn-wa-minimal:active { background: #f0f0f0; }
 
-        /* Grade do Modal de Mês */
         .month-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px;}
         .month-btn { background: #f9f9f9; border: 1px solid #ddd; padding: 12px 5px; border-radius: 8px; text-align: center; font-weight: bold; color: #555; cursor: pointer; transition: 0.2s; }
-        .month-btn.active { background: #008C4A; color: white; border-color: #008C4A; }
+        .month-btn.active { background: var(--theme-base); color: white; border-color: var(--theme-base); }
         .month-btn:active { opacity: 0.7; }
+        
+        .alert-home-text { margin-top: 6px; font-size: 13px; color: #E65100; line-height: 1.3; font-weight: 500;}
     </style>
 </head>
 <body>
 
 <div id="splashScreen">
     <div class="splash-titulo">Cooptrans</div>
-    <div class="splash-versao">v1.0.2</div>
+    <div class="splash-versao">v1.0.3</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 30px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -109,13 +112,19 @@
 
 <div class="app-container">
     <div class="header">
-        <div class="header-title">
+        <div style="flex: 1;">
             <div class="month-picker-box" onclick="abrirSeletorMes()">
                 📅 <span id="lblMesVisivel">Abril 2026</span>
             </div>
             <input type="hidden" id="filtroMesGeral">
         </div>
-        <div class="header-actions">
+        
+        <!-- Logo Centralizada -->
+        <div style="flex: 1; display: flex; justify-content: center; align-items: center;">
+            <img id="headerLogo" src="" style="max-height: 35px; border-radius: 4px; display: none;">
+        </div>
+
+        <div style="flex: 1; text-align: right;" class="header-actions">
             <button onclick="document.getElementById('modalPainelUnificado').style.display='flex'">⚙️</button>
         </div>
     </div>
@@ -124,7 +133,7 @@
         <div class="filters" id="containerFiltros">
             <div class="chip active" id="chipTodos" onclick="setFiltroView('todos')">Todos</div>
             <div class="chip pendente" id="chipPendentes" onclick="setFiltroView('pendentes')">Pagamento Pendente</div>
-            <div class="chip alerta" id="chipVencimentos" onclick="setFiltroView('vencimentos')">Licenças a Vencer</div>
+            <div class="chip alerta" id="chipVencimentos" onclick="setFiltroView('vencimentos')">Documentos a Vencer</div>
         </div>
         <div class="scroll-area"><ul class="list" id="listaPrincipal"></ul></div>
     </div>
@@ -134,13 +143,11 @@
 <div class="modal-overlay" id="modalMonthPicker" style="z-index: 2000;">
     <div class="modal" style="width: 320px; padding: 20px;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px;">
-            <button onclick="mpChangeYear(-1)" style="background:none; border:none; font-size:24px; font-weight:bold; color:#008C4A; cursor:pointer;">&lt;</button>
+            <button onclick="mpChangeYear(-1)" style="background:none; border:none; font-size:24px; font-weight:bold; color:var(--theme-base); cursor:pointer;">&lt;</button>
             <div style="font-size: 20px; font-weight: bold; color: #333;" id="mpYearLabel">2026</div>
-            <button onclick="mpChangeYear(1)" style="background:none; border:none; font-size:24px; font-weight:bold; color:#008C4A; cursor:pointer;">&gt;</button>
+            <button onclick="mpChangeYear(1)" style="background:none; border:none; font-size:24px; font-weight:bold; color:var(--theme-base); cursor:pointer;">&gt;</button>
         </div>
-        <div class="month-grid" id="mpMonthGrid">
-            <!-- Botões gerados via JS -->
-        </div>
+        <div class="month-grid" id="mpMonthGrid"></div>
         <div class="modal-actions" style="margin-top: 20px;">
             <button class="btn-cancel" style="width: 100%;" onclick="fecharModal('modalMonthPicker')">Cancelar</button>
         </div>
@@ -150,7 +157,7 @@
 <!-- MENU PRINCIPAL -->
 <div class="modal-overlay" id="modalPainelUnificado">
     <div class="modal" style="padding-top: 25px;">
-        <h2 style="text-align: center; color: #008C4A; margin-top: 0; margin-bottom: 20px;">Menu Cooptrans</h2>
+        <h2 style="text-align: center; color: var(--theme-base); margin-top: 0; margin-bottom: 20px;">Menu Cooptrans</h2>
         <button class="btn-outline" onclick="abrirModalCooperativa()">🏢 Dados da Cooperativa</button>
         <button class="btn-outline" onclick="abrirGerenciarContribuintes()">👥 Gerenciar Contribuintes</button>
         <button class="btn-outline" onclick="abrirModalConfigGerais()">⚙️ Configurações Gerais</button>
@@ -200,7 +207,6 @@
     <div class="modal" style="width: 95%; height: 85vh; display: flex; flex-direction: column;">
         <div class="modal-title" id="tituloListagem" style="flex-shrink: 0;">Gerenciar</div>
         
-        <!-- Botões Extras de Excel -->
         <div id="boxAcoesExtrasExcel" style="display:none; gap:5px; margin-bottom:10px;">
             <button class="btn-action" style="flex:1; font-size:11px;" onclick="exportarExcel()">⬇️ Exportar (.xlsx)</button>
             <button class="btn-action" style="background:#F57F17; flex:1; font-size:11px;" onclick="document.getElementById('fileImportExcel').click()">⬆️ Importar (.xlsx)</button>
@@ -223,7 +229,7 @@
     <div class="modal">
         <div class="modal-title">Dados da Cooperativa</div>
         <div class="form-group">
-            <label>Logo:</label>
+            <label>Logo (Aparece no Cabeçalho):</label>
             <input type="file" accept="image/*" onchange="converterLogo(this)">
             <input type="hidden" id="coopLogoBase64">
             <div id="previewLogo" style="margin-top:5px;"></div>
@@ -236,7 +242,8 @@
         <div class="form-group">
             <div style="display: flex; gap: 5px; margin-bottom: 5px; align-items:stretch;">
                 <select id="novoPixTipoCoop" style="width: auto; padding: 8px 4px;" onchange="document.getElementById('novoPixInputCoop').value=''; document.getElementById('novoPixInputCoop').focus();">
-                    <option value="CNPJ">CNPJ/CPF</option>
+                    <option value="CNPJ">CNPJ</option>
+                    <option value="CPF">CPF</option>
                     <option value="Celular">Celular</option>
                     <option value="E-mail">E-mail</option>
                     <option value="Aleatória">Aleatória</option>
@@ -254,13 +261,18 @@
     </div>
 </div>
 
-<!-- CONFIG GERAIS (MODIFICADO OS ALERTAS) -->
+<!-- CONFIG GERAIS (MODIFICADO OS ALERTAS E CORES) -->
 <div class="modal-overlay" id="modalConfigGerais">
-    <div class="modal">
+    <div class="modal" style="max-height: 90vh;">
         <div class="modal-title">Configurações Gerais</div>
         
+        <div class="section-title">Cor do Sistema</div>
+        <div class="form-group" style="display:flex; align-items:center; gap:10px; background:#f9f9f9; padding:10px; border-radius:5px;">
+            <input type="color" id="confCorTema" style="height:40px; padding:0; border:none; cursor:pointer;">
+            <button class="btn-outline" style="margin:0; padding:10px; flex:1;" onclick="document.getElementById('confCorTema').value='#008C4A'">Restaurar Padrão</button>
+        </div>
+
         <div class="section-title">Avisos de Vencimento</div>
-        
         <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; background:#f9f9f9; padding:8px; border-radius:5px; margin-bottom:5px;">
             <div style="display:flex; align-items:center;">
                 <label class="switch"><input type="checkbox" id="confAlertaLaudo" onchange="toggleConfAlerta('Laudo')"><span class="slider"></span></label>
@@ -298,7 +310,7 @@
         <input type="hidden" id="editIdxCat" value="">
         
         <div id="boxEditCat" style="background: #f9f9f9; padding: 10px; border-radius: 5px; border: 1px solid #ccc; transition: 0.3s; margin-bottom: 10px;">
-            <div style="font-size:12px; font-weight:bold; color:#008C4A; margin-bottom:5px;" id="lblModoCat">Adicionar Nova Categoria</div>
+            <div style="font-size:12px; font-weight:bold; color:var(--theme-base); margin-bottom:5px;" id="lblModoCat">Adicionar Nova Categoria</div>
             <div style="display: flex; gap: 5px;">
                 <input type="text" id="novaCatNome" placeholder="Categoria (Ex: Van)" style="flex: 2;">
                 <input type="text" id="novaCatValor" placeholder="R$ 0,00" inputmode="numeric" oninput="maskMoeda(this)" style="flex: 1.5;">
@@ -342,10 +354,10 @@
             <div id="listaTelefones" style="background:#f9f9f9; padding:8px; border-radius:4px; max-height:80px; overflow-y:auto;"></div>
         </div>
 
-        <div class="form-group" style="background:#E8F5E9; padding:10px; border-radius:5px;">
+        <div class="form-group" style="background:var(--theme-light); padding:10px; border-radius:5px;">
             <div style="display: flex; gap: 10px; margin-bottom: 5px;">
-                <div style="flex:1;"><label style="color:#673AB7; font-weight:bold;">Desconto (R$):</label><input type="text" id="contDesconto" inputmode="numeric" oninput="maskMoeda(this); calcTotalContribuinte();" placeholder="0,00"></div>
-                <div style="flex:1;"><label style="color:#006030;">Total a Pagar (R$):</label><input type="text" id="contValor" readonly style="font-weight:bold; color:#008C4A; background:#eee;"></div>
+                <div style="flex:1;"><label style="color:#673AB7; font-weight:bold;">Desconto Base (R$):</label><input type="text" id="contDesconto" inputmode="numeric" oninput="maskMoeda(this)" placeholder="0,00"></div>
+                <div style="flex:1; display:flex; align-items:flex-end;"><span style="font-size:11px; color:#555; padding-bottom:12px;">*Desconto fixo cobrado por mês.</span></div>
             </div>
         </div>
 
@@ -387,7 +399,7 @@
         
         <div style="display: flex; gap: 10px;">
             <div class="form-group" style="flex:1;"><label>Data Licença:</label><input type="date" id="carLicenca"></div>
-            <div class="form-group" style="flex:1;"><label>Data Cadastro:</label><input type="date" id="carCadastro" readonly style="background:#eee;"></div>
+            <div class="form-group" style="flex:1;"><label style="color:#008C4A;">Data Cadastro:</label><input type="date" id="carCadastro" style="border: 1px solid #008C4A;"></div>
         </div>
 
         <div class="form-group" style="display:flex; align-items:center; background:#ffebee; padding:10px; border-radius:5px; margin-bottom: 5px; margin-top:15px;">
@@ -406,29 +418,37 @@
     </div>
 </div>
 
-<!-- AÇÕES DO CONTRIBUINTE -->
+<!-- AÇÕES DO CONTRIBUINTE (PAGAMENTO MULTI-MESES) -->
 <div class="modal-overlay" id="modalAcoesContribuinte">
     <div class="modal">
-        <div class="modal-title" id="tituloAcoesContribuinte">Nome do Contribuinte</div>
+        <div class="modal-title" style="display:flex; justify-content:space-between; align-items:center;">
+            <span id="tituloAcoesContribuinte">Nome do Contribuinte</span>
+            <button style="background:none; border:none; font-size:20px; cursor:pointer;" onclick="fecharModal('modalAcoesContribuinte'); abrirFormContribuinte(document.getElementById('acoesContId').value);">✏️</button>
+        </div>
         <input type="hidden" id="acoesContId">
 
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; gap:10px;">
             <div id="boxWAAcoes" style="display:flex; gap:5px; flex-wrap:wrap; flex:1;"></div>
-            <button class="btn-action" style="flex:none; padding:8px 12px; background:#008C4A; font-size:12px;" onclick="enviarChavePixWhatsApp()">
-                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:16px; vertical-align:middle; margin-right:4px; filter:brightness(0) invert(1);"> Enviar PIX
+            <button class="btn-action" style="flex:none; padding:8px 12px; font-size:12px;" onclick="enviarChavePixWhatsApp()">
+                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:16px; vertical-align:middle; margin-right:4px; filter:brightness(0) invert(1);"> PIX WhatsApp
             </button>
         </div>
         
-        <div class="section-title">Situação Mensal (<span id="lblMesAcoes"></span>)</div>
+        <div class="section-title">Situação Atual (<span id="lblMesAcoes"></span>)</div>
         <div class="form-group" style="background:#f9f9f9; padding:15px; border-radius:5px; text-align:center;">
-            <div style="font-size:12px; color:#666;">Valor Esperado no Mês:</div>
-            <div style="font-size:24px; font-weight:bold; color:#008C4A; margin-bottom:10px;" id="lblAcoesValorTotal">R$ 0,00</div>
+            <div id="boxStatusPagamento" style="margin-bottom:15px;"></div>
             
-            <div id="boxStatusPagamento"></div>
-            
-            <div style="margin-top:15px; display:flex; gap:10px;" id="boxAddPagamento">
-                <input type="text" id="inputAcoesValorPago" inputmode="numeric" oninput="maskMoeda(this)" placeholder="Valor Pago R$" style="flex:1; padding:10px; border:1px solid #ccc; border-radius:5px; font-weight:bold;">
-                <button class="btn-action" style="flex:1;" onclick="registrarPagamentoMes()">💲 Registrar Pgto</button>
+            <div style="text-align:left; border-top:1px solid #ccc; padding-top:15px;">
+                <div style="font-size:13px; font-weight:bold; color:var(--theme-base); margin-bottom:10px;">Novo Recebimento (Período)</div>
+                <div style="display:flex; gap:10px; margin-bottom:5px;">
+                    <div style="flex:1;"><label>Mês Início:</label><input type="month" id="pgIni" onchange="calcPgtoMulti()"></div>
+                    <div style="flex:1;"><label>Mês Fim (Opc):</label><input type="month" id="pgFim" onchange="calcPgtoMulti()"></div>
+                </div>
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <div style="flex:1;"><label>Data Pgto:</label><input type="date" id="pgData"></div>
+                    <div style="flex:1;"><label>Valor (R$):</label><input type="text" id="pgValor" oninput="maskMoeda(this)" style="font-weight:bold; color:#1565C0;"></div>
+                </div>
+                <button class="btn-action" style="width:100%;" onclick="registrarPagamentoMulti()">💲 Confirmar Recebimento</button>
             </div>
         </div>
 
@@ -454,7 +474,7 @@
     function getExtensoMes(mesNum) { const m = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]; return m[parseInt(mesNum)-1] || ""; }
     function getAbrevMes(mesNum) { const m = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]; return m[parseInt(mesNum)-1] || ""; }
 
-    // 2. DADOS BASE
+    // 2. DADOS BASE E TEMA
     let db = carregarBanco(); 
     let isSyncingFundo = false;
     let tempCategorias = [];
@@ -471,6 +491,7 @@
             contribuintes: [], 
             administradores: [],
             configGerais: { 
+                corTema: "#008C4A",
                 alertas: {
                     laudo: { ativo: true, dias: 7 },
                     seguro: { ativo: true, dias: 7 },
@@ -483,13 +504,7 @@
         if(salvo) {
             let parsed = JSON.parse(salvo);
             if(!parsed.configs) parsed.configs = base.configs;
-            // Migração de config antiga
             if(!parsed.configGerais) parsed.configGerais = base.configGerais;
-            if(parsed.configGerais.diasAvisoLicenca !== undefined) {
-                let d = parseInt(parsed.configGerais.diasAvisoLicenca);
-                parsed.configGerais.alertas = { laudo: {ativo:true, dias:d}, seguro: {ativo:true, dias:d}, licenca: {ativo:true, dias:d} };
-                delete parsed.configGerais.diasAvisoLicenca;
-            }
             if(!parsed.cooperativa.pixList) parsed.cooperativa.pixList = [];
             return parsed;
         }
@@ -500,7 +515,25 @@
     function fecharModal(id) { document.getElementById(id).style.display = 'none'; }
     function marcarMudancaEstrutural() { db.configs.ultimaMudancaLocal = Date.now(); salvarBanco(); sincronizarFundo(false, true); }
 
+    function aplicarTema() {
+        let cor = db.configGerais.corTema || '#008C4A';
+        document.documentElement.style.setProperty('--theme-base', cor);
+        document.getElementById('metaThemeColor').setAttribute('content', cor);
+    }
+
+    function renderizarCabecalhoPrincipal() {
+        let logoImg = document.getElementById('headerLogo');
+        if(db.cooperativa.logo) {
+            logoImg.src = db.cooperativa.logo;
+            logoImg.style.display = 'block';
+        } else {
+            logoImg.style.display = 'none';
+        }
+    }
+
     window.onload = () => { 
+        aplicarTema();
+        renderizarCabecalhoPrincipal();
         setTimeout(() => {
             document.getElementById('splashScreen').style.opacity = '0';
             setTimeout(()=>{document.getElementById('splashScreen').style.display = 'none';}, 500); 
@@ -554,6 +587,21 @@
         renderizarLista();
     }
 
+    // CALCULO VALOR ESPERADO NO MES
+    function calcularValorEsperado(c, mesRef) {
+        let soma = 0;
+        (c.carros || []).forEach(car => {
+            if(!car.ativo) return;
+            // Só cobra o carro se o mesRef for >= ao mês de cadastro do veículo
+            let cadMonth = car.dataCadastro ? car.dataCadastro.substring(0,7) : '2000-01'; 
+            if(mesRef >= cadMonth) {
+                soma += parseMoeda(car.valor);
+            }
+        });
+        let desc = parseMoeda(c.desconto || "0");
+        return Math.max(0, soma - desc);
+    }
+
     // 3. MAIN LIST & FILTERS
     function setFiltroView(view) {
         filtroViewAtual = view;
@@ -590,6 +638,11 @@
         return alertas;
     }
 
+    function isMesPago(c, mesRef) {
+        if(!c.pagamentos) return false;
+        return c.pagamentos.some(p => (p.mesesRef && p.mesesRef.includes(mesRef)) || p.mesAno === mesRef);
+    }
+
     function renderizarLista() {
         const lista = document.getElementById('listaPrincipal');
         let html = '';
@@ -598,9 +651,9 @@
         let contribs = [...db.contribuintes].sort((a,b) => a.nome.localeCompare(b.nome));
         
         contribs.forEach(c => {
-            let valorEsperado = parseMoeda(c.valorTotal || "0");
-            let pgtoMes = (c.pagamentos || []).filter(p => p.mesAno === mesRef).reduce((acc, p) => acc + p.valorPago, 0);
-            let pendente = (valorEsperado - pgtoMes) > 0.01;
+            let valorEsperado = calcularValorEsperado(c, mesRef);
+            let pago = isMesPago(c, mesRef);
+            let pendente = !pago && valorEsperado > 0;
 
             let alertasArr = [];
             (c.carros || []).forEach(car => { alertasArr = alertasArr.concat(checarAlertasCarro(car)); });
@@ -610,8 +663,8 @@
             if(filtroViewAtual === 'vencimentos' && !temAlerta) return;
 
             let statusPgtoHtml = pendente 
-                ? `<span class="status-badge status-pendente">Falta Pagar R$ ${formatMoeda(valorEsperado - pgtoMes)}</span>` 
-                : `<span class="status-badge status-ok">Pago (R$ ${formatMoeda(pgtoMes)})</span>`;
+                ? `<span class="status-badge status-pendente">Falta Pagar R$ ${formatMoeda(valorEsperado)}</span>` 
+                : `<span class="status-badge status-ok">Pago / Regular</span>`;
             
             let alertasHtml = '';
             if(temAlerta) alertasHtml = alertasArr.join('<br>');
@@ -627,7 +680,7 @@
                         <div>${statusPgtoHtml}</div>
                     </div>
                 </div>
-                ${temAlerta ? `<div class="info-direita" style="text-align: right; margin-left: 10px; flex-shrink: 0; font-size: 10px; color: #D32F2F; font-weight: bold;">${alertasHtml}</div>` : ''}
+                ${temAlerta ? `<div style="text-align: right; margin-left: 10px; flex-shrink: 0;"><div class="alert-home-text">⚠️<br>${alertasHtml}</div></div>` : ''}
             </li>`;
         });
 
@@ -642,7 +695,6 @@
         document.getElementById('btnNovoListagem').onclick = () => abrirFormContribuinte(null);
         document.getElementById('btnVoltarListagem').onclick = () => { fecharModal('modalListagem'); document.getElementById('modalPainelUnificado').style.display='flex'; };
         
-        // Exibe os botões de Importar/Exportar do Excel
         document.getElementById('boxAcoesExtrasExcel').style.display = 'flex';
         
         let htmlLista = '';
@@ -650,7 +702,7 @@
         contribs.forEach((c) => { 
             let carrosQtd = (c.carros || []).length;
             htmlLista += `<div style="padding:10px; border-bottom:1px solid #ddd; display:flex; justify-content:space-between; align-items:center;">
-                <div style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><strong>${c.nome}</strong><br><small style="color:#666;">${carrosQtd} Veículo(s) | Total: R$ ${c.valorTotal}</small></div>
+                <div style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><strong>${c.nome}</strong><br><small style="color:#666;">${carrosQtd} Veículo(s)</small></div>
                 <div style="flex-shrink:0; margin-left:10px;">
                     <button style="background:none; border:none; font-size:20px; cursor:pointer;" onclick="abrirFormContribuinte('${c.id}')">✏️</button>
                     <button style="background:none; border:none; font-size:20px; cursor:pointer; color:#d32f2f;" onclick="excluirContribuinte('${c.id}')">🗑️</button>
@@ -661,7 +713,6 @@
         document.getElementById('modalListagem').style.display = 'flex';
     }
 
-    // Limpar o painel de listagem quando voltar pro menu principal
     let oldFecharModal = fecharModal;
     fecharModal = function(id) {
         if(id === 'modalListagem') document.getElementById('boxAcoesExtrasExcel').style.display = 'none';
@@ -687,14 +738,12 @@
             document.getElementById('contId').value = c.id;
             document.getElementById('contNome').value = c.nome || '';
             document.getElementById('contDesconto').value = c.desconto || '';
-            document.getElementById('contValor').value = c.valorTotal || '';
             if(c.telefones) tempTelefones = [...c.telefones];
             if(c.carros) tempCarros = JSON.parse(JSON.stringify(c.carros));
         } else {
             document.getElementById('contId').value = '';
             document.getElementById('contNome').value = '';
             document.getElementById('contDesconto').value = '';
-            document.getElementById('contValor').value = '0,00';
         }
         renderListaTelefones();
         renderListaCarros();
@@ -709,12 +758,6 @@
     function addTelefone() { let v = document.getElementById('novoTelInput').value.trim(); if(v) { tempTelefones.push(v); document.getElementById('novoTelInput').value = ''; renderListaTelefones(); } }
     function removerTelefone(idx) { tempTelefones.splice(idx, 1); renderListaTelefones(); }
 
-    function calcTotalContribuinte() {
-        let somaCarros = tempCarros.filter(c => c.ativo).reduce((acc, c) => acc + parseMoeda(c.valor), 0);
-        let desc = parseMoeda(document.getElementById('contDesconto').value);
-        document.getElementById('contValor').value = formatMoeda(Math.max(0, somaCarros - desc));
-    }
-
     function salvarContribuinte() {
         let nome = document.getElementById('contNome').value.trim();
         if(!nome) return alert("Digite o nome.");
@@ -725,7 +768,6 @@
             nome: nome,
             telefones: tempTelefones,
             desconto: document.getElementById('contDesconto').value,
-            valorTotal: document.getElementById('contValor').value,
             carros: tempCarros,
             pagamentos: db.contribuintes.find(x=>x.id===id)?.pagamentos || []
         };
@@ -752,7 +794,6 @@
             </div>`;
         });
         box.innerHTML = html;
-        calcTotalContribuinte(); 
     }
 
     function abrirFormCarro(idx) {
@@ -834,7 +875,7 @@
         fecharModal('modalFormCarro');
     }
 
-    // 6. PAGAMENTOS E AÇÕES
+    // 6. PAGAMENTOS E AÇÕES (MULTI-MESES)
     function enviarChavePixWhatsApp() {
         let c = db.contribuintes.find(x => x.id === document.getElementById('acoesContId').value);
         if(!c || !c.telefones || c.telefones.length === 0) return alert('O contribuinte não possui nenhum telefone (WhatsApp) cadastrado.');
@@ -842,8 +883,9 @@
         
         if(!db.cooperativa.pixList || db.cooperativa.pixList.length === 0) return alert("Nenhuma chave cadastrada nos dados da Cooperativa!");
         let p = db.cooperativa.pixList.find(x => x.principal) || db.cooperativa.pixList[0];
-        
-        let txt = `Olá ${c.nome}! Segue a Chave PIX da cooperativa para sua contribuição:\n\n*Tipo:* ${p.tipo}\n*Chave:* ${p.chave}\n*Beneficiário:* ${p.beneficiario}`;
+        let fan = db.cooperativa.fantasia || "Cooperativa";
+
+        let txt = `Segue a Chave PIX da ${fan}:\nTipo: ${p.tipo}\nChave: ${p.chave}\nBeneficiário: ${p.beneficiario}`;
         window.open(`https://wa.me/55${num}?text=${encodeURIComponent(txt)}`, '_blank');
     }
 
@@ -853,64 +895,137 @@
         document.getElementById('acoesContId').value = id;
         document.getElementById('tituloAcoesContribuinte').innerText = c.nome;
         
-        // Render Botões Whatsapp Minimalista
         let waBox = document.getElementById('boxWAAcoes');
         waBox.innerHTML = '';
         if(c.telefones && c.telefones.length > 0) {
             let primeiro = c.telefones[0];
             let num = primeiro.replace(/\D/g, '');
             waBox.innerHTML = `<button class="btn-wa-minimal" onclick="window.open('https://wa.me/55${num}','_blank')">
-                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:20px; height:20px;"> Falar no WhatsApp
+                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:16px; height:16px;"> Falar no App
             </button>`;
         }
 
         let mesRef = document.getElementById('filtroMesGeral').value;
         let partes = mesRef.split('-');
         document.getElementById('lblMesAcoes').innerText = `${partes[1]}/${partes[0]}`;
-        document.getElementById('lblAcoesValorTotal').innerText = `R$ ${c.valorTotal || '0,00'}`;
+        
+        // Reset inputs multi-meses
+        document.getElementById('pgIni').value = mesRef;
+        document.getElementById('pgFim').value = mesRef;
+        document.getElementById('pgData').value = getHojeSTR();
         
         renderizarStatusPagamento(c, mesRef);
+        calcPgtoMulti(); // Calcula o preenchimento automático inicial
         renderizarHistPagamentos(c);
         
         document.getElementById('modalAcoesContribuinte').style.display = 'flex';
     }
 
     function renderizarStatusPagamento(c, mesRef) {
-        let valorEsperado = parseMoeda(c.valorTotal || "0");
-        let pgtoMes = (c.pagamentos || []).filter(p => p.mesAno === mesRef).reduce((acc, p) => acc + p.valorPago, 0);
-        let valorPendente = Math.max(0, valorEsperado - pgtoMes);
-
+        let valorEsperado = calcularValorEsperado(c, mesRef);
+        let pago = isMesPago(c, mesRef);
+        
         let box = document.getElementById('boxStatusPagamento');
-        if(valorPendente > 0.01) {
-            box.innerHTML = `<div style="color:#C62828; font-weight:bold; background:#FFEBEE; padding:10px; border-radius:5px;">Falta Pagar: R$ ${formatMoeda(valorPendente)}</div>`;
+        if(!pago && valorEsperado > 0) {
+            box.innerHTML = `<div style="font-size:24px; font-weight:bold; color:#D32F2F;">Falta Pagar: R$ ${formatMoeda(valorEsperado)}</div>`;
+        } else if (pago) {
+            box.innerHTML = `<div style="font-size:24px; font-weight:bold; color:#2E7D32;">✅ Mês Pago</div>`;
         } else {
-            box.innerHTML = `<div style="color:#2E7D32; font-weight:bold; background:#E8F5E9; padding:10px; border-radius:5px;">✅ Situação Regular (Pago R$ ${formatMoeda(pgtoMes)})</div>`;
+            box.innerHTML = `<div style="font-size:18px; font-weight:bold; color:#666;">Isento / Sem Valor Devido</div>`;
         }
-
-        // Pré-preenche com o valor faltante, caso haja, senão deixa vazio
-        document.getElementById('inputAcoesValorPago').value = valorPendente > 0.01 ? formatMoeda(valorPendente) : '';
     }
 
-    function registrarPagamentoMes() {
+    function getMesesRange(mIni, mFim) {
+        let res = [];
+        let curr = new Date(mIni + '-01T00:00:00');
+        let end = new Date(mFim + '-01T00:00:00');
+        while(curr <= end) {
+            res.push(`${curr.getFullYear()}-${String(curr.getMonth()+1).padStart(2,'0')}`);
+            curr.setMonth(curr.getMonth() + 1);
+        }
+        return res;
+    }
+
+    function calcPgtoMulti() {
+        let ini = document.getElementById('pgIni').value;
+        let fim = document.getElementById('pgFim').value;
+        if(!ini) return;
+        if(!fim || fim < ini) { fim = ini; document.getElementById('pgFim').value = ini; }
+        
         let id = document.getElementById('acoesContId').value;
         let c = db.contribuintes.find(x => x.id === id);
-        let mesRef = document.getElementById('filtroMesGeral').value;
-        let valorStr = document.getElementById('inputAcoesValorPago').value;
-        let valor = parseMoeda(valorStr);
+        let meses = getMesesRange(ini, fim);
         
-        if(valor <= 0) return alert("Digite um valor válido.");
+        let total = 0;
+        let erro = null;
         
+        meses.forEach(m => {
+            if(isMesPago(c, m)) erro = `Um dos meses informados (${m}) já está pago!`;
+            else total += calcularValorEsperado(c, m);
+        });
+        
+        let iptValor = document.getElementById('pgValor');
+        if(erro) {
+            iptValor.value = '0,00';
+            iptValor.dataset.minimo = 0;
+        } else {
+            iptValor.value = formatMoeda(total);
+            iptValor.dataset.minimo = total;
+        }
+    }
+
+    function buildLabelRef(meses) {
+        if(meses.length === 1) {
+            let p = meses[0].split('-');
+            return `${p[1]}/${p[0]}`;
+        }
+        let mIni = meses[0].split('-');
+        let mFim = meses[meses.length-1].split('-');
+        if(mIni[0] === mFim[0]) {
+            return `${mIni[1]} a ${mFim[1]}/${mIni[0]}`;
+        } else {
+            return `${mIni[1]}/${mIni[0].substring(2)} a ${mFim[1]}/${mFim[0].substring(2)}`;
+        }
+    }
+
+    function registrarPagamentoMulti() {
+        let id = document.getElementById('acoesContId').value;
+        let c = db.contribuintes.find(x => x.id === id);
+        
+        let ini = document.getElementById('pgIni').value;
+        let fim = document.getElementById('pgFim').value;
+        let dataPgto = document.getElementById('pgData').value;
+        let valorStr = document.getElementById('pgValor').value;
+        let valorPago = parseMoeda(valorStr);
+        let valorMinimo = parseFloat(document.getElementById('pgValor').dataset.minimo) || 0;
+        
+        if(!ini || !dataPgto) return alert("Preencha o mês de início e a data de pagamento.");
+        if(valorPago <= 0) return alert("O valor deve ser maior que zero.");
+        
+        if(valorPago < valorMinimo) {
+            return alert(`Não é permitido registrar valor menor. O valor esperado para esse período é R$ ${formatMoeda(valorMinimo)}. Se necessário, ajuste o desconto no cadastro do contribuinte.`);
+        }
+
+        let meses = getMesesRange(ini, fim);
+        
+        // Validation dupla
+        for(let m of meses) {
+            if(isMesPago(c, m)) return alert(`O mês ${m} já consta como pago no histórico! Cancele o pagamento anterior se desejar sobrescrever.`);
+        }
+
         if(!c.pagamentos) c.pagamentos = [];
         c.pagamentos.push({
             id: 'pg_' + Date.now(),
-            mesAno: mesRef,
-            valorPago: valor,
-            dataPagamento: getHojeSTR()
+            mesAno: ini, // old legacy compat
+            mesesRef: meses,
+            labelRef: buildLabelRef(meses),
+            valorPago: valorPago,
+            dataPagamento: dataPgto
         });
         
         salvarBanco();
-        abrirAcoesContribuinte(id); // Recarrega view
-        renderizarLista(); // Atualiza lista por trás
+        abrirAcoesContribuinte(id); 
+        renderizarLista(); 
     }
 
     function excluirPagamento(contId, pgId) {
@@ -930,9 +1045,9 @@
         let pgtos = [...c.pagamentos].sort((a,b) => b.mesAno.localeCompare(a.mesAno) || new Date(b.dataPagamento) - new Date(a.dataPagamento));
         
         pgtos.forEach(p => {
-            let mesFmt = p.mesAno.split('-').reverse().join('/');
+            let label = p.labelRef ? p.labelRef : p.mesAno.split('-').reverse().join('/');
             html += `<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ddd; padding:8px 0;">
-                <div><b>Ref: ${mesFmt}</b><br><small style="color:#666;">Pago em: ${formatDataBR(p.dataPagamento)}</small></div>
+                <div><b>Ref: ${label}</b><br><small style="color:#666;">Pago em: ${formatDataBR(p.dataPagamento)}</small></div>
                 <div style="display:flex; align-items:center; gap:10px;">
                     <b style="color:#2E7D32;">R$ ${formatMoeda(p.valorPago)}</b>
                     <button style="background:none; border:none; color:#d32f2f; cursor:pointer; font-weight:bold; font-size:16px;" onclick="excluirPagamento('${c.id}', '${p.id}')">X</button>
@@ -991,16 +1106,19 @@
         db.cooperativa.cnpj = document.getElementById('coopCNPJ').value;
         db.cooperativa.pixList = tempPixCoop;
         salvarBanco();
+        renderizarCabecalhoPrincipal();
         fecharModal('modalFormCooperativa');
         document.getElementById('modalPainelUnificado').style.display = 'flex';
     }
 
-    // Config Gerais / Alertas
+    // Config Gerais / Alertas / Temas
     function abrirModalConfigGerais() {
         fecharModal('modalPainelUnificado');
         
         let confAlertas = db.configGerais.alertas || { laudo: {ativo:true, dias:7}, seguro: {ativo:true, dias:7}, licenca: {ativo:true, dias:7} };
         
+        document.getElementById('confCorTema').value = db.configGerais.corTema || '#008C4A';
+
         document.getElementById('confAlertaLaudo').checked = confAlertas.laudo.ativo;
         document.getElementById('confDiasLaudo').value = confAlertas.laudo.dias;
         toggleConfAlerta('Laudo');
@@ -1054,8 +1172,8 @@
         document.getElementById('editIdxCat').value = idx;
         
         let box = document.getElementById('boxEditCat');
-        box.style.background = "#E8F5E9";
-        box.style.borderColor = "#008C4A";
+        box.style.background = "var(--theme-light)";
+        box.style.borderColor = "var(--theme-base)";
         document.getElementById('lblModoCat').innerText = "Editando Categoria";
         document.getElementById('btnSalvarCat').innerText = "OK";
         document.getElementById('btnCancelarEditCat').style.display = "flex";
@@ -1077,6 +1195,7 @@
     function removerCategoria(idx) { tempCategorias.splice(idx, 1); renderListasCategorias(); }
 
     function salvarConfigGerais() {
+        db.configGerais.corTema = document.getElementById('confCorTema').value;
         db.configGerais.alertas = {
             laudo: { ativo: document.getElementById('confAlertaLaudo').checked, dias: document.getElementById('confDiasLaudo').value || 7 },
             seguro: { ativo: document.getElementById('confAlertaSeguro').checked, dias: document.getElementById('confDiasSeguro').value || 7 },
@@ -1084,6 +1203,7 @@
         };
         db.categorias = tempCategorias;
         salvarBanco();
+        aplicarTema();
         fecharModal('modalConfigGerais');
         document.getElementById('modalPainelUnificado').style.display='flex';
         renderizarLista(); 
@@ -1140,11 +1260,10 @@
             } else {
                 c.carros.forEach(car => {
                     let row = { "Nome": c.nome, "Placa": car.placa, "Ano": car.ano, "Categoria": car.categoria, "Data Laudo": car.dataLaudo ? formatDataBR(car.dataLaudo) : "", "Data Seguro": car.dataSeguro ? formatDataBR(car.dataSeguro) : "", "Data Licença": car.dataLicenca ? formatDataBR(car.dataLicenca) : "" };
-                    // Exibir dias de pagamento nesses meses
                     colunasExcelMeses.forEach(col => {
                         let partesCol = col.split('-');
-                        let keyBusca = `20${partesCol[1]}-${partesCol[0]}`; // ex: 2026-01
-                        let pg = (c.pagamentos || []).find(p => p.mesAno === keyBusca);
+                        let keyBusca = `20${partesCol[1]}-${partesCol[0]}`; 
+                        let pg = (c.pagamentos || []).find(p => (p.mesesRef && p.mesesRef.includes(keyBusca)) || p.mesAno === keyBusca);
                         if(pg) {
                             let dia = pg.dataPagamento.split('-')[2];
                             row[col] = dia;
@@ -1165,7 +1284,7 @@
     function baixarModeloExcel() {
         if(!window.XLSX) return alert("A biblioteca do Excel não foi carregada. Verifique sua conexão com a internet.");
         let row = { "Nome": "João Silva", "Placa": "ABC1D23", "Ano": "2020", "Categoria": "Van", "Data Laudo": "20/04/2026", "Data Seguro": "20/04/2026", "Data Licença": "20/04/2026" };
-        colunasExcelMeses.forEach(mes => row[mes] = "15"); // Exemplo de pagamento dia 15
+        colunasExcelMeses.forEach(mes => row[mes] = "15"); 
         
         let ws = XLSX.utils.json_to_sheet([row]);
         let wb = XLSX.utils.book_new();
@@ -1193,7 +1312,6 @@
                     if(!agrupado[nome]) agrupado[nome] = { telefones: [], desconto: "0,00", carros: [], pagamentosTemp: [] };
                     
                     if(r["Placa"]) {
-                        // Função para desformatar data BR
                         let parseData = (dRaw) => {
                             if(!dRaw) return "";
                             let str = dRaw.toString();
@@ -1203,7 +1321,7 @@
                         agrupado[nome].carros.push({
                             id: 'car_'+Date.now()+Math.random(),
                             placa: r["Placa"].toString().toUpperCase(), ano: r["Ano"] ? r["Ano"].toString() : "", 
-                            categoria: r["Categoria"]||"", valor: "0,00", // Valor será atualizado pela categoria depois
+                            categoria: r["Categoria"]||"", valor: "0,00",
                             dataLaudo: parseData(r["Data Laudo"]),
                             dataSeguro: parseData(r["Data Seguro"]),
                             dataLicenca: parseData(r["Data Licença"]),
@@ -1212,15 +1330,12 @@
                         });
                     }
 
-                    // Processar Pagamentos Customizados
                     colunasExcelMeses.forEach(col => {
                         if(r[col]) {
                             let dia = String(r[col]).padStart(2, '0');
                             let pCol = col.split('-');
                             let mesAnoRef = `20${pCol[1]}-${pCol[0]}`;
                             let dtPgto = `20${pCol[1]}-${pCol[0]}-${dia}`;
-                            
-                            // Guardar para inserir se não existir
                             agrupado[nome].pagamentosTemp.push({ ref: mesAnoRef, dt: dtPgto });
                         }
                     });
@@ -1230,7 +1345,6 @@
                     let d = agrupado[nome];
                     let cExistente = db.contribuintes.find(c => c.nome.toLowerCase() === nome.toLowerCase());
                     
-                    // Recuperar valores base de carro
                     d.carros.forEach(car => {
                         let cat = db.categorias.find(x => x.nome === car.categoria);
                         if(cat && cat.valor) car.valor = cat.valor;
@@ -1243,19 +1357,17 @@
                         db.contribuintes.push(cExistente);
                     }
 
-                    // Recalcula total esperado do contribuinte
-                    let soma = cExistente.carros.filter(car=>car.ativo).reduce((acc, car) => acc + parseMoeda(car.valor), 0);
-                    let desc = parseMoeda(cExistente.desconto || "0");
-                    cExistente.valorTotal = formatMoeda(Math.max(0, soma - desc));
-
                     // Aplica pagamentos achados
                     d.pagamentosTemp.forEach(pTmp => {
-                        let pgExiste = cExistente.pagamentos.some(pg => pg.mesAno === pTmp.ref);
+                        let pgExiste = isMesPago(cExistente, pTmp.ref);
                         if(!pgExiste) {
+                            let valEsperado = calcularValorEsperado(cExistente, pTmp.ref);
                             cExistente.pagamentos.push({
                                 id: 'pg_' + Date.now() + Math.random(),
                                 mesAno: pTmp.ref,
-                                valorPago: parseMoeda(cExistente.valorTotal),
+                                mesesRef: [pTmp.ref],
+                                labelRef: buildLabelRef([pTmp.ref]),
+                                valorPago: valEsperado > 0 ? valEsperado : 0,
                                 dataPagamento: pTmp.dt
                             });
                         }
@@ -1271,7 +1383,7 @@
             }
         };
         reader.readAsArrayBuffer(file);
-        e.target.value = ''; // Reseta input
+        e.target.value = ''; 
     }
 
     // AVANÇADO / NUVEM
