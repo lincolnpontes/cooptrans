@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#008C4A" id="metaThemeColor">
-    <title>Cooptrans v1.0.3</title>
+    <title>Cooptrans v1.0.4</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -26,7 +26,7 @@
         .spinner { border: 6px solid #f3f3f3; border-top: 6px solid var(--theme-base); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
-        .header { background-color: var(--theme-base); padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; color: white; flex-shrink: 0; }
+        .header { background-color: var(--theme-base); padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; color: white; flex-shrink: 0; position: relative; }
         
         .month-picker-box { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold; display: inline-flex; align-items: center; gap: 6px; transition: 0.3s; }
         .month-picker-box:active { background: rgba(255,255,255,0.4); }
@@ -100,7 +100,7 @@
 
 <div id="splashScreen">
     <div class="splash-titulo">Cooptrans</div>
-    <div class="splash-versao">v1.0.3</div>
+    <div class="splash-versao">v1.0.4</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 30px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -119,9 +119,9 @@
             <input type="hidden" id="filtroMesGeral">
         </div>
         
-        <!-- Logo Centralizada -->
-        <div style="flex: 1; display: flex; justify-content: center; align-items: center;">
-            <img id="headerLogo" src="" style="max-height: 35px; border-radius: 4px; display: none;">
+        <!-- Logo Ampliada e Sobreposta -->
+        <div style="position: absolute; left: 50%; transform: translateX(-50%); top: 5px; z-index: 100;">
+            <img id="headerLogo" src="" style="height: 55px; border-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); display: none; background: white; padding: 2px;">
         </div>
 
         <div style="flex: 1; text-align: right;" class="header-actions">
@@ -261,7 +261,7 @@
     </div>
 </div>
 
-<!-- CONFIG GERAIS (MODIFICADO OS ALERTAS E CORES) -->
+<!-- CONFIG GERAIS -->
 <div class="modal-overlay" id="modalConfigGerais">
     <div class="modal" style="max-height: 90vh;">
         <div class="modal-title">Configurações Gerais</div>
@@ -341,6 +341,7 @@
     <div class="modal" style="padding-top:15px; width: 95%; height: 90vh;">
         <div class="modal-title">Cadastro de Contribuinte</div>
         <input type="hidden" id="contId">
+        <input type="hidden" id="contFromAcoes" value="false"> <!-- Flag para Navegação -->
         
         <div class="section-title">Dados Pessoais</div>
         <div class="form-group"><label>Nome Completo:</label><input type="text" id="contNome"></div>
@@ -368,7 +369,7 @@
         <div id="listaCarros" style="background:#f9f9f9; padding:8px; border-radius:4px; min-height:50px; margin-bottom:15px;"></div>
 
         <div class="modal-actions">
-            <button class="btn-cancel" onclick="fecharModal('modalFormContribuinte'); abrirGerenciarContribuintes();">Cancelar</button>
+            <button class="btn-cancel" onclick="cancelarFormContribuinte()">Cancelar</button>
             <button class="btn-action" onclick="salvarContribuinte()">Salvar</button>
         </div>
     </div>
@@ -399,7 +400,7 @@
         
         <div style="display: flex; gap: 10px;">
             <div class="form-group" style="flex:1;"><label>Data Licença:</label><input type="date" id="carLicenca"></div>
-            <div class="form-group" style="flex:1;"><label style="color:#008C4A;">Data Cadastro:</label><input type="date" id="carCadastro" style="border: 1px solid #008C4A;"></div>
+            <div class="form-group" style="flex:1;"><label style="color:var(--theme-base);">Data Cadastro:</label><input type="date" id="carCadastro" style="border: 1px solid var(--theme-base);"></div>
         </div>
 
         <div class="form-group" style="display:flex; align-items:center; background:#ffebee; padding:10px; border-radius:5px; margin-bottom: 5px; margin-top:15px;">
@@ -418,12 +419,12 @@
     </div>
 </div>
 
-<!-- AÇÕES DO CONTRIBUINTE (PAGAMENTO MULTI-MESES) -->
+<!-- AÇÕES DO CONTRIBUINTE (RECEBIMENTOS) -->
 <div class="modal-overlay" id="modalAcoesContribuinte">
     <div class="modal">
         <div class="modal-title" style="display:flex; justify-content:space-between; align-items:center;">
             <span id="tituloAcoesContribuinte">Nome do Contribuinte</span>
-            <button style="background:none; border:none; font-size:20px; cursor:pointer;" onclick="fecharModal('modalAcoesContribuinte'); abrirFormContribuinte(document.getElementById('acoesContId').value);">✏️</button>
+            <button style="background:none; border:none; font-size:20px; cursor:pointer;" onclick="abrirFormContribuinte(document.getElementById('acoesContId').value, true);">✏️</button>
         </div>
         <input type="hidden" id="acoesContId">
 
@@ -438,17 +439,37 @@
         <div class="form-group" style="background:#f9f9f9; padding:15px; border-radius:5px; text-align:center;">
             <div id="boxStatusPagamento" style="margin-bottom:15px;"></div>
             
-            <div style="text-align:left; border-top:1px solid #ccc; padding-top:15px;">
-                <div style="font-size:13px; font-weight:bold; color:var(--theme-base); margin-bottom:10px;">Novo Recebimento (Período)</div>
+            <!-- SINGLE MONTH PAYMENT -->
+            <div id="boxSingleMes">
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <div style="flex:1;"><label>Data Pgto:</label><input type="date" id="pgDataSingle"></div>
+                    <div style="flex:1;"><label>Valor a Pagar (R$):</label><input type="text" id="pgValorSingle" readonly style="font-weight:bold; color:var(--theme-base); background:#eee;"></div>
+                </div>
+                <button class="btn-action" style="width:100%;" onclick="registrarPagamentoSingle()">💲 Registrar Pgto do Mês</button>
+            </div>
+
+            <!-- SWITCH MULTI MONTH -->
+            <div style="margin-top:20px; display:flex; align-items:center; justify-content:center; gap:10px; border-top:1px solid #ccc; padding-top:15px;">
+                <label class="switch"><input type="checkbox" id="switchMultiMes" onchange="toggleMultiMes()"><span class="slider"></span></label>
+                <span style="font-size:13px; font-weight:bold; color:#333;">Receber Múltiplos Meses / Período</span>
+            </div>
+
+            <!-- MULTI MONTH PAYMENT (Hidden) -->
+            <div id="boxMultiMes" style="display:none; text-align:left; margin-top:15px; padding-top:15px; border-top:1px dashed #ccc;">
                 <div style="display:flex; gap:10px; margin-bottom:5px;">
                     <div style="flex:1;"><label>Mês Início:</label><input type="month" id="pgIni" onchange="calcPgtoMulti()"></div>
                     <div style="flex:1;"><label>Mês Fim (Opc):</label><input type="month" id="pgFim" onchange="calcPgtoMulti()"></div>
                 </div>
-                <div style="display:flex; gap:10px; margin-bottom:10px;">
-                    <div style="flex:1;"><label>Data Pgto:</label><input type="date" id="pgData"></div>
-                    <div style="flex:1;"><label>Valor (R$):</label><input type="text" id="pgValor" oninput="maskMoeda(this)" style="font-weight:bold; color:#1565C0;"></div>
+                <div style="display:flex; gap:10px; margin-bottom:5px;">
+                    <div style="flex:1;"><label style="color:#673AB7;">Desconto Extra (R$):</label><input type="text" id="pgDescontoMulti" oninput="maskMoeda(this); calcPgtoMulti();" placeholder="0,00"></div>
+                    <div style="flex:1;"><label>Total a Pagar (R$):</label><input type="text" id="pgValorMulti" readonly style="font-weight:bold; color:var(--theme-base); background:#eee;"></div>
                 </div>
-                <button class="btn-action" style="width:100%;" onclick="registrarPagamentoMulti()">💲 Confirmar Recebimento</button>
+                <div style="display:flex; gap:10px; margin-bottom:10px;">
+                    <div style="flex:1;"><label>Data Pgto:</label><input type="date" id="pgDataMulti"></div>
+                    <div style="flex:1; display:flex; align-items:flex-end;">
+                        <button class="btn-action" style="width:100%;" onclick="registrarPagamentoMulti()">💲 Confirmar</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -592,7 +613,7 @@
         let soma = 0;
         (c.carros || []).forEach(car => {
             if(!car.ativo) return;
-            // Só cobra o carro se o mesRef for >= ao mês de cadastro do veículo
+            // Só cobra o carro a partir do mes de cadastro do veículo
             let cadMonth = car.dataCadastro ? car.dataCadastro.substring(0,7) : '2000-01'; 
             if(mesRef >= cadMonth) {
                 soma += parseMoeda(car.valor);
@@ -728,8 +749,11 @@
         }
     }
 
-    function abrirFormContribuinte(id) {
+    function abrirFormContribuinte(id, fromAcoes = false) {
         fecharModal('modalListagem');
+        fecharModal('modalAcoesContribuinte');
+        
+        document.getElementById('contFromAcoes').value = fromAcoes ? 'true' : 'false';
         tempTelefones = [];
         tempCarros = [];
         
@@ -748,6 +772,15 @@
         renderListaTelefones();
         renderListaCarros();
         document.getElementById('modalFormContribuinte').style.display = 'flex';
+    }
+
+    function cancelarFormContribuinte() {
+        fecharModal('modalFormContribuinte');
+        if(document.getElementById('contFromAcoes').value === 'true') {
+            document.getElementById('modalAcoesContribuinte').style.display = 'flex';
+        } else {
+            abrirGerenciarContribuintes();
+        }
     }
 
     function renderListaTelefones() {
@@ -776,8 +809,14 @@
         if(idx >= 0) db.contribuintes[idx] = novo; else db.contribuintes.push(novo);
         
         salvarBanco();
-        fecharModal('modalFormContribuinte');
-        abrirGerenciarContribuintes();
+        
+        if(document.getElementById('contFromAcoes').value === 'true') {
+            fecharModal('modalFormContribuinte');
+            abrirAcoesContribuinte(id);
+        } else {
+            fecharModal('modalFormContribuinte');
+            abrirGerenciarContribuintes();
+        }
         renderizarLista();
     }
 
@@ -875,7 +914,7 @@
         fecharModal('modalFormCarro');
     }
 
-    // 6. PAGAMENTOS E AÇÕES (MULTI-MESES)
+    // 6. PAGAMENTOS E AÇÕES (RECEBIMENTOS)
     function enviarChavePixWhatsApp() {
         let c = db.contribuintes.find(x => x.id === document.getElementById('acoesContId').value);
         if(!c || !c.telefones || c.telefones.length === 0) return alert('O contribuinte não possui nenhum telefone (WhatsApp) cadastrado.');
@@ -885,8 +924,15 @@
         let p = db.cooperativa.pixList.find(x => x.principal) || db.cooperativa.pixList[0];
         let fan = db.cooperativa.fantasia || "Cooperativa";
 
-        let txt = `Segue a Chave PIX da ${fan}:\nTipo: ${p.tipo}\nChave: ${p.chave}\nBeneficiário: ${p.beneficiario}`;
+        let txt = `Segue a Chave PIX da *${fan}:*\n*Tipo:* ${p.tipo}\n*Chave:* ${p.chave}\n*Beneficiário:* ${p.beneficiario}`;
         window.open(`https://wa.me/55${num}?text=${encodeURIComponent(txt)}`, '_blank');
+    }
+
+    function toggleMultiMes() {
+        let isMulti = document.getElementById('switchMultiMes').checked;
+        document.getElementById('boxSingleMes').style.display = isMulti ? 'none' : 'block';
+        document.getElementById('boxMultiMes').style.display = isMulti ? 'block' : 'none';
+        if(isMulti) calcPgtoMulti();
     }
 
     function abrirAcoesContribuinte(id) {
@@ -909,13 +955,17 @@
         let partes = mesRef.split('-');
         document.getElementById('lblMesAcoes').innerText = `${partes[1]}/${partes[0]}`;
         
-        // Reset inputs multi-meses
+        // Reset inputs UI
+        document.getElementById('switchMultiMes').checked = false;
+        toggleMultiMes();
+
+        document.getElementById('pgDataSingle').value = getHojeSTR();
         document.getElementById('pgIni').value = mesRef;
         document.getElementById('pgFim').value = mesRef;
-        document.getElementById('pgData').value = getHojeSTR();
+        document.getElementById('pgDescontoMulti').value = '';
+        document.getElementById('pgDataMulti').value = getHojeSTR();
         
         renderizarStatusPagamento(c, mesRef);
-        calcPgtoMulti(); // Calcula o preenchimento automático inicial
         renderizarHistPagamentos(c);
         
         document.getElementById('modalAcoesContribuinte').style.display = 'flex';
@@ -926,15 +976,58 @@
         let pago = isMesPago(c, mesRef);
         
         let box = document.getElementById('boxStatusPagamento');
+        let pgSingle = document.getElementById('pgValorSingle');
+
         if(!pago && valorEsperado > 0) {
             box.innerHTML = `<div style="font-size:24px; font-weight:bold; color:#D32F2F;">Falta Pagar: R$ ${formatMoeda(valorEsperado)}</div>`;
+            pgSingle.value = formatMoeda(valorEsperado);
+            pgSingle.dataset.esperado = valorEsperado;
+            document.getElementById('boxSingleMes').style.pointerEvents = 'auto';
+            document.getElementById('boxSingleMes').style.opacity = '1';
         } else if (pago) {
-            box.innerHTML = `<div style="font-size:24px; font-weight:bold; color:#2E7D32;">✅ Mês Pago</div>`;
+            box.innerHTML = `<div style="font-size:24px; font-weight:bold; color:#2E7D32;">✅ Mês já foi Pago</div>`;
+            pgSingle.value = "0,00";
+            pgSingle.dataset.esperado = "0";
+            document.getElementById('boxSingleMes').style.pointerEvents = 'none';
+            document.getElementById('boxSingleMes').style.opacity = '0.5';
         } else {
             box.innerHTML = `<div style="font-size:18px; font-weight:bold; color:#666;">Isento / Sem Valor Devido</div>`;
+            pgSingle.value = "0,00";
+            pgSingle.dataset.esperado = "0";
+            document.getElementById('boxSingleMes').style.pointerEvents = 'none';
+            document.getElementById('boxSingleMes').style.opacity = '0.5';
         }
     }
 
+    function registrarPagamentoSingle() {
+        let id = document.getElementById('acoesContId').value;
+        let c = db.contribuintes.find(x => x.id === id);
+        let mesRef = document.getElementById('filtroMesGeral').value;
+        
+        let esperado = parseFloat(document.getElementById('pgValorSingle').dataset.esperado);
+        let dataPgto = document.getElementById('pgDataSingle').value;
+
+        if(!dataPgto) return alert("Preencha a data do pagamento.");
+        if(esperado <= 0) return alert("Não há valor devido para receber.");
+
+        if(isMesPago(c, mesRef)) return alert("Este mês já consta como pago!");
+
+        if(!c.pagamentos) c.pagamentos = [];
+        c.pagamentos.push({
+            id: 'pg_' + Date.now(),
+            mesAno: mesRef,
+            mesesRef: [mesRef],
+            labelRef: buildLabelRef([mesRef]),
+            valorPago: esperado,
+            dataPagamento: dataPgto
+        });
+        
+        salvarBanco();
+        abrirAcoesContribuinte(id);
+        renderizarLista();
+    }
+
+    // LÓGICA DE MÚLTIPLOS MESES
     function getMesesRange(mIni, mFim) {
         let res = [];
         let curr = new Date(mIni + '-01T00:00:00');
@@ -960,17 +1053,21 @@
         let erro = null;
         
         meses.forEach(m => {
-            if(isMesPago(c, m)) erro = `Um dos meses informados (${m}) já está pago!`;
+            if(isMesPago(c, m)) erro = `Um dos meses do período (${m.split('-').reverse().join('/')}) já está pago!`;
             else total += calcularValorEsperado(c, m);
         });
         
-        let iptValor = document.getElementById('pgValor');
+        let iptValor = document.getElementById('pgValorMulti');
+        let descExtra = parseMoeda(document.getElementById('pgDescontoMulti').value);
+        let finalVal = Math.max(0, total - descExtra);
+
         if(erro) {
             iptValor.value = '0,00';
-            iptValor.dataset.minimo = 0;
+            iptValor.dataset.esperado = 0;
+            alert(erro);
         } else {
-            iptValor.value = formatMoeda(total);
-            iptValor.dataset.minimo = total;
+            iptValor.value = formatMoeda(finalVal);
+            iptValor.dataset.esperado = finalVal;
         }
     }
 
@@ -994,32 +1091,26 @@
         
         let ini = document.getElementById('pgIni').value;
         let fim = document.getElementById('pgFim').value;
-        let dataPgto = document.getElementById('pgData').value;
-        let valorStr = document.getElementById('pgValor').value;
-        let valorPago = parseMoeda(valorStr);
-        let valorMinimo = parseFloat(document.getElementById('pgValor').dataset.minimo) || 0;
+        let dataPgto = document.getElementById('pgDataMulti').value;
+        let esperadoFinal = parseFloat(document.getElementById('pgValorMulti').dataset.esperado) || 0;
         
         if(!ini || !dataPgto) return alert("Preencha o mês de início e a data de pagamento.");
-        if(valorPago <= 0) return alert("O valor deve ser maior que zero.");
-        
-        if(valorPago < valorMinimo) {
-            return alert(`Não é permitido registrar valor menor. O valor esperado para esse período é R$ ${formatMoeda(valorMinimo)}. Se necessário, ajuste o desconto no cadastro do contribuinte.`);
-        }
+        if(esperadoFinal <= 0) return alert("Não há valor pendente ou válido para este período.");
 
         let meses = getMesesRange(ini, fim);
         
         // Validation dupla
         for(let m of meses) {
-            if(isMesPago(c, m)) return alert(`O mês ${m} já consta como pago no histórico! Cancele o pagamento anterior se desejar sobrescrever.`);
+            if(isMesPago(c, m)) return alert(`O mês ${m.split('-').reverse().join('/')} já consta como pago!`);
         }
 
         if(!c.pagamentos) c.pagamentos = [];
         c.pagamentos.push({
             id: 'pg_' + Date.now(),
-            mesAno: ini, // old legacy compat
+            mesAno: ini, 
             mesesRef: meses,
             labelRef: buildLabelRef(meses),
-            valorPago: valorPago,
+            valorPago: esperadoFinal,
             dataPagamento: dataPgto
         });
         
