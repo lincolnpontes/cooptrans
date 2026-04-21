@@ -23,7 +23,6 @@
         .app-container { width: 100%; max-width: 100%; height: 100%; background-color: #ffffff; display: flex; flex-direction: column; position: absolute; top: 0; left: 0; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
         
         #splashScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--theme-base); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; transition: opacity 0.5s ease; }
-        .splash-titulo { font-size: 32px; font-weight: bold; letter-spacing: 1px; }
         .splash-versao { font-size: 14px; margin-top: 5px; opacity: 0.8; }
         #loadingOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; flex-direction: column; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px; text-align: center; padding: 20px; box-sizing: border-box; }
         .spinner { border: 6px solid #f3f3f3; border-top: 6px solid var(--theme-base); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
@@ -98,11 +97,11 @@
         /* Alertas Maiores */
         .alert-home-text { margin-top: 8px; font-size: 16px; color: #D32F2F; line-height: 1.4; }
         
-        /* Botões Estilo WhatsApp */
+        /* Botão do WhatsApp (18 - Ampliado) */
         .btn-whatsapp { background: #25D366; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: 0.2s; flex: 1; text-align: center; }
         .btn-whatsapp:active { background: #1ebe56; transform: scale(0.98); }
 
-        /* Dashboard Cards */
+        /* Dashboard Cards (25) */
         .dash-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         .dash-card { background: #f9f9f9; border: 1px solid #ddd; padding: 15px; border-radius: 8px; text-align: center; }
         .dash-card .title { font-size: 11px; color: #666; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; }
@@ -130,9 +129,7 @@
             }
         } catch(e){}
     </script>
-    <div class="splash-titulo">Cooptrans</div>
     <div class="splash-versao">v1.0.10</div>
-    <button onclick="forcarAtualizacao()" style="margin-top: 30px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
 <div id="syncIndicador"></div>
@@ -144,7 +141,7 @@
 <div class="app-container">
     <div class="header">
         <div style="flex: 1;">
-            <div class="month-picker-box" onclick="abrirSeletorMes()">
+            <div class="month-picker-box" onclick="abrirSeletorMes('filtroMesGeral')">
                 📅 <span id="lblMesVisivel">Abril 2026</span>
             </div>
             <input type="hidden" id="filtroMesGeral">
@@ -156,6 +153,7 @@
         </div>
 
         <div style="flex: 1; text-align: right;" class="header-actions">
+            <button onclick="abrirPainelResultados(true)">📊</button>
             <button onclick="document.getElementById('modalPainelUnificado').style.display='flex'">⚙️</button>
         </div>
     </div>
@@ -170,7 +168,7 @@
     </div>
 </div>
 
-<!-- Modal Personalizado para Selecionar Mês e Ano -->
+<!-- Modal Personalizado para Selecionar Mês e Ano (Unificado para todo o APP) -->
 <div class="modal-overlay" id="modalMonthPicker" style="z-index: 2000;">
     <div class="modal" style="width: 320px; padding: 20px;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px;">
@@ -189,7 +187,7 @@
 <div class="modal-overlay" id="modalPainelUnificado">
     <div class="modal" style="padding-top: 25px;">
         <h2 style="text-align: center; color: var(--theme-base); margin-top: 0; margin-bottom: 20px;">Menu Cooptrans</h2>
-        <button class="btn-outline" style="background:#E8F5E9; color:#2E7D32; border-color:#2E7D32;" onclick="abrirPainelResultados()">📊 Painel de Resultados</button>
+        <button class="btn-outline" style="background:#E8F5E9; color:#2E7D32; border-color:#2E7D32;" onclick="abrirPainelResultados(false)">📊 Painel de Resultados</button>
         <button class="btn-outline" onclick="abrirModalCooperativa()">🏢 Dados da Cooperativa</button>
         <button class="btn-outline" onclick="abrirGerenciarContribuintes()">👥 Gerenciar Contribuintes</button>
         <button class="btn-outline" onclick="abrirModalConfigGerais()">⚙️ Configurações Gerais</button>
@@ -204,37 +202,80 @@
 <!-- PAINEL DE RESULTADOS (DASHBOARD) -->
 <div class="modal-overlay" id="modalPainelResultados">
     <div class="modal" style="width: 95%; max-width: 600px; height: 90vh;">
-        <div class="modal-title">📊 Painel de Resultados</div>
+        <div class="modal-title">
+            <span style="display:flex; align-items:center; gap:8px;">📊 Painel de Resultados</span>
+            <button style="background:none; border:none; font-size:24px; cursor:pointer; color:#666;" onclick="fecharPainelResultados()">✖</button>
+        </div>
         
         <div class="section-title" style="margin-top:0;">Resumo do Mês</div>
-        <div class="form-group" style="display:flex; gap:10px; align-items:center;">
-            <label style="margin:0;">Mês de Análise:</label>
-            <input type="month" id="dashMesSingle" onchange="renderizarResumoMes()" style="flex:1;">
+        <div class="form-group" style="display:flex; justify-content:center; margin-bottom: 15px;">
+            <div class="month-picker-box" onclick="abrirSeletorMes('dashMesSingle')" style="width: 100%; justify-content:center; padding: 10px; font-size: 16px;">
+                📅 <span id="lblDashMesSingle">Abril 2026</span>
+            </div>
+            <input type="hidden" id="dashMesSingle">
         </div>
 
         <div class="dash-cards">
-            <div class="dash-card full">
-                <div class="title">Veículos Ativos no Mês</div>
+            <div class="dash-card">
+                <div class="title">Contribuintes Ativos</div>
+                <div class="value" id="dashTotalContrib">0</div>
+            </div>
+            <div class="dash-card">
+                <div class="title">Veículos Ativos</div>
                 <div class="value" id="dashTotalCarros">0</div>
+            </div>
+            <div class="dash-card full" style="background:#E3F2FD;">
+                <div class="title" style="color:#0D47A1;">Total Esperado (Mês)</div>
+                <div class="value" id="dashTotalEsperado" style="color:#1565C0;">R$ 0,00</div>
             </div>
             <div class="dash-card">
                 <div class="title">Recebido</div>
                 <div class="value" id="dashRecebidoVal">R$ 0,00</div>
-                <div class="sub-value" id="dashRecebidoQtd">0 pagos</div>
+                <div class="sub-value" id="dashRecebidoQtd">0 contribuintes</div>
             </div>
             <div class="dash-card red">
                 <div class="title">Pendente</div>
                 <div class="value" id="dashPendenteVal">R$ 0,00</div>
-                <div class="sub-value" id="dashPendenteQtd">0 devendo</div>
+                <div class="sub-value" id="dashPendenteQtd">0 contribuintes</div>
             </div>
         </div>
 
         <div class="section-title">Comparativo (Gráficos)</div>
+        
+        <!-- Filtros do Gráfico -->
         <div style="display:flex; gap:10px; margin-bottom:10px;">
-            <div style="flex:1;"><label>Início:</label><input type="month" id="dashGrafIni"></div>
-            <div style="flex:1;"><label>Fim:</label><input type="month" id="dashGrafFim"></div>
+            <div style="flex:1;">
+                <label>Início:</label>
+                <div class="month-picker-box" onclick="abrirSeletorMes('dashGrafIni')" style="width:100%; justify-content:center;">
+                    📅 <span id="lblDashGrafIni">Jan 2026</span>
+                </div>
+                <input type="hidden" id="dashGrafIni">
+            </div>
+            <div style="flex:1;">
+                <label>Fim:</label>
+                <div class="month-picker-box" onclick="abrirSeletorMes('dashGrafFim')" style="width:100%; justify-content:center;">
+                    📅 <span id="lblDashGrafFim">Dez 2026</span>
+                </div>
+                <input type="hidden" id="dashGrafFim">
+            </div>
         </div>
-        <button class="btn-action" style="width:100%; margin-bottom:20px;" onclick="gerarGraficosComparativos()">📈 Gerar Gráficos</button>
+        
+        <div style="display:flex; gap:10px; margin-bottom:15px;">
+            <div style="flex:1;">
+                <label>Ver por:</label>
+                <select id="dashTipoDado" onchange="gerarGraficosComparativos()">
+                    <option value="valor">Valor (R$)</option>
+                    <option value="qtd">Contribuintes (Qtd)</option>
+                </select>
+            </div>
+            <div style="flex:1;">
+                <label>Formato:</label>
+                <select id="dashTipoGrafico" onchange="gerarGraficosComparativos()">
+                    <option value="bar">Barras</option>
+                    <option value="line">Linhas</option>
+                </select>
+            </div>
+        </div>
 
         <div style="margin-bottom: 20px;">
             <canvas id="chartArrecadacao" height="200"></canvas>
@@ -244,7 +285,7 @@
         </div>
 
         <div class="modal-actions">
-            <button class="btn-cancel" style="width: 100%;" onclick="fecharModal('modalPainelResultados'); document.getElementById('modalPainelUnificado').style.display='flex';">Voltar</button>
+            <button class="btn-cancel" style="width: 100%;" onclick="fecharPainelResultados()">Voltar</button>
         </div>
     </div>
 </div>
@@ -521,7 +562,7 @@
     </div>
 </div>
 
-<!-- AÇÕES DO CONTRIBUINTE (RECEBIMENTOS) -->
+<!-- AÇÕES DO CONTRIBUINTE (RECEBIMENTOS E VEÍCULOS) -->
 <div class="modal-overlay" id="modalAcoesContribuinte">
     <div class="modal">
         <div class="modal-title" style="display:flex; justify-content:space-between; align-items:center;">
@@ -559,11 +600,23 @@
                 <span style="font-size:14px; font-weight:bold; color:#333;">Receber Múltiplos Meses / Período</span>
             </div>
 
-            <!-- MULTI MONTH PAYMENT (Hidden) -->
+            <!-- MULTI MONTH PAYMENT -->
             <div id="boxMultiMes" style="display:none; text-align:left; margin-top:15px; padding-top:15px; border-top:1px dashed #ccc;">
                 <div style="display:flex; gap:10px; margin-bottom:5px;">
-                    <div style="flex:1;"><label>Mês Início:</label><input type="month" id="pgIni" onchange="calcPgtoMulti(true)"></div>
-                    <div style="flex:1;"><label>Mês Fim (Opc):</label><input type="month" id="pgFim" onchange="calcPgtoMulti(true)"></div>
+                    <div style="flex:1;">
+                        <label>Mês Início:</label>
+                        <div class="month-picker-box" onclick="abrirSeletorMes('pgIni')" style="width:100%; justify-content:center; padding: 10px;">
+                            📅 <span id="lblPgIni">Abril 2026</span>
+                        </div>
+                        <input type="hidden" id="pgIni">
+                    </div>
+                    <div style="flex:1;">
+                        <label>Mês Fim (Opc):</label>
+                        <div class="month-picker-box" onclick="abrirSeletorMes('pgFim')" style="width:100%; justify-content:center; padding: 10px;">
+                            📅 <span id="lblPgFim">Abril 2026</span>
+                        </div>
+                        <input type="hidden" id="pgFim">
+                    </div>
                 </div>
                 <div style="display:flex; gap:10px; margin-bottom:5px;">
                     <div style="flex:1;"><label style="color:#673AB7;">Desconto Extra (R$):</label><input type="text" id="pgDescontoMulti" oninput="maskMoeda(this); calcPgtoMulti(false);" placeholder="0,00"></div>
@@ -679,12 +732,16 @@
         atualizarTextoMesGeral();
     };
 
-    // LOGICA CUSTOM MONTH PICKER
+    // LOGICA CUSTOM MONTH PICKER UNIFICADA
     let mpCurrentYear = new Date().getFullYear();
+    let activeMonthTarget = 'filtroMesGeral';
     
-    function abrirSeletorMes() {
-        let val = document.getElementById('filtroMesGeral').value;
+    function abrirSeletorMes(target) {
+        activeMonthTarget = target;
+        let val = document.getElementById(target).value;
         if(val) mpCurrentYear = parseInt(val.split('-')[0]);
+        else mpCurrentYear = new Date().getFullYear();
+        
         renderizarGridMeses();
         document.getElementById('modalMonthPicker').style.display = 'flex';
     }
@@ -694,9 +751,9 @@
     }
     function renderizarGridMeses() {
         document.getElementById('mpYearLabel').innerText = mpCurrentYear;
-        let valAt = document.getElementById('filtroMesGeral').value;
-        let mesAt = valAt.split('-')[1];
-        let anoAt = parseInt(valAt.split('-')[0]);
+        let valAt = document.getElementById(activeMonthTarget).value;
+        let mesAt = valAt ? valAt.split('-')[1] : null;
+        let anoAt = valAt ? parseInt(valAt.split('-')[0]) : null;
 
         let html = '';
         for(let i=1; i<=12; i++) {
@@ -707,9 +764,28 @@
     }
     function mpSelectMonth(m) {
         let mesStr = String(m).padStart(2,'0');
-        document.getElementById('filtroMesGeral').value = `${mpCurrentYear}-${mesStr}`;
+        document.getElementById(activeMonthTarget).value = `${mpCurrentYear}-${mesStr}`;
         fecharModal('modalMonthPicker');
-        atualizarTextoMesGeral();
+        
+        // Executar açoes dependendo de quem chamou
+        if(activeMonthTarget === 'filtroMesGeral') {
+            atualizarTextoMesGeral();
+        } else if(activeMonthTarget === 'dashMesSingle') {
+            document.getElementById('lblDashMesSingle').innerText = `${getExtensoMes(mesStr)} ${mpCurrentYear}`;
+            renderizarResumoMes();
+        } else if(activeMonthTarget === 'dashGrafIni') {
+            document.getElementById('lblDashGrafIni').innerText = `${getAbrevMes(mesStr)} ${mpCurrentYear}`;
+            gerarGraficosComparativos();
+        } else if(activeMonthTarget === 'dashGrafFim') {
+            document.getElementById('lblDashGrafFim').innerText = `${getAbrevMes(mesStr)} ${mpCurrentYear}`;
+            gerarGraficosComparativos();
+        } else if(activeMonthTarget === 'pgIni') {
+            document.getElementById('lblPgIni').innerText = `${getExtensoMes(mesStr)} ${mpCurrentYear}`;
+            calcPgtoMulti(true);
+        } else if(activeMonthTarget === 'pgFim') {
+            document.getElementById('lblPgFim').innerText = `${getExtensoMes(mesStr)} ${mpCurrentYear}`;
+            calcPgtoMulti(true);
+        }
     }
 
     function atualizarTextoMesGeral() {
@@ -727,7 +803,6 @@
         let soma = 0;
         (c.carros || []).forEach(car => {
             if(!car.ativo) return;
-            // Só cobra o carro a partir do mes de cadastro do veículo
             let cadMonth = car.dataCadastro ? car.dataCadastro.substring(0,7) : '2000-01'; 
             if(mesRef >= cadMonth) {
                 soma += parseMoeda(car.valor);
@@ -738,24 +813,42 @@
     }
 
     // DASHBOARD / PAINEL RESULTADOS
-    function abrirPainelResultados() {
-        fecharModal('modalPainelUnificado');
-        document.getElementById('dashMesSingle').value = document.getElementById('filtroMesGeral').value || getHojeSTR().substring(0,7);
+    let dashOrigem = 'menu';
+
+    function abrirPainelResultados(fromHome = false) {
+        dashOrigem = fromHome ? 'home' : 'menu';
+        if(dashOrigem === 'menu') fecharModal('modalPainelUnificado');
+        
+        let valFiltro = document.getElementById('filtroMesGeral').value || getHojeSTR().substring(0,7);
+        let pFiltro = valFiltro.split('-');
+        
+        document.getElementById('dashMesSingle').value = valFiltro;
+        document.getElementById('lblDashMesSingle').innerText = `${getExtensoMes(pFiltro[1])} ${pFiltro[0]}`;
         
         let currYear = new Date().getFullYear();
         document.getElementById('dashGrafIni').value = `${currYear}-01`;
+        document.getElementById('lblDashGrafIni').innerText = `Jan ${currYear}`;
+        
         document.getElementById('dashGrafFim').value = `${currYear}-12`;
+        document.getElementById('lblDashGrafFim').innerText = `Dez ${currYear}`;
         
         renderizarResumoMes();
         document.getElementById('modalPainelResultados').style.display = 'flex';
-        // Delay para renderizar graficos na tela visivel
         setTimeout(() => gerarGraficosComparativos(), 300);
+    }
+
+    function fecharPainelResultados() {
+        fecharModal('modalPainelResultados');
+        if(dashOrigem === 'menu') {
+            document.getElementById('modalPainelUnificado').style.display='flex';
+        }
     }
 
     function renderizarResumoMes() {
         let mesRef = document.getElementById('dashMesSingle').value;
         if(!mesRef) return;
         
+        let totalContribAtivos = 0;
         let totalCarrosAtivos = 0;
         let recebidoVal = 0;
         let recebidoQtd = 0;
@@ -764,26 +857,36 @@
 
         db.contribuintes.forEach(c => {
             let valEsp = calcularValorEsperado(c, mesRef);
-            if(valEsp > 0) {
-                let carrosDeste = c.carros.filter(car => car.ativo && car.dataCadastro.substring(0,7) <= mesRef).length;
+            let carrosDeste = (c.carros || []).filter(car => car.ativo && car.dataCadastro.substring(0,7) <= mesRef).length;
+            
+            if(valEsp > 0 || carrosDeste > 0) {
+                totalContribAtivos++;
                 totalCarrosAtivos += carrosDeste;
 
                 if(isMesPago(c, mesRef)) {
                     recebidoVal += valEsp;
                     recebidoQtd++;
-                } else {
+                } else if(valEsp > 0) {
                     pendenteVal += valEsp;
                     pendenteQtd++;
                 }
             }
         });
 
+        let totalEsperadoMes = recebidoVal + pendenteVal;
+
+        document.getElementById('dashTotalContrib').innerText = totalContribAtivos;
         document.getElementById('dashTotalCarros').innerText = totalCarrosAtivos;
+        document.getElementById('dashTotalEsperado').innerText = `R$ ${formatMoeda(totalEsperadoMes)}`;
+        
         document.getElementById('dashRecebidoVal').innerText = `R$ ${formatMoeda(recebidoVal)}`;
         document.getElementById('dashRecebidoQtd').innerText = `${recebidoQtd} contribuintes`;
         document.getElementById('dashPendenteVal').innerText = `R$ ${formatMoeda(pendenteVal)}`;
         document.getElementById('dashPendenteQtd').innerText = `${pendenteQtd} contribuintes`;
     }
+
+    let arrRecebidoVal = []; let arrRecebidoQtd = [];
+    let arrPendenteVal = []; let arrPendenteQtd = [];
 
     function gerarGraficosComparativos() {
         let ini = document.getElementById('dashGrafIni').value;
@@ -793,46 +896,108 @@
 
         let meses = getMesesRange(ini, fim);
         let labelsArr = [];
-        let arrRecebido = [];
-        let arrPendente = [];
+        arrRecebidoVal = []; arrRecebidoQtd = [];
+        arrPendenteVal = []; arrPendenteQtd = [];
+
+        let currentRealMonth = getHojeSTR().substring(0,7);
 
         meses.forEach(m => {
             let p = m.split('-');
             labelsArr.push(`${getAbrevMes(p[1])}/${p[0].substring(2)}`);
             
-            let rec = 0;
-            let pen = 0;
+            let recVal = 0, recQtd = 0;
+            let penVal = 0, penQtd = 0;
+            
             db.contribuintes.forEach(c => {
                 let valEsp = calcularValorEsperado(c, m);
                 if(valEsp > 0) {
-                    if(isMesPago(c, m)) rec += valEsp;
-                    else pen += valEsp;
+                    if(isMesPago(c, m)) {
+                        recVal += valEsp;
+                        recQtd++;
+                    } else {
+                        penVal += valEsp;
+                        penQtd++;
+                    }
                 }
             });
-            arrRecebido.push(rec);
-            arrPendente.push(pen);
+
+            arrRecebidoVal.push(recVal);
+            arrRecebidoQtd.push(recQtd);
+            
+            // Lógica 25: Não mostrar inadimplência se o mês é do futuro
+            if (m > currentRealMonth) {
+                arrPendenteVal.push(null);
+                arrPendenteQtd.push(null);
+            } else {
+                arrPendenteVal.push(penVal);
+                arrPendenteQtd.push(penQtd);
+            }
         });
+
+        let tipoGrafico = document.getElementById('dashTipoGrafico').value; // 'bar' ou 'line'
+        let tipoDado = document.getElementById('dashTipoDado').value; // 'valor' ou 'qtd'
+
+        let dataRec = tipoDado === 'valor' ? arrRecebidoVal : arrRecebidoQtd;
+        let dataPen = tipoDado === 'valor' ? arrPendenteVal : arrPendenteQtd;
+        let lblExt = tipoDado === 'valor' ? '(R$)' : '(Qtd)';
+
+        let sharedOptions = {
+            responsive: true,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let idx = context.dataIndex;
+                            let isArrecadacao = context.dataset.label.includes('Arrecadação');
+                            
+                            let val = isArrecadacao ? arrRecebidoVal[idx] : arrPendenteVal[idx];
+                            let qtd = isArrecadacao ? arrRecebidoQtd[idx] : arrPendenteQtd[idx];
+                            
+                            if(!isArrecadacao && val === null) return 'N/A (Mês Futuro)';
+                            
+                            return `R$ ${formatMoeda(val)} (${qtd} contribuintes)`;
+                        }
+                    }
+                }
+            }
+        };
 
         let ctxArr = document.getElementById('chartArrecadacao').getContext('2d');
         if(chartArrecadacao) chartArrecadacao.destroy();
         chartArrecadacao = new Chart(ctxArr, {
-            type: 'bar',
+            type: tipoGrafico,
             data: {
                 labels: labelsArr,
-                datasets: [{ label: 'Arrecadação (R$)', data: arrRecebido, backgroundColor: '#2E7D32', borderRadius: 4 }]
+                datasets: [{ 
+                    label: `Arrecadação ${lblExt}`, 
+                    data: dataRec, 
+                    backgroundColor: '#2E7D32', 
+                    borderColor: '#2E7D32',
+                    borderWidth: 2,
+                    borderRadius: tipoGrafico === 'bar' ? 4 : 0,
+                    tension: 0.3
+                }]
             },
-            options: { responsive: true, plugins: { title: { display: true, text: 'Evolução da Arrecadação' } } }
+            options: { ...sharedOptions, plugins: { ...sharedOptions.plugins, title: { display: true, text: 'Evolução da Arrecadação' } } }
         });
 
         let ctxInad = document.getElementById('chartInadimplencia').getContext('2d');
         if(chartInadimplencia) chartInadimplencia.destroy();
         chartInadimplencia = new Chart(ctxInad, {
-            type: 'bar',
+            type: tipoGrafico,
             data: {
                 labels: labelsArr,
-                datasets: [{ label: 'Inadimplência / Pendente (R$)', data: arrPendente, backgroundColor: '#D32F2F', borderRadius: 4 }]
+                datasets: [{ 
+                    label: `Inadimplência / Pendente ${lblExt}`, 
+                    data: dataPen, 
+                    backgroundColor: '#D32F2F', 
+                    borderColor: '#D32F2F',
+                    borderWidth: 2,
+                    borderRadius: tipoGrafico === 'bar' ? 4 : 0,
+                    tension: 0.3
+                }]
             },
-            options: { responsive: true, plugins: { title: { display: true, text: 'Inadimplência por Mês' } } }
+            options: { ...sharedOptions, plugins: { ...sharedOptions.plugins, title: { display: true, text: 'Inadimplência por Mês' } } }
         });
     }
 
@@ -847,38 +1012,6 @@
         if(view === 'pendentes') document.getElementById('chipPendentes').classList.add('active');
         if(view === 'vencimentos') document.getElementById('chipVencimentos').classList.add('active');
         renderizarLista();
-    }
-
-    function checarAlertasCarro(carro) {
-        let alertas = [];
-        if(!carro.ativo) return alertas;
-        let hoje = new Date();
-        hoje.setHours(0,0,0,0);
-        
-        let confAlertas = db.configGerais.alertas || {};
-        
-        let checkData = (dataStr, nome, confKey, genero) => {
-            if(!dataStr || !confAlertas[confKey] || !confAlertas[confKey].ativo) return;
-            let d = new Date(dataStr + "T00:00:00");
-            let diffDias = Math.ceil((d - hoje) / (1000 * 60 * 60 * 24));
-            let diasAviso = parseInt(confAlertas[confKey].dias) || 7;
-            
-            let vencidoWord = genero === 'a' ? 'vencida' : 'vencido';
-            
-            if(diffDias < 0) {
-                let diasPassados = Math.abs(diffDias);
-                alertas.push(`<b>${nome} ${vencidoWord} há ${diasPassados} dias (${carro.placa})</b>`);
-            } else if(diffDias === 0) {
-                alertas.push(`<b>${nome} vence HOJE (${carro.placa})</b>`);
-            } else if(diffDias <= diasAviso) {
-                alertas.push(`<b>${nome} vence em ${diffDias} dias (${carro.placa})</b>`);
-            }
-        };
-        
-        checkData(carro.dataLaudo, "Laudo", "laudo", "o");
-        checkData(carro.dataSeguro, "Seguro", "seguro", "o");
-        checkData(carro.dataLicenca, "Licença", "licenca", "a");
-        return alertas;
     }
 
     function isMesPago(c, mesRef) {
@@ -1242,14 +1375,14 @@
         document.getElementById('acoesContId').value = id;
         document.getElementById('tituloAcoesContribuinte').innerText = c.nome;
         
-        // Render Botões Whatsapp Minimalista
+        // Render Botão Whatsapp Atualizado
         let waBox = document.getElementById('boxWAAcoes');
         waBox.innerHTML = '';
         if(c.telefones && c.telefones.length > 0) {
             let primeiro = c.telefones[0];
             let num = primeiro.replace(/\D/g, '');
             waBox.innerHTML = `<button class="btn-whatsapp" onclick="window.open('https://wa.me/55${num}','_blank')">
-                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:20px; height:20px; border:none; outline:none; background:transparent;"> Falar no WhatsApp
+                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:30px; height:30px; filter:brightness(0) invert(1);"> Falar no WhatsApp
             </button>`;
         }
 
@@ -1274,7 +1407,10 @@
 
         document.getElementById('pgDataSingle').value = getHojeSTR();
         document.getElementById('pgIni').value = mesRef;
+        document.getElementById('lblPgIni').innerText = `${getExtensoMes(partes[1])} ${partes[0]}`;
         document.getElementById('pgFim').value = mesRef;
+        document.getElementById('lblPgFim').innerText = `${getExtensoMes(partes[1])} ${partes[0]}`;
+        
         document.getElementById('pgDescontoMulti').value = '';
         document.getElementById('pgDataMulti').value = getHojeSTR();
         document.getElementById('avisoErroMulti').style.display = 'none';
@@ -1370,7 +1506,12 @@
         let ini = document.getElementById('pgIni').value;
         let fim = document.getElementById('pgFim').value;
         if(!ini) return;
-        if(!fim || fim < ini) { fim = ini; document.getElementById('pgFim').value = ini; }
+        if(!fim || fim < ini) { 
+            fim = ini; 
+            document.getElementById('pgFim').value = ini;
+            let partes = ini.split('-');
+            document.getElementById('lblPgFim').innerText = `${getExtensoMes(partes[1])} ${partes[0]}`;
+        }
         
         let id = document.getElementById('acoesContId').value;
         let c = db.contribuintes.find(x => x.id === id);
