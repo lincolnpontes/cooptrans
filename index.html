@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#008C4A" id="metaThemeColor">
-    <title>Cooptrans v1.0.14</title>
+    <title>Cooptrans v1.0.15</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <!-- Biblioteca Chart.js para Gráficos -->
@@ -37,7 +37,11 @@
         
         .area-conteudo { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
         
-        .scroll-area { overflow-y: auto; flex: 1; padding-bottom: 90px; padding-right: 22px; -webkit-overflow-scrolling: touch; }
+        /* Barra de Rolagem Moderna */
+        .scroll-area { overflow-y: auto; flex: 1; padding-bottom: 90px; -webkit-overflow-scrolling: touch; }
+        .scroll-area::-webkit-scrollbar { display: block; width: 6px; }
+        .scroll-area::-webkit-scrollbar-track { background: transparent; }
+        .scroll-area::-webkit-scrollbar-thumb { background: var(--theme-base); border-radius: 10px; }
         
         .filters { padding: 10px 15px; display: flex; gap: 10px; align-items: center; overflow-x: auto; white-space: nowrap; border-bottom: 1px solid #eee; background-color: var(--theme-sub); flex-shrink: 0; }
         .chip { background-color: #e0e0e0; color: #333; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: bold; border: 2px solid transparent; transition: 0.3s; }
@@ -49,16 +53,12 @@
         
         #inputBuscaNome { display: none; padding: 6px 12px; border-radius: 20px; border: 1px solid #ccc; font-size: 14px; outline: none; transition: 0.3s; width: 150px; }
 
-        /* Barra Alfabética Dinâmica */
-        .alfabeto-bar { position: absolute; right: 0; top: 60px; bottom: 90px; width: 22px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; font-size: 10px; font-weight: bold; color: var(--theme-base); z-index: 50; padding: 5px 0; background: rgba(255,255,255,0.7); backdrop-filter: blur(2px); user-select: none; touch-action: none; cursor: grab;}
-        .alfabeto-bar span { pointer-events: none; width: 100%; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; }
-        
         /* Indicador Gigante de Letra */
-        #letterIndicator { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 80px; font-weight: bold; color: white; background: rgba(0,140,74,0.85); width: 130px; height: 130px; align-items: center; justify-content: center; border-radius: 25px; z-index: 9999; pointer-events: none; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        #letterIndicator { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 80px; font-weight: bold; color: white; background: rgba(0,0,0,0.6); width: 130px; height: 130px; align-items: center; justify-content: center; border-radius: 25px; z-index: 9999; pointer-events: none; box-shadow: 0 5px 15px rgba(0,0,0,0.2); backdrop-filter: blur(5px); transition: 0.2s;}
 
         .list { padding: 0; margin: 0; list-style: none; }
         /* Itens Condensados e Centralizados */
-        .item { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border-bottom: 1px solid #eee; position: relative; user-select: none; min-height: 55px; }
+        .item { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border-bottom: 1px solid #eee; position: relative; user-select: none; min-height: 55px; width: 100%; box-sizing: border-box; }
         .item-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px; color: white; font-size: 14px; flex-shrink: 0; transition: background-color 0.3s;}
         .item-title { font-weight: bold; font-size: 15px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;}
         .item-subtitle { color: #666; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
@@ -133,7 +133,7 @@
             }
         } catch(e){}
     </script>
-    <div class="splash-versao">v1.0.14</div>
+    <div class="splash-versao">v1.0.15</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 40px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -155,6 +155,7 @@
             <input type="hidden" id="filtroMesGeral">
         </div>
         
+        <!-- Logo Ampliada -->
         <div style="position: absolute; left: 50%; transform: translateX(-50%); top: 15px; z-index: 100;">
             <img id="headerLogo" src="" style="height: 85px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); display: none; background: transparent;">
         </div>
@@ -172,12 +173,13 @@
             <div class="chip pendente" id="chipPendentes" onclick="setFiltroView('pendentes')">Pagamento Pendente</div>
             <div class="chip alerta" id="chipVencimentos" onclick="setFiltroView('vencimentos')">Documentos a Vencer</div>
         </div>
-        <!-- Alfabeto Rolagem Scrubber -->
-        <div class="alfabeto-bar" id="alfabetoBar"></div>
-        <div class="scroll-area"><ul class="list" id="listaPrincipal"></ul></div>
+        
+        <!-- Área da Lista Integrada com Scroll Moderno -->
+        <div class="scroll-area" id="mainScrollArea"><ul class="list" id="listaPrincipal"></ul></div>
     </div>
 </div>
 
+<!-- Modal Personalizado para Selecionar Mês e Ano -->
 <div class="modal-overlay" id="modalMonthPicker" style="z-index: 2000;">
     <div class="modal" style="width: 320px; padding: 20px;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px;">
@@ -192,6 +194,7 @@
     </div>
 </div>
 
+<!-- MENU PRINCIPAL -->
 <div class="modal-overlay" id="modalPainelUnificado">
     <div class="modal" style="padding-top: 25px;">
         <h2 style="text-align: center; color: var(--theme-base); margin-top: 0; margin-bottom: 20px;">Menu Cooptrans</h2>
@@ -207,7 +210,7 @@
     </div>
 </div>
 
-<!-- PAINEL DE RESULTADOS -->
+<!-- PAINEL DE RESULTADOS (DASHBOARD) -->
 <div class="modal-overlay" id="modalPainelResultados">
     <div class="modal" style="width: 95%; max-width: 600px; height: 90vh;">
         <div class="modal-title">
@@ -250,17 +253,17 @@
 
         <div class="section-title">Comparativo (Gráficos)</div>
         
-        <!-- Seletores de Data Centralizados Corrigidos -->
+        <!-- Seletores de Data Centralizados e Setinha no meio (Ajuste de 5px para esquerda) -->
         <div style="display:flex; align-items:center; justify-content:space-between; background:#f9f9f9; padding:15px 10px; border-radius:8px; border:1px solid #ddd; width: 100%; box-sizing: border-box;">
             <div style="flex:1; text-align:center; min-width:0;">
                 <div style="font-size:11px; color:#666; font-weight:bold; margin-bottom:4px; text-transform:uppercase;">Início</div>
-                <div class="month-picker-box" onclick="abrirSeletorMes('dashGrafIni')" style="background:#fff; border-color:#ccc; color:#333; width:90%; justify-content:center; padding:8px 5px; font-size:12px;">📅 <span id="lblDashGrafIni">Jan 2026</span></div>
+                <div class="month-picker-box" onclick="abrirSeletorMes('dashGrafIni')" style="background:#fff; border-color:#ccc; color:#333; width:85%; justify-content:center; padding:8px 5px; font-size:12px;">📅 <span id="lblDashGrafIni">Jan 2026</span></div>
                 <input type="hidden" id="dashGrafIni">
             </div>
-            <div style="font-size:24px; color:#ccc; font-weight:bold; padding-top:15px; flex:none; transform: translateX(10px);">➔</div>
+            <div style="font-size:24px; color:#ccc; font-weight:bold; padding-top:15px; flex:none; transform: translateX(5px);">➔</div>
             <div style="flex:1; text-align:center; min-width:0;">
                 <div style="font-size:11px; color:#666; font-weight:bold; margin-bottom:4px; text-transform:uppercase;">Fim</div>
-                <div class="month-picker-box" onclick="abrirSeletorMes('dashGrafFim')" style="background:#fff; border-color:#ccc; color:#333; width:90%; justify-content:center; padding:8px 5px; font-size:12px;">📅 <span id="lblDashGrafFim">Dez 2026</span></div>
+                <div class="month-picker-box" onclick="abrirSeletorMes('dashGrafFim')" style="background:#fff; border-color:#ccc; color:#333; width:85%; justify-content:center; padding:8px 5px; font-size:12px;">📅 <span id="lblDashGrafFim">Dez 2026</span></div>
                 <input type="hidden" id="dashGrafFim">
             </div>
         </div>
@@ -299,6 +302,7 @@
     </div>
 </div>
 
+<!-- ZONA DE RISCO E NUVEM -->
 <div class="modal-overlay" id="modalSenhaAvancada">
     <div class="modal">
         <div class="modal-title" style="color:#d32f2f;">Zona de Risco</div>
@@ -331,6 +335,7 @@
     </div>
 </div>
 
+<!-- LISTAGENS GENÉRICAS -->
 <div class="modal-overlay" id="modalListagem">
     <div class="modal" style="width: 95%; height: 85vh; display: flex; flex-direction: column;">
         <div class="modal-title" id="tituloListagem" style="flex-shrink: 0;">Gerenciar</div>
@@ -352,6 +357,7 @@
     </div>
 </div>
 
+<!-- DADOS DA COOPERATIVA -->
 <div class="modal-overlay" id="modalFormCooperativa">
     <div class="modal">
         <div class="modal-title">Dados da Cooperativa</div>
@@ -388,6 +394,7 @@
     </div>
 </div>
 
+<!-- CONFIG GERAIS -->
 <div class="modal-overlay" id="modalConfigGerais">
     <div class="modal" style="max-height: 90vh;">
         <div class="modal-title">Configurações Gerais</div>
@@ -457,6 +464,7 @@
     </div>
 </div>
 
+<!-- FORM ADMINISTRADOR -->
 <div class="modal-overlay" id="modalFormAdmin">
     <div class="modal">
         <div class="modal-title">Administrador</div>
@@ -467,6 +475,7 @@
     </div>
 </div>
 
+<!-- FORM CONTRIBUINTE -->
 <div class="modal-overlay" id="modalFormContribuinte">
     <div class="modal" style="padding-top:15px; width: 95%; height: 90vh;">
         <div class="modal-title">Cadastro de Contribuinte</div>
@@ -506,6 +515,7 @@
     </div>
 </div>
 
+<!-- FORM CARRO -->
 <div class="modal-overlay" id="modalFormCarro" style="z-index: 1500;">
     <div class="modal">
         <div class="modal-title" id="tituloModalCarro">Dados do Veículo</div>
@@ -564,7 +574,7 @@
     </div>
 </div>
 
-<!-- AÇÕES DO CONTRIBUINTE -->
+<!-- AÇÕES DO CONTRIBUINTE (RECEBIMENTOS) -->
 <div class="modal-overlay" id="modalAcoesContribuinte">
     <div class="modal">
         <div class="modal-title" style="display:flex; justify-content:space-between; align-items:center;">
@@ -580,12 +590,14 @@
             </button>
         </div>
 
+        <!-- Alertas na Tela de Ações -->
         <div id="boxAlertasAcoes" style="margin-bottom: 15px; background: #FFF3E0; padding: 10px; border-radius: 5px; border: 1px solid #FFCC80; display: none;"></div>
         
         <div class="section-title">Situação Atual (<span id="lblMesAcoes"></span>)</div>
         <div class="form-group" style="background:#f9f9f9; padding:15px; border-radius:5px; text-align:center;">
             <div id="boxStatusPagamento" style="margin-bottom:15px;"></div>
             
+            <!-- SINGLE MONTH PAYMENT -->
             <div id="boxSingleMes">
                 <div style="display:flex; gap:10px; margin-bottom:10px;">
                     <div style="flex:1;"><label>Data Pgto:</label><input type="date" id="pgDataSingle"></div>
@@ -594,11 +606,13 @@
                 <button class="btn-action" style="width:100%;" onclick="registrarPagamentoSingle()">💲 Registrar Pgto do Mês</button>
             </div>
 
+            <!-- SWITCH MULTI MONTH -->
             <div style="margin-top:20px; display:flex; align-items:center; justify-content:center; gap:10px; border-top:1px solid #ccc; padding-top:15px;">
                 <label class="switch"><input type="checkbox" id="switchMultiMes" onchange="toggleMultiMes()"><span class="slider"></span></label>
                 <span style="font-size:14px; font-weight:bold; color:#333;">Receber Múltiplos Meses / Período</span>
             </div>
 
+            <!-- MULTI MONTH PAYMENT -->
             <div id="boxMultiMes" style="display:none; text-align:left; margin-top:15px; padding-top:15px; border-top:1px dashed #ccc;">
                 <div style="display:flex; gap:10px; margin-bottom:5px;">
                     <div style="flex:1;">
@@ -715,9 +729,13 @@
         if(db.cooperativa.logo) {
             logoImg.src = db.cooperativa.logo;
             logoImg.style.display = 'block';
-            if(splashLogo) splashLogo.src = db.cooperativa.logo;
+            if(splashLogo) {
+                splashLogo.src = db.cooperativa.logo;
+                splashLogo.style.display = 'block';
+            }
         } else {
             logoImg.style.display = 'none';
+            if(splashLogo) splashLogo.style.display = 'none';
         }
     }
 
@@ -732,63 +750,68 @@
         let hjMes = getHojeSTR().substring(0,7);
         document.getElementById('filtroMesGeral').value = hjMes;
         atualizarTextoMesGeral();
-        
-        initAlfabetoScrubber();
     });
 
-    // ATALHO ENTER
+    // ATALHO ENTER / ESC / NAVEGACAO LISTA
     document.addEventListener('keydown', function(e) {
-        if(e.key === 'Enter') {
-            let modals = document.querySelectorAll('.modal-overlay');
-            let isModalOpen = Array.from(modals).some(m => m.style.display === 'flex');
-            if(!isModalOpen) {
+        let modals = Array.from(document.querySelectorAll('.modal-overlay')).filter(m => m.style.display === 'flex');
+        let isModalOpen = modals.length > 0;
+
+        if(e.key === 'Escape' && isModalOpen) {
+            // Fecha a ultima modal aberta simulando clique no botao de voltar ou fechar
+            let topModal = modals.sort((a,b) => (parseInt(getComputedStyle(a).zIndex)||0) - (parseInt(getComputedStyle(b).zIndex)||0)).pop();
+            let closeBtn = topModal.querySelector('.btn-cancel') || topModal.querySelector('button[onclick*="fechar"]');
+            if(closeBtn) closeBtn.click();
+            return;
+        }
+
+        if(!isModalOpen) {
+            if(e.key === 'Enter') {
                 clickFiltroTodos();
+            } else {
+                // Scroll por teclado na lista
+                let scrollArea = document.querySelector('.scroll-area');
+                if(e.key === 'ArrowDown') { scrollArea.scrollTop += 50; e.preventDefault(); }
+                else if(e.key === 'ArrowUp') { scrollArea.scrollTop -= 50; e.preventDefault(); }
+                else if(e.key === 'PageDown') { scrollArea.scrollTop += scrollArea.clientHeight; e.preventDefault(); }
+                else if(e.key === 'PageUp') { scrollArea.scrollTop -= scrollArea.clientHeight; e.preventDefault(); }
+                else if(e.key === 'Home') { scrollArea.scrollTop = 0; e.preventDefault(); }
+                else if(e.key === 'End') { scrollArea.scrollTop = scrollArea.scrollHeight; e.preventDefault(); }
             }
         }
     });
 
-    // BARRA ALFABÉTICA (SCRUBBER DESLIZANTE)
-    function initAlfabetoScrubber() {
-        let bar = document.getElementById('alfabetoBar');
-        let ind = document.getElementById('letterIndicator');
-        let letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
+    // EVENTO DE SCROLL PARA MOSTRAR LETRA
+    let scrollTimeout;
+    document.querySelector('.scroll-area').addEventListener('scroll', function() {
+        let listItems = document.querySelectorAll('#listaPrincipal .item');
+        if(listItems.length === 0) return;
         
-        let html = '';
-        letras.forEach(l => { html += `<span>${l}</span>`; });
-        bar.innerHTML = html;
-
-        function onMove(e) {
-            e.preventDefault();
-            let touch = e.touches ? e.touches[0] : e;
-            let rect = bar.getBoundingClientRect();
-            let y = touch.clientY - rect.top;
-            let perc = y / rect.height;
-            let idx = Math.floor(perc * letras.length);
-            if(idx >= 0 && idx < letras.length) {
-                let l = letras[idx];
-                ind.innerText = l;
-                ind.style.display = 'flex';
-                let el = document.getElementById('letra-'+l);
-                if(el) el.scrollIntoView({behavior:'auto', block:'start'});
+        let containerTop = this.getBoundingClientRect().top;
+        let currentItem = null;
+        for(let item of listItems) {
+            let rect = item.getBoundingClientRect();
+            if(rect.top >= containerTop || rect.bottom > containerTop) {
+                currentItem = item;
+                break;
             }
         }
         
-        bar.addEventListener('touchstart', onMove, {passive:false});
-        bar.addEventListener('touchmove', onMove, {passive:false});
-        bar.addEventListener('touchend', () => ind.style.display = 'none');
-        
-        bar.addEventListener('mousedown', (e) => {
-            onMove(e);
-            function mouseMove(ev) { onMove(ev); }
-            function mouseUp() {
-                ind.style.display = 'none';
-                document.removeEventListener('mousemove', mouseMove);
-                document.removeEventListener('mouseup', mouseUp);
+        if(currentItem) {
+            let titleEl = currentItem.querySelector('.item-title');
+            if(titleEl) {
+                let letter = titleEl.innerText.charAt(0).toUpperCase();
+                let ind = document.getElementById('letterIndicator');
+                ind.innerText = letter;
+                ind.style.display = 'flex';
+                
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(() => {
+                    ind.style.display = 'none';
+                }, 800); 
             }
-            document.addEventListener('mousemove', mouseMove, {passive:false});
-            document.addEventListener('mouseup', mouseUp);
-        });
-    }
+        }
+    });
 
     // LOGICA CUSTOM MONTH PICKER UNIFICADA
     let mpCurrentYear = new Date().getFullYear();
@@ -1122,6 +1145,7 @@
             let d = new Date(dataStr + "T00:00:00");
             let diffDias = Math.ceil((d - hoje) / (1000 * 60 * 60 * 24));
             let diasAviso = parseInt(confAlertas[confKey].dias) || 7;
+            
             let vencidoWord = genero === 'a' ? 'vencida' : 'vencido';
             
             if(diffDias < 0) {
@@ -1164,9 +1188,9 @@
                 }
             }
         }
-        if(owesPast) return '#D32F2F'; // Vermelho (Devendo anterior)
-        if(temAlerta) return '#E65100'; // Laranja (Documento Vencendo)
-        return 'var(--theme-base)'; // Verde (OK)
+        if(owesPast) return '#D32F2F'; // Vermelho
+        if(temAlerta) return '#E65100'; // Laranja
+        return 'var(--theme-base)'; // Verde
     }
 
     function renderizarLista() {
@@ -1226,7 +1250,7 @@
             </li>`;
         });
 
-        if(html === '') html = `<li style="padding: 20px; text-align: center; color: #999;">Nenhum contribuinte encontrado.</li>`;
+        if(html === '') html = `<li style="padding: 20px; text-align: center; color: #999;">Nenhum contribuinte encontrado para este filtro.</li>`;
         lista.innerHTML = html;
     }
 
@@ -1534,6 +1558,7 @@
         document.getElementById('acoesContId').value = id;
         document.getElementById('tituloAcoesContribuinte').innerText = c.nome;
         
+        // Render Botões Whatsapp
         let waBox = document.getElementById('boxWAAcoes');
         waBox.innerHTML = '';
         if(c.telefones && c.telefones.length > 0) {
@@ -1628,6 +1653,7 @@
 
         if(!dataPgto) return alert("Preencha a data do pagamento.");
         if(esperado <= 0) return alert("Não há valor devido para receber.");
+
         if(isMesPago(c, mesRef)) return alert("Este mês já consta como pago!");
 
         if(!c.pagamentos) c.pagamentos = [];
@@ -1848,7 +1874,6 @@
         document.getElementById('modalPainelUnificado').style.display = 'flex';
     }
 
-    // Config Gerais / Alertas / Temas
     function abrirModalConfigGerais() {
         fecharModal('modalPainelUnificado');
         
