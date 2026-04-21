@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#008C4A" id="metaThemeColor">
-    <title>Cooptrans v1.0.15</title>
+    <title>Cooptrans v1.0.16</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <!-- Biblioteca Chart.js para Gráficos -->
@@ -53,8 +53,12 @@
         
         #inputBuscaNome { display: none; padding: 6px 12px; border-radius: 20px; border: 1px solid #ccc; font-size: 14px; outline: none; transition: 0.3s; width: 150px; }
 
-        /* Indicador Gigante de Letra */
-        #letterIndicator { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 80px; font-weight: bold; color: white; background: rgba(0,0,0,0.6); width: 130px; height: 130px; align-items: center; justify-content: center; border-radius: 25px; z-index: 9999; pointer-events: none; box-shadow: 0 5px 15px rgba(0,0,0,0.2); backdrop-filter: blur(5px); transition: 0.2s;}
+        /* Barra Alfabética Dinâmica */
+        .alfabeto-bar { position: absolute; right: 0; top: 60px; bottom: 90px; width: 22px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; font-size: 10px; font-weight: bold; color: var(--theme-base); z-index: 50; padding: 5px 0; background: rgba(255,255,255,0.7); backdrop-filter: blur(2px); border-left: 1px solid rgba(0,0,0,0.05); border-radius: 10px 0 0 10px; user-select: none; touch-action: none; cursor: grab;}
+        .alfabeto-bar span { pointer-events: none; width: 100%; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; }
+        
+        /* Indicador Gigante de Letra (-30% tamanho) */
+        #letterIndicator { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 56px; font-weight: bold; color: white; background: rgba(0,0,0,0.6); width: 90px; height: 90px; align-items: center; justify-content: center; border-radius: 20px; z-index: 9999; pointer-events: none; box-shadow: 0 5px 15px rgba(0,0,0,0.2); backdrop-filter: blur(5px); transition: 0.2s;}
 
         .list { padding: 0; margin: 0; list-style: none; }
         /* Itens Condensados e Centralizados */
@@ -104,9 +108,11 @@
         
         .alert-home-text { margin: 0; font-size: 11px; color: #D32F2F; line-height: 1.3; text-align: right; font-weight:bold;}
         
-        .btn-whatsapp { background: #25D366; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: 0.2s; flex: 1; text-align: center; }
+        /* Botões do WhatsApp e PIX mais enxutos na altura */
+        .btn-whatsapp { background: #25D366; color: white; border: none; padding: 6px 10px; border-radius: 8px; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: 0.2s; flex: 1; text-align: center; }
         .btn-whatsapp:active { background: #1ebe56; transform: scale(0.98); }
 
+        /* Dashboard Cards */
         .dash-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         .dash-card { background: #f9f9f9; border: 1px solid #ddd; padding: 15px; border-radius: 8px; text-align: center; }
         .dash-card .title { font-size: 11px; color: #666; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; }
@@ -133,7 +139,7 @@
             }
         } catch(e){}
     </script>
-    <div class="splash-versao">v1.0.15</div>
+    <div class="splash-versao">v1.0.16</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 40px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -155,8 +161,8 @@
             <input type="hidden" id="filtroMesGeral">
         </div>
         
-        <!-- Logo Ampliada -->
-        <div style="position: absolute; left: 50%; transform: translateX(-50%); top: 15px; z-index: 100;">
+        <!-- Logo Ampliada com pointer-events:none para não atrapalhar o clique -->
+        <div style="position: absolute; left: 50%; transform: translateX(-50%); top: 15px; z-index: 100; pointer-events: none;">
             <img id="headerLogo" src="" style="height: 85px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); display: none; background: transparent;">
         </div>
 
@@ -173,8 +179,8 @@
             <div class="chip pendente" id="chipPendentes" onclick="setFiltroView('pendentes')">Pagamento Pendente</div>
             <div class="chip alerta" id="chipVencimentos" onclick="setFiltroView('vencimentos')">Documentos a Vencer</div>
         </div>
-        
-        <!-- Área da Lista Integrada com Scroll Moderno -->
+        <!-- Alfabeto Rolagem Scrubber -->
+        <div class="alfabeto-bar" id="alfabetoBar"></div>
         <div class="scroll-area" id="mainScrollArea"><ul class="list" id="listaPrincipal"></ul></div>
     </div>
 </div>
@@ -253,14 +259,14 @@
 
         <div class="section-title">Comparativo (Gráficos)</div>
         
-        <!-- Seletores de Data Centralizados e Setinha no meio (Ajuste de 5px para esquerda) -->
+        <!-- Seletores de Data Centralizados com Seta deslocada e caixas menores -->
         <div style="display:flex; align-items:center; justify-content:space-between; background:#f9f9f9; padding:15px 10px; border-radius:8px; border:1px solid #ddd; width: 100%; box-sizing: border-box;">
             <div style="flex:1; text-align:center; min-width:0;">
                 <div style="font-size:11px; color:#666; font-weight:bold; margin-bottom:4px; text-transform:uppercase;">Início</div>
                 <div class="month-picker-box" onclick="abrirSeletorMes('dashGrafIni')" style="background:#fff; border-color:#ccc; color:#333; width:85%; justify-content:center; padding:8px 5px; font-size:12px;">📅 <span id="lblDashGrafIni">Jan 2026</span></div>
                 <input type="hidden" id="dashGrafIni">
             </div>
-            <div style="font-size:24px; color:#ccc; font-weight:bold; padding-top:15px; flex:none; transform: translateX(5px);">➔</div>
+            <div style="font-size:24px; color:#ccc; font-weight:bold; padding-top:15px; flex:none; transform: translateX(3px);">➔</div>
             <div style="flex:1; text-align:center; min-width:0;">
                 <div style="font-size:11px; color:#666; font-weight:bold; margin-bottom:4px; text-transform:uppercase;">Fim</div>
                 <div class="month-picker-box" onclick="abrirSeletorMes('dashGrafFim')" style="background:#fff; border-color:#ccc; color:#333; width:85%; justify-content:center; padding:8px 5px; font-size:12px;">📅 <span id="lblDashGrafFim">Dez 2026</span></div>
@@ -497,7 +503,7 @@
         <div class="form-group" style="background:var(--theme-light); padding:10px; border-radius:5px;">
             <div style="display: flex; gap: 10px; margin-bottom: 5px;">
                 <div style="flex:1;"><label style="color:#673AB7; font-weight:bold;">Desconto Base (R$):</label><input type="text" id="contDesconto" inputmode="numeric" oninput="maskMoeda(this); calcTotalContribuinte();" placeholder="0,00"></div>
-                <div style="flex:1;"><label style="color:var(--theme-base);">Total a Pagar (R$):</label><input type="text" id="contValor" readonly style="font-weight:bold; color:var(--theme-base); background:#eee;"></div>
+                <div style="flex:1;"><label style="color:var(--theme-base);">Total a Pagar (R$):</label><input type="text" id="contValor" readonly style="font-weight:bold; color:var(--theme-base); background:#eee; text-align:center;"></div>
             </div>
             <div style="font-size:11px; color:#555;">*Desconto fixo cobrado por mês.</div>
         </div>
@@ -583,72 +589,72 @@
         </div>
         <input type="hidden" id="acoesContId">
 
-        <div style="display:flex; justify-content:space-between; align-items:stretch; margin-bottom:15px; gap:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:stretch; margin-bottom:10px; gap:10px;">
             <div id="boxWAAcoes" style="display:flex; flex:1;"></div>
-            <button class="btn-action" style="flex:none; padding:10px 12px; border-radius:8px; font-size:14px; background:var(--theme-base);" onclick="enviarChavePixWhatsApp()">
+            <button class="btn-action" style="flex:none; padding:6px 10px; border-radius:8px; font-size:13px; background:var(--theme-base);" onclick="enviarChavePixWhatsApp()">
                 <span style="font-size:18px; margin-right:4px;">🔑</span> Enviar Chave PIX
             </button>
         </div>
 
         <!-- Alertas na Tela de Ações -->
-        <div id="boxAlertasAcoes" style="margin-bottom: 15px; background: #FFF3E0; padding: 10px; border-radius: 5px; border: 1px solid #FFCC80; display: none;"></div>
+        <div id="boxAlertasAcoes" style="margin-bottom: 10px; background: #FFF3E0; padding: 8px; border-radius: 5px; border: 1px solid #FFCC80; display: none;"></div>
         
         <div class="section-title">Situação Atual (<span id="lblMesAcoes"></span>)</div>
-        <div class="form-group" style="background:#f9f9f9; padding:15px; border-radius:5px; text-align:center;">
-            <div id="boxStatusPagamento" style="margin-bottom:15px;"></div>
+        <div class="form-group" style="background:#f9f9f9; padding:10px; border-radius:5px; text-align:center;">
+            <div id="boxStatusPagamento" style="margin-bottom:10px;"></div>
             
             <!-- SINGLE MONTH PAYMENT -->
             <div id="boxSingleMes">
                 <div style="display:flex; gap:10px; margin-bottom:10px;">
-                    <div style="flex:1;"><label>Data Pgto:</label><input type="date" id="pgDataSingle"></div>
-                    <div style="flex:1;"><label>Valor a Pagar (R$):</label><input type="text" id="pgValorSingle" readonly style="font-weight:bold; color:var(--theme-base); background:#eee;"></div>
+                    <div style="flex:1;"><label>Data Pgto:</label><input type="date" id="pgDataSingle" style="text-align:center;"></div>
+                    <div style="flex:1;"><label>Valor a Pagar (R$):</label><input type="text" id="pgValorSingle" readonly style="text-align:center; font-weight:bold; color:var(--theme-base); background:#eee;"></div>
                 </div>
-                <button class="btn-action" style="width:100%;" onclick="registrarPagamentoSingle()">💲 Registrar Pgto do Mês</button>
+                <button class="btn-action" style="width:100%; padding:8px; font-size:14px;" onclick="registrarPagamentoSingle()">💲 Registrar Pgto do Mês</button>
             </div>
 
             <!-- SWITCH MULTI MONTH -->
-            <div style="margin-top:20px; display:flex; align-items:center; justify-content:center; gap:10px; border-top:1px solid #ccc; padding-top:15px;">
+            <div style="margin-top:10px; display:flex; align-items:center; justify-content:center; gap:10px; border-top:1px solid #ccc; padding-top:10px;">
                 <label class="switch"><input type="checkbox" id="switchMultiMes" onchange="toggleMultiMes()"><span class="slider"></span></label>
                 <span style="font-size:14px; font-weight:bold; color:#333;">Receber Múltiplos Meses / Período</span>
             </div>
 
             <!-- MULTI MONTH PAYMENT -->
-            <div id="boxMultiMes" style="display:none; text-align:left; margin-top:15px; padding-top:15px; border-top:1px dashed #ccc;">
+            <div id="boxMultiMes" style="display:none; text-align:left; margin-top:10px; padding-top:10px; border-top:1px dashed #ccc;">
                 <div style="display:flex; gap:10px; margin-bottom:5px;">
                     <div style="flex:1;">
                         <label>Mês Início:</label>
-                        <div class="month-picker-box" onclick="abrirSeletorMes('pgIni')" style="width:100%; justify-content:center; padding: 10px; background:#fff; color:#333; border-color:#ccc;">
+                        <div class="month-picker-box" onclick="abrirSeletorMes('pgIni')" style="width:100%; justify-content:center; padding: 8px; background:#fff; color:#333; border-color:#ccc;">
                             📅 <span id="lblPgIni">Abril 2026</span>
                         </div>
                         <input type="hidden" id="pgIni">
                     </div>
                     <div style="flex:1;">
                         <label>Mês Fim (Opc):</label>
-                        <div class="month-picker-box" onclick="abrirSeletorMes('pgFim')" style="width:100%; justify-content:center; padding: 10px; background:#fff; color:#333; border-color:#ccc;">
+                        <div class="month-picker-box" onclick="abrirSeletorMes('pgFim')" style="width:100%; justify-content:center; padding: 8px; background:#fff; color:#333; border-color:#ccc;">
                             📅 <span id="lblPgFim">Abril 2026</span>
                         </div>
                         <input type="hidden" id="pgFim">
                     </div>
                 </div>
                 <div style="display:flex; gap:10px; margin-bottom:5px;">
-                    <div style="flex:1;"><label style="color:#673AB7;">Desconto Extra (R$):</label><input type="text" id="pgDescontoMulti" oninput="maskMoeda(this); calcPgtoMulti(false);" placeholder="0,00"></div>
-                    <div style="flex:1;"><label>Total a Pagar (R$):</label><input type="text" id="pgValorMulti" readonly style="font-weight:bold; color:var(--theme-base); background:#eee;"></div>
+                    <div style="flex:1;"><label style="color:#673AB7;">Desconto Extra (R$):</label><input type="text" id="pgDescontoMulti" oninput="maskMoeda(this); calcPgtoMulti(false);" placeholder="0,00" style="text-align:center;"></div>
+                    <div style="flex:1;"><label>Total a Pagar (R$):</label><input type="text" id="pgValorMulti" readonly style="font-weight:bold; color:var(--theme-base); background:#eee; text-align:center;"></div>
                 </div>
                 <div id="avisoErroMulti" style="display:none; text-align:center; margin-bottom:10px;"></div>
-                <div style="display:flex; gap:10px; margin-bottom:10px;">
-                    <div style="flex:1;"><label>Data Pgto:</label><input type="date" id="pgDataMulti"></div>
+                <div style="display:flex; gap:10px; margin-bottom:5px;">
+                    <div style="flex:1;"><label>Data Pgto:</label><input type="date" id="pgDataMulti" style="text-align:center;"></div>
                     <div style="flex:1; display:flex; align-items:flex-end;">
-                        <button class="btn-action" style="width:100%;" onclick="registrarPagamentoMulti()">💲 Confirmar</button>
+                        <button class="btn-action" style="width:100%; padding:8px; font-size:14px;" onclick="registrarPagamentoMulti()">💲 Confirmar</button>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="section-title">Histórico de Pagamentos</div>
-        <div id="listaHistoricoPagamentos" style="background:#f9f9f9; padding:8px; border-radius:4px; font-size:13px; margin-bottom:15px;"></div>
+        <div id="listaHistoricoPagamentos" style="background:#f9f9f9; padding:8px; border-radius:4px; font-size:13px; margin-bottom:10px;"></div>
         
         <div class="section-title">Veículos Vinculados</div>
-        <div id="listaCarrosAcoes" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:15px;"></div>
+        <div id="listaCarrosAcoes" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;"></div>
 
         <div class="modal-actions"><button class="btn-cancel" style="width: 100%;" onclick="fecharModal('modalAcoesContribuinte')">Voltar</button></div>
     </div>
@@ -750,6 +756,8 @@
         let hjMes = getHojeSTR().substring(0,7);
         document.getElementById('filtroMesGeral').value = hjMes;
         atualizarTextoMesGeral();
+        
+        initAlfabetoScrubber();
     });
 
     // ATALHO ENTER / ESC / NAVEGACAO LISTA
@@ -758,7 +766,6 @@
         let isModalOpen = modals.length > 0;
 
         if(e.key === 'Escape' && isModalOpen) {
-            // Fecha a ultima modal aberta simulando clique no botao de voltar ou fechar
             let topModal = modals.sort((a,b) => (parseInt(getComputedStyle(a).zIndex)||0) - (parseInt(getComputedStyle(b).zIndex)||0)).pop();
             let closeBtn = topModal.querySelector('.btn-cancel') || topModal.querySelector('button[onclick*="fechar"]');
             if(closeBtn) closeBtn.click();
@@ -769,7 +776,6 @@
             if(e.key === 'Enter') {
                 clickFiltroTodos();
             } else {
-                // Scroll por teclado na lista
                 let scrollArea = document.querySelector('.scroll-area');
                 if(e.key === 'ArrowDown') { scrollArea.scrollTop += 50; e.preventDefault(); }
                 else if(e.key === 'ArrowUp') { scrollArea.scrollTop -= 50; e.preventDefault(); }
@@ -812,6 +818,49 @@
             }
         }
     });
+
+    // BARRA ALFABÉTICA (SCRUBBER DESLIZANTE)
+    function initAlfabetoScrubber() {
+        let bar = document.getElementById('alfabetoBar');
+        let ind = document.getElementById('letterIndicator');
+        let letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
+        
+        let html = '';
+        letras.forEach(l => { html += `<span>${l}</span>`; });
+        bar.innerHTML = html;
+
+        function onMove(e) {
+            e.preventDefault();
+            let touch = e.touches ? e.touches[0] : e;
+            let rect = bar.getBoundingClientRect();
+            let y = touch.clientY - rect.top;
+            let perc = y / rect.height;
+            let idx = Math.floor(perc * letras.length);
+            if(idx >= 0 && idx < letras.length) {
+                let l = letras[idx];
+                ind.innerText = l;
+                ind.style.display = 'flex';
+                let el = document.getElementById('letra-'+l);
+                if(el) el.scrollIntoView({behavior:'auto', block:'start'});
+            }
+        }
+        
+        bar.addEventListener('touchstart', onMove, {passive:false});
+        bar.addEventListener('touchmove', onMove, {passive:false});
+        bar.addEventListener('touchend', () => ind.style.display = 'none');
+        
+        bar.addEventListener('mousedown', (e) => {
+            onMove(e);
+            function mouseMove(ev) { onMove(ev); }
+            function mouseUp() {
+                ind.style.display = 'none';
+                document.removeEventListener('mousemove', mouseMove);
+                document.removeEventListener('mouseup', mouseUp);
+            }
+            document.addEventListener('mousemove', mouseMove, {passive:false});
+            document.addEventListener('mouseup', mouseUp);
+        });
+    }
 
     // LOGICA CUSTOM MONTH PICKER UNIFICADA
     let mpCurrentYear = new Date().getFullYear();
@@ -918,7 +967,9 @@
 
     function fecharPainelResultados() {
         fecharModal('modalPainelResultados');
-        if(dashOrigem === 'menu') {
+        if(dashOrigem === 'home') {
+            // Nao reabre nada, fica na home
+        } else {
             document.getElementById('modalPainelUnificado').style.display='flex';
         }
     }
@@ -1145,7 +1196,6 @@
             let d = new Date(dataStr + "T00:00:00");
             let diffDias = Math.ceil((d - hoje) / (1000 * 60 * 60 * 24));
             let diasAviso = parseInt(confAlertas[confKey].dias) || 7;
-            
             let vencidoWord = genero === 'a' ? 'vencida' : 'vencido';
             
             if(diffDias < 0) {
@@ -1204,7 +1254,7 @@
 
         contribs.forEach(c => {
             let carrosAtivos = (c.carros || []).filter(car=>car.ativo).length;
-            if (carrosAtivos === 0) return; // Nao mostra se nao tem carro ativo
+            if (carrosAtivos === 0) return;
 
             if (buscaNome && !(c.nome || '').toLowerCase().includes(buscaNome)) return;
 
@@ -1250,7 +1300,7 @@
             </li>`;
         });
 
-        if(html === '') html = `<li style="padding: 20px; text-align: center; color: #999;">Nenhum contribuinte encontrado para este filtro.</li>`;
+        if(html === '') html = `<li style="padding: 20px; text-align: center; color: #999;">Nenhum contribuinte encontrado.</li>`;
         lista.innerHTML = html;
     }
 
@@ -1451,11 +1501,11 @@
                 let diasPassados = Math.abs(diffDias);
                 avisoBox.innerHTML = `${nome} ${vencidoWord} há ${diasPassados} dias`;
                 avisoBox.style.display = 'block';
-                inputEl.style.color = '#D32F2F'; // Vermelho
+                inputEl.style.color = '#D32F2F'; 
             } else if(diffDias === 0) {
                 avisoBox.innerHTML = `${nome} vence HOJE`;
                 avisoBox.style.display = 'block';
-                inputEl.style.color = '#E65100'; // Laranja
+                inputEl.style.color = '#E65100'; 
             } else if(diffDias <= diasAviso) {
                 avisoBox.innerHTML = `${nome} vence em ${diffDias} dias`;
                 avisoBox.style.display = 'block';
@@ -1558,13 +1608,12 @@
         document.getElementById('acoesContId').value = id;
         document.getElementById('tituloAcoesContribuinte').innerText = c.nome;
         
-        // Render Botões Whatsapp
         let waBox = document.getElementById('boxWAAcoes');
         waBox.innerHTML = '';
         if(c.telefones && c.telefones.length > 0) {
             let primeiro = c.telefones[0];
             let num = primeiro.replace(/\D/g, '');
-            waBox.innerHTML = `<button class="btn-whatsapp" onclick="window.open('https://wa.me/55${num}','_blank')">
+            waBox.innerHTML = `<button class="btn-whatsapp" style="padding:6px 10px; font-size:13px;" onclick="window.open('https://wa.me/55${num}','_blank')">
                 <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:30px; height:30px; filter:brightness(0) invert(1);"> Falar no WhatsApp
             </button>`;
         }
@@ -1874,6 +1923,7 @@
         document.getElementById('modalPainelUnificado').style.display = 'flex';
     }
 
+    // Config Gerais / Alertas / Temas
     function abrirModalConfigGerais() {
         fecharModal('modalPainelUnificado');
         
@@ -2119,6 +2169,7 @@
                         db.contribuintes.push(cExistente);
                     }
 
+                    // Aplica pagamentos achados
                     d.pagamentosTemp.forEach(pTmp => {
                         let pgExiste = isMesPago(cExistente, pTmp.ref);
                         if(!pgExiste) {
