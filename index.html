@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#008C4A" id="metaThemeColor">
-    <title>Cooptrans v1.0.20</title>
+    <title>Cooptrans v1.0.19</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <!-- Biblioteca Chart.js para Gráficos -->
@@ -53,7 +53,7 @@
         
         #inputBuscaNome { display: none; padding: 6px 12px; border-radius: 20px; border: 1px solid #ccc; font-size: 14px; outline: none; transition: 0.3s; width: 150px; }
 
-        /* Indicador Gigante de Letra (30% Menor) */
+        /* Indicador Gigante de Letra */
         #letterIndicator { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 56px; font-weight: bold; color: white; background: rgba(0,0,0,0.6); width: 90px; height: 90px; align-items: center; justify-content: center; border-radius: 20px; z-index: 9999; pointer-events: none; box-shadow: 0 5px 15px rgba(0,0,0,0.2); backdrop-filter: blur(5px); transition: 0.2s;}
 
         .list { padding: 0; margin: 0; list-style: none; }
@@ -134,7 +134,7 @@
             }
         } catch(e){}
     </script>
-    <div class="splash-versao">v1.0.20</div>
+    <div class="splash-versao">v1.0.19</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 40px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -163,7 +163,7 @@
 
         <div style="flex: 1; text-align: right;" class="header-actions">
             <button onclick="abrirPainelResultados(true)">📊</button>
-            <button onclick="document.getElementById('modalPainelUnificado').style.display='flex'">⚙️</button>
+            <button onclick="abrirModal('modalPainelUnificado')">⚙️</button>
         </div>
     </div>
     
@@ -253,7 +253,6 @@
 
         <div class="section-title">Comparativo (Gráficos)</div>
         
-        <!-- Seletores de Data Centralizados (Ajuste seta 1px pra esquerda) -->
         <div style="display:flex; align-items:center; justify-content:space-between; background:#f9f9f9; padding:15px 10px; border-radius:8px; border:1px solid #ddd; width: 100%; box-sizing: border-box;">
             <div style="flex:1; text-align:center; min-width:0;">
                 <div style="font-size:11px; color:#666; font-weight:bold; margin-bottom:4px; text-transform:uppercase;">Início</div>
@@ -331,7 +330,7 @@
         <div class="form-group"><label>Para apagar todo o histórico de lançamentos, digite: <b>quero excluir todo o histórico</b></label><input type="text" id="inputExcluirTudo" placeholder="digite a frase exata"><button class="btn-danger" style="margin-top: 10px; width: 100%;" onclick="excluirTodoHistorico()">🗑️ Apagar Todo o Histórico</button></div>
         <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
         <div class="form-group"><label>App travou ou quer puxar versão nova?</label><button class="btn-outline" style="border-color:#fbc02d; color:#fbc02d; width: 100%; text-align: center;" onclick="forcarAtualizacao()">🔄 Forçar Atualização do App</button></div>
-        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalConfigAvancadas'); document.getElementById('modalPainelUnificado').style.display='flex';">Voltar</button></div>
+        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalConfigAvancadas')">Voltar</button></div>
     </div>
 </div>
 
@@ -353,7 +352,7 @@
             </button>
         </div>
         <div id="conteudoListagem" style="flex: 1; overflow-y: auto; padding-right: 5px;"></div>
-        <div class="modal-actions" style="flex-shrink: 0;"><button class="btn-cancel" id="btnVoltarListagem" onclick="fecharModal('modalListagem'); document.getElementById('modalPainelUnificado').style.display='flex';" style="width: 100%;">Voltar</button></div>
+        <div class="modal-actions" style="flex-shrink: 0;"><button class="btn-cancel" id="btnVoltarListagem" onclick="fecharModal('modalListagem'); abrirModal('modalPainelUnificado');" style="width: 100%;">Voltar</button></div>
     </div>
 </div>
 
@@ -390,7 +389,7 @@
             <div id="listaPixCoop" style="background:#f9f9f9; padding:8px; border-radius:4px; max-height:120px; overflow-y:auto;"></div>
         </div>
 
-        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalFormCooperativa'); document.getElementById('modalPainelUnificado').style.display='flex';">Cancelar</button><button class="btn-action" onclick="salvarCooperativa()">Salvar</button></div>
+        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalFormCooperativa'); abrirModal('modalPainelUnificado');">Cancelar</button><button class="btn-action" onclick="salvarCooperativa()">Salvar</button></div>
     </div>
 </div>
 
@@ -451,16 +450,24 @@
         <div id="boxEditCat" style="background: #f9f9f9; padding: 10px; border-radius: 5px; border: 1px solid #ccc; transition: 0.3s; margin-bottom: 10px;">
             <div style="font-size:12px; font-weight:bold; color:var(--theme-base); margin-bottom:5px;" id="lblModoCat">Adicionar Nova Categoria</div>
             <div style="display: flex; gap: 5px;">
+                <select id="novaCatEmoji" style="flex: 0.5; padding: 8px 5px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; background: white;">
+                    <option value="🚗">🚗</option>
+                    <option value="🚙">🚙</option>
+                    <option value="🛻">🛻</option>
+                    <option value="🚌">🚌</option>
+                    <option value="🚛">🚛</option>
+                    <option value="🚜">🚜</option>
+                </select>
                 <input type="text" id="novaCatNome" placeholder="Categoria (Ex: Van)" style="flex: 2;">
                 <input type="text" id="novaCatValor" placeholder="R$ 0,00" inputmode="numeric" oninput="maskMoeda(this)" style="flex: 1.5;">
-                <button class="btn-action" onclick="addCategoria()" style="flex: none; width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold;" id="btnSalvarCat">+</button>
-                <button class="btn-cancel" id="btnCancelarEditCat" style="display:none; flex: none; width: 45px; padding: 0; align-items: center; justify-content: center; font-weight: bold;" onclick="cancelarEditCategoria()">X</button>
+                <button class="btn-action" onclick="addCategoria()" style="flex: none; width: 40px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold;" id="btnSalvarCat">+</button>
+                <button class="btn-cancel" id="btnCancelarEditCat" style="display:none; flex: none; width: 40px; padding: 0; align-items: center; justify-content: center; font-weight: bold;" onclick="cancelarEditCategoria()">X</button>
             </div>
         </div>
         
         <div id="listaCategorias" style="background: #f9f9f9; padding: 10px; border-radius: 5px; margin-bottom: 15px; max-height: 150px; overflow-y: auto;"></div>
 
-        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalConfigGerais'); document.getElementById('modalPainelUnificado').style.display='flex';">Cancelar</button><button class="btn-action" onclick="salvarConfigGerais()">Salvar Tudo</button></div>
+        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalConfigGerais'); abrirModal('modalPainelUnificado');">Cancelar</button><button class="btn-action" onclick="salvarConfigGerais()">Salvar Tudo</button></div>
     </div>
 </div>
 
@@ -595,25 +602,25 @@
         
         <div class="section-title" style="margin-bottom: 5px;">Situação Atual (<span id="lblMesAcoes"></span>)</div>
         <div class="form-group" style="background:#f9f9f9; padding:10px; border-radius:5px; text-align:center;">
-            <div id="boxStatusPagamento" style="margin-bottom:12px;"></div>
+            <div id="boxStatusPagamento" style="margin-bottom:12px;"></div> <!-- AJUSTE DO ESPAÇO (29) -->
             
             <!-- SINGLE MONTH PAYMENT -->
             <div id="boxSingleMes">
                 <div style="display:flex; gap:5px; margin-bottom:5px; align-items:flex-end;">
-                    <div style="flex:1; text-align:left;">
+                    <div style="flex:1.2; text-align:left;">
                         <label style="font-size:11px;">Mês Ref.:</label>
-                        <div class="month-picker-box" onclick="abrirSeletorMes('pgMesRefSingle')" style="width:100%; justify-content:center; padding: 8px 2px; font-size:12px; background:#fff; color:#333; border-color:#ccc; box-sizing:border-box; margin:0;">
+                        <div class="month-picker-box" onclick="abrirSeletorMes('pgMesRefSingle')" style="width:100%; justify-content:center; padding: 8px 4px; font-size:13px; background:#fff; color:#333; border-color:#ccc; box-sizing:border-box; margin:0;">
                             📅 <span id="lblPgMesRefSingle">Abril 2026</span>
                         </div>
                         <input type="hidden" id="pgMesRefSingle">
                     </div>
-                    <div style="flex:1; text-align:left;">
+                    <div style="flex:0.8; text-align:left;">
                         <label style="font-size:11px;">Data Pgto:</label>
-                        <input type="date" id="pgDataSingle" style="text-align:center; padding: 8px 2px; font-size:12px; width:100%; box-sizing:border-box;">
+                        <input type="date" id="pgDataSingle" style="text-align:center; padding: 8px 4px; font-size:13px; width:100%; box-sizing:border-box;">
                     </div>
-                    <div style="flex:1; text-align:left;">
+                    <div style="flex:1.2; text-align:left;">
                         <label style="font-size:11px;">Valor (R$):</label>
-                        <input type="text" id="pgValorSingle" oninput="maskMoeda(this)" style="text-align:center; font-weight:bold; color:var(--theme-base); background:#fff; border:1px solid #ccc; border-radius:5px; padding:8px 2px; font-size:13px; width:100%; box-sizing:border-box;">
+                        <input type="text" id="pgValorSingle" oninput="maskMoeda(this)" style="text-align:center; font-weight:bold; color:var(--theme-base); background:#fff; border:1px solid #ccc; border-radius:5px; padding:8px 5px; font-size:13px; width:100%; box-sizing:border-box;">
                     </div>
                 </div>
                 <button class="btn-action" style="width:100%; padding:8px; font-size:14px;" onclick="registrarPagamentoSingle()">💲 Registrar Pgto do Mês</button>
@@ -657,7 +664,7 @@
             </div>
         </div>
 
-        <div class="section-title" style="margin-top: 5px; margin-bottom: 5px;">Histórico de Pagamentos</div>
+        <div class="section-title" style="margin-top: 0; margin-bottom: 5px;">Histórico de Pagamentos</div>
         <div id="listaHistoricoPagamentos" style="background:#f9f9f9; padding:8px; border-radius:4px; font-size:13px; margin-bottom:10px;"></div>
         
         <div class="section-title" style="margin-top: 0;">Veículos Vinculados</div>
@@ -724,6 +731,16 @@
     }
     
     function salvarBanco() { localStorage.setItem('cooptrans_v1', JSON.stringify(db)); }
+    
+    function abrirModal(id) {
+        let el = document.getElementById(id);
+        el.style.display = 'flex';
+        let modalBox = el.querySelector('.modal');
+        if(modalBox) {
+            modalBox.scrollTop = 0;
+        }
+    }
+    
     function fecharModal(id) { document.getElementById(id).style.display = 'none'; }
     function marcarMudancaEstrutural() { db.configs.ultimaMudancaLocal = Date.now(); salvarBanco(); sincronizarFundo(false, true); }
 
@@ -837,7 +854,7 @@
         else mpCurrentYear = new Date().getFullYear();
         
         renderizarGridMeses();
-        document.getElementById('modalMonthPicker').style.display = 'flex';
+        abrirModal('modalMonthPicker');
     }
     function mpChangeYear(dir) {
         mpCurrentYear += dir;
@@ -891,7 +908,7 @@
             let mesNome = getExtensoMes(partes[1]);
             document.getElementById('lblMesVisivel').innerText = `${mesNome} ${partes[0]}`;
         }
-        try { renderizarLista(); } catch(e) { console.error("Erro", e); }
+        try { renderizarLista(); } catch(e) { console.error("Erro ao renderizar lista", e); }
     }
 
     function calcularValorEsperado(c, mesRef) {
@@ -928,7 +945,7 @@
         document.getElementById('lblDashGrafFim').innerText = `Dez ${currYear}`;
         
         renderizarResumoMes();
-        document.getElementById('modalPainelResultados').style.display = 'flex';
+        abrirModal('modalPainelResultados');
         setTimeout(() => gerarGraficosComparativos(), 300);
     }
 
@@ -937,7 +954,7 @@
         if(dashOrigem === 'home') {
             // Volta para a home
         } else {
-            document.getElementById('modalPainelUnificado').style.display='flex';
+            abrirModal('modalPainelUnificado');
         }
     }
 
@@ -1221,7 +1238,7 @@
 
         contribs.forEach(c => {
             let carrosAtivos = (c.carros || []).filter(car=>car.ativo).length;
-            if (carrosAtivos === 0) return; // Nao mostra se nao tem carro ativo
+            if (carrosAtivos === 0) return;
 
             if (buscaNome && !(c.nome || '').toLowerCase().includes(buscaNome)) return;
 
@@ -1242,6 +1259,15 @@
                 ? `<span class="status-badge status-pendente">Falta Pagar R$ ${formatMoeda(valorEsperado)}</span>` 
                 : `<span class="status-badge status-ok">Pago / Regular</span>`;
             
+            let emojisCarros = '';
+            (c.carros || []).filter(car=>car.ativo).forEach(car => {
+                let catObj = db.categorias.find(x => x.nome === car.categoria);
+                emojisCarros += catObj && catObj.emoji ? catObj.emoji : '🚗';
+            });
+            let subtitleText = carrosAtivos > 0 
+                ? `<div class="item-subtitle" style="font-size:14px; letter-spacing:1px; margin-top:2px;">${emojisCarros}</div>` 
+                : `<div class="item-subtitle" style="font-size:11px;">Nenhum veículo ativo</div>`;
+            
             let alertasHtml = '';
             if(temAlerta) alertasHtml = alertasArr.join('<br>');
             
@@ -1257,7 +1283,7 @@
                     <div class="item-avatar" style="background-color:${avatarCor};">${primeiraLetra}</div>
                     <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; margin-right: 5px;">
                         <div class="item-title">${c.nome}</div>
-                        <div class="item-subtitle">${carrosAtivos} veículo(s) vinculados</div>
+                        ${subtitleText}
                     </div>
                     <div style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-right: 5px;">
                         ${statusPgtoHtml}
@@ -1275,7 +1301,7 @@
         fecharModal('modalPainelUnificado');
         document.getElementById('tituloListagem').innerText = "Gerenciar Contribuintes";
         document.getElementById('btnNovoListagem').onclick = () => abrirFormContribuinte(null);
-        document.getElementById('btnVoltarListagem').onclick = () => { fecharModal('modalListagem'); document.getElementById('modalPainelUnificado').style.display='flex'; };
+        document.getElementById('btnVoltarListagem').onclick = () => { fecharModal('modalListagem'); abrirModal('modalPainelUnificado'); };
         document.getElementById('boxAcoesExtrasExcel').style.display = 'flex';
         
         let htmlLista = '';
@@ -1291,7 +1317,7 @@
             </div>`; 
         });
         document.getElementById('conteudoListagem').innerHTML = htmlLista;
-        document.getElementById('modalListagem').style.display = 'flex';
+        abrirModal('modalListagem');
     }
 
     let oldFecharModal = fecharModal;
@@ -1331,13 +1357,13 @@
         }
         renderListaTelefones();
         renderListaCarros();
-        document.getElementById('modalFormContribuinte').style.display = 'flex';
+        abrirModal('modalFormContribuinte');
     }
 
     function cancelarFormContribuinte() {
         fecharModal('modalFormContribuinte');
         if(document.getElementById('contFromAcoes').value === 'true') {
-            document.getElementById('modalAcoesContribuinte').style.display = 'flex';
+            abrirModal('modalAcoesContribuinte');
         } else {
             abrirGerenciarContribuintes();
         }
@@ -1392,9 +1418,11 @@
         if(tempCarros.length === 0) { box.innerHTML = '<div style="color:#999; font-size:12px; text-align:center;">Nenhum carro vinculado.</div>'; calcTotalContribuinte(); return; }
         let html = '';
         tempCarros.forEach((c, i) => {
+            let catObj = db.categorias.find(x => x.nome === c.categoria);
+            let emj = catObj && catObj.emoji ? catObj.emoji : '🚗';
             let badge = c.ativo ? '<span style="color:#2E7D32; font-weight:bold; font-size:11px;">Ativo</span>' : '<span style="color:#D32F2F; font-weight:bold; font-size:11px;">Arquivado</span>';
             html += `<div class="list-item-config" style="align-items:flex-start;">
-                <div><strong>${c.placa}</strong> - ${c.ano}<br><small>${c.categoria} | R$ ${c.valor}</small><br>${badge}</div>
+                <div><span style="font-size:16px;">${emj}</span> <strong>${c.placa}</strong> - ${c.ano}<br><small>${c.categoria} | R$ ${c.valor}</small><br>${badge}</div>
                 <div><button class="btn-edit-small" onclick="abrirFormCarro(${i})">✏️</button></div>
             </div>`;
         });
@@ -1412,7 +1440,7 @@
     function abrirFormCarro(idx) {
         let selectCat = document.getElementById('carCategoria');
         selectCat.innerHTML = '<option value="">-- Selecione --</option>';
-        db.categorias.forEach(c => selectCat.innerHTML += `<option value="${c.nome}">${c.nome}</option>`);
+        db.categorias.forEach(c => selectCat.innerHTML += `<option value="${c.nome}">${c.emoji || '🚗'} ${c.nome}</option>`);
 
         if(idx !== null) {
             let c = tempCarros[idx];
@@ -1442,7 +1470,7 @@
         }
         toggleMotivoArquivamento();
         verificarDatasCarroUI();
-        document.getElementById('modalFormCarro').style.display = 'flex';
+        abrirModal('modalFormCarro');
     }
 
     function verificarDatasCarroUI() {
@@ -1468,11 +1496,11 @@
                 let diasPassados = Math.abs(diffDias);
                 avisoBox.innerHTML = `${nome} ${vencidoWord} há ${diasPassados} dias`;
                 avisoBox.style.display = 'block';
-                inputEl.style.color = '#D32F2F'; // Vermelho
+                inputEl.style.color = '#D32F2F'; 
             } else if(diffDias === 0) {
                 avisoBox.innerHTML = `${nome} vence HOJE`;
                 avisoBox.style.display = 'block';
-                inputEl.style.color = '#E65100'; // Laranja
+                inputEl.style.color = '#E65100'; 
             } else if(diffDias <= diasAviso) {
                 avisoBox.innerHTML = `${nome} vence em ${diffDias} dias`;
                 avisoBox.style.display = 'block';
@@ -1528,20 +1556,18 @@
         if(idx !== '') tempCarros[idx] = novoCar;
         else tempCarros.push(novoCar);
 
-        // Salvar diretamente se estiver vindo da tela de Ações
         let isFromAcoes = document.getElementById('modalAcoesContribuinte').style.display === 'flex';
         if (isFromAcoes) {
             let contId = document.getElementById('acoesContId').value;
             let c = db.contribuintes.find(x => x.id === contId);
             c.carros = tempCarros;
             
-            // Recalcula o valor total base
             let somaCarros = c.carros.filter(car => car.ativo).reduce((acc, car) => acc + parseMoeda(car.valor), 0);
             let desc = parseMoeda(c.desconto || "0");
             c.valorTotal = formatMoeda(Math.max(0, somaCarros - desc));
 
             salvarBanco();
-            abrirAcoesContribuinte(contId); // Recarrega tela
+            abrirAcoesContribuinte(contId); 
         } else {
             renderListaCarros();
         }
@@ -1634,7 +1660,7 @@
         renderizarHistPagamentos(c);
         renderListaCarrosAcoes(c);
         
-        document.getElementById('modalAcoesContribuinte').style.display = 'flex';
+        abrirModal('modalAcoesContribuinte');
     }
 
     function renderListaCarrosAcoes(c) {
@@ -1642,7 +1668,9 @@
         boxCarros.innerHTML = '';
         if(c.carros && c.carros.length > 0) {
             c.carros.forEach((car, idx) => {
-                boxCarros.innerHTML += `<button class="btn-outline" style="flex:1; min-width:100px; padding:10px; font-size:14px; font-weight:bold; text-align:center; border-radius:8px;" onclick="abrirCarroFromAcoes(${idx})">🚗 ${car.placa}</button>`;
+                let catObj = db.categorias.find(x => x.nome === car.categoria);
+                let emj = catObj && catObj.emoji ? catObj.emoji : '🚗';
+                boxCarros.innerHTML += `<button class="btn-outline" style="flex:1; min-width:100px; padding:10px; font-size:14px; font-weight:bold; text-align:center; border-radius:8px;" onclick="abrirCarroFromAcoes(${idx})">${emj} ${car.placa}</button>`;
             });
         } else {
             boxCarros.innerHTML = '<div style="color:#999; font-size:13px; text-align:center; width:100%;">Nenhum veículo vinculado.</div>';
@@ -1659,15 +1687,17 @@
         if(!pago && valorEsperado > 0) {
             box.innerHTML = `<div style="font-size:24px; font-weight:bold; color:#D32F2F;">Falta Pagar: R$ ${formatMoeda(valorEsperado)}</div>`;
             pgSingle.value = formatMoeda(valorEsperado);
+            pgSingle.dataset.esperado = valorEsperado;
         } else if (pago) {
             box.innerHTML = `<div style="font-size:24px; font-weight:bold; color:#2E7D32;">✅ Mês já foi Pago</div>`;
             pgSingle.value = formatMoeda(valorEsperado);
+            pgSingle.dataset.esperado = valorEsperado;
         } else {
             box.innerHTML = `<div style="font-size:18px; font-weight:bold; color:#666;">Isento / Sem Valor Devido</div>`;
             pgSingle.value = "0,00";
+            pgSingle.dataset.esperado = "0";
         }
         
-        // Em qualquer caso, deixamos a tela ativa (mudanca 31 da v1.0.19/v1.0.20 mantida)
         document.getElementById('boxSingleMes').style.pointerEvents = 'auto';
         document.getElementById('boxSingleMes').style.opacity = '1';
     }
@@ -1677,7 +1707,8 @@
         let c = db.contribuintes.find(x => x.id === id);
         let mesRef = document.getElementById('pgMesRefSingle').value; 
         
-        let valorPago = parseMoeda(document.getElementById('pgValorSingle').value); // Lê o valor da caixa editável (mudanca 31)
+        let valorPagoStr = document.getElementById('pgValorSingle').value; 
+        let valorPago = parseMoeda(valorPagoStr);
         let dataPgto = document.getElementById('pgDataSingle').value;
 
         if(!dataPgto) return alert("Preencha a data do pagamento.");
@@ -1817,7 +1848,7 @@
         if(!earliestCar) return pending;
 
         let startMes = earliestCar.substring(0,7);
-        let endMes = getHojeSTR().substring(0,7); // Vai até o mes atual
+        let endMes = getHojeSTR().substring(0,7); 
         
         if(startMes <= endMes) {
             let curr = new Date(startMes + '-01T00:00:00');
@@ -1836,7 +1867,6 @@
     function renderizarHistPagamentos(c) {
         let box = document.getElementById('listaHistoricoPagamentos');
         
-        // Pendências Inteligentes
         let pendentes = getMesesPendentes(c);
         let pendentesHtml = '';
         if(pendentes.length > 0) {
@@ -1906,7 +1936,7 @@
         tempPixCoop = db.cooperativa.pixList ? JSON.parse(JSON.stringify(db.cooperativa.pixList)) : [];
         renderListaPixCoop();
 
-        document.getElementById('modalFormCooperativa').style.display = 'flex';
+        abrirModal('modalFormCooperativa');
     }
 
     function renderListaPixCoop() {
@@ -1945,7 +1975,7 @@
         salvarBanco();
         renderizarCabecalhoPrincipal();
         fecharModal('modalFormCooperativa');
-        document.getElementById('modalPainelUnificado').style.display = 'flex';
+        abrirModal('modalPainelUnificado');
     }
 
     function abrirModalConfigGerais() {
@@ -1971,7 +2001,7 @@
         tempCategorias = db.categorias ? JSON.parse(JSON.stringify(db.categorias)) : [];
         renderListasCategorias();
         cancelarEditCategoria();
-        document.getElementById('modalConfigGerais').style.display = 'flex';
+        abrirModal('modalConfigGerais');
     }
 
     function toggleConfAlerta(nome) {
@@ -2043,7 +2073,7 @@
         salvarBanco();
         aplicarTema();
         fecharModal('modalConfigGerais');
-        document.getElementById('modalPainelUnificado').style.display='flex';
+        abrirModal('modalPainelUnificado');
         renderizarLista(); 
     }
 
@@ -2052,11 +2082,11 @@
             fecharModal('modalPainelUnificado');
             document.getElementById('tituloListagem').innerText = "Administradores";
             document.getElementById('btnNovoListagem').onclick = () => abrirFormAdmin(null);
-            document.getElementById('btnVoltarListagem').onclick = () => { fecharModal('modalListagem'); document.getElementById('modalPainelUnificado').style.display='flex'; };
+            document.getElementById('btnVoltarListagem').onclick = () => { fecharModal('modalListagem'); abrirModal('modalPainelUnificado'); };
             let htmlLista = '';
             db.administradores.forEach((a) => { htmlLista += `<div style="padding:10px; border-bottom:1px solid #ddd; display:flex; justify-content:space-between; align-items:center;"><div><strong>${a.nome}</strong></div><div><button style="background:none; border:none; font-size:20px; cursor:pointer;" onclick="abrirFormAdmin('${a.id}')">✏️</button></div></div>`; });
             document.getElementById('conteudoListagem').innerHTML = htmlLista;
-            document.getElementById('modalListagem').style.display = 'flex';
+            abrirModal('modalListagem');
         }
     }
 
@@ -2072,7 +2102,7 @@
             document.getElementById('adminNome').value = '';
             document.getElementById('adminSenha').value = '';
         }
-        document.getElementById('modalFormAdmin').style.display = 'flex';
+        abrirModal('modalFormAdmin');
     }
 
     function salvarAdmin() {
@@ -2193,7 +2223,6 @@
                         db.contribuintes.push(cExistente);
                     }
 
-                    // Aplica pagamentos achados
                     d.pagamentosTemp.forEach(pTmp => {
                         let pgExiste = isMesPago(cExistente, pTmp.ref);
                         if(!pgExiste) {
@@ -2222,8 +2251,8 @@
         e.target.value = ''; 
     }
 
-    function solicitarAcessoAvancado() { fecharModal('modalPainelUnificado'); document.getElementById('senhaAvancada').value = ''; document.getElementById('modalSenhaAvancada').style.display = 'flex'; setTimeout(()=>document.getElementById('senhaAvancada').focus(), 100); }
-    document.getElementById('senhaAvancada').addEventListener('input', function(e) { if(this.value === db.configs.senhaAdmin) { this.blur(); this.value = ''; fecharModal('modalSenhaAvancada'); document.getElementById('configUrlApp').value = db.configs.url || ''; document.getElementById('modalConfigAvancadas').style.display = 'flex'; } });
+    function solicitarAcessoAvancado() { fecharModal('modalPainelUnificado'); document.getElementById('senhaAvancada').value = ''; abrirModal('modalSenhaAvancada'); setTimeout(()=>document.getElementById('senhaAvancada').focus(), 100); }
+    document.getElementById('senhaAvancada').addEventListener('input', function(e) { if(this.value === db.configs.senhaAdmin) { this.blur(); this.value = ''; fecharModal('modalSenhaAvancada'); document.getElementById('configUrlApp').value = db.configs.url || ''; abrirModal('modalConfigAvancadas'); } });
     
     async function salvarURL() { const inputUrl = document.getElementById('configUrlApp').value.trim(); if(!inputUrl) return alert("Digite a URL!"); document.getElementById('loadingOverlay').style.display = 'flex'; try { let fetchUrl = inputUrl + (inputUrl.includes('?') ? '&' : '?') + 'nocache=' + Date.now(); let res = await fetch(fetchUrl, { redirect: "follow", cache: "no-store" }); let nuvemDB = await res.json(); if(nuvemDB && nuvemDB.app_id === "cooptrans") { nuvemDB.configs = nuvemDB.configs || {}; nuvemDB.configs.url = inputUrl; nuvemDB.configs.dadosBaixados = true; db = nuvemDB; salvarBanco(); alert("✅ Concluído!"); location.reload(); } } catch(e) { alert("❌ Falha."); } finally { document.getElementById('loadingOverlay').style.display = 'none'; } }
     async function sincronizarFundo(forcado = false, apenasEmpurrar = false) { if(!db.configs.url || isSyncingFundo) return; isSyncingFundo = true; let indicador = document.getElementById('syncIndicador'); indicador.style.opacity = '1'; try { await fetch(db.configs.url, { method: 'POST', redirect: "follow", headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'salvar_banco', dados: db }) }); } catch(e) { } finally { isSyncingFundo = false; indicador.style.opacity = '0'; } }
