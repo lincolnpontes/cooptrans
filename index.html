@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#008C4A" id="metaThemeColor">
-    <title>Cooptrans v1.0.21</title>
+    <title>Cooptrans v1.0.22</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <!-- Biblioteca Chart.js para Gráficos -->
@@ -53,7 +53,7 @@
         
         #inputBuscaNome { display: none; padding: 6px 12px; border-radius: 20px; border: 1px solid #ccc; font-size: 14px; outline: none; transition: 0.3s; width: 150px; }
 
-        /* Indicador Gigante de Letra */
+        /* Indicador Gigante de Letra (30% Menor) */
         #letterIndicator { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 56px; font-weight: bold; color: white; background: rgba(0,0,0,0.6); width: 90px; height: 90px; align-items: center; justify-content: center; border-radius: 20px; z-index: 9999; pointer-events: none; box-shadow: 0 5px 15px rgba(0,0,0,0.2); backdrop-filter: blur(5px); transition: 0.2s;}
 
         .list { padding: 0; margin: 0; list-style: none; }
@@ -134,7 +134,7 @@
             }
         } catch(e){}
     </script>
-    <div class="splash-versao">v1.0.19</div>
+    <div class="splash-versao">v1.0.22</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 40px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -253,6 +253,7 @@
 
         <div class="section-title">Comparativo (Gráficos)</div>
         
+        <!-- Seletores de Data Centralizados (Ajuste seta 1px pra esquerda) -->
         <div style="display:flex; align-items:center; justify-content:space-between; background:#f9f9f9; padding:15px 10px; border-radius:8px; border:1px solid #ddd; width: 100%; box-sizing: border-box;">
             <div style="flex:1; text-align:center; min-width:0;">
                 <div style="font-size:11px; color:#666; font-weight:bold; margin-bottom:4px; text-transform:uppercase;">Início</div>
@@ -330,7 +331,7 @@
         <div class="form-group"><label>Para apagar todo o histórico de lançamentos, digite: <b>quero excluir todo o histórico</b></label><input type="text" id="inputExcluirTudo" placeholder="digite a frase exata"><button class="btn-danger" style="margin-top: 10px; width: 100%;" onclick="excluirTodoHistorico()">🗑️ Apagar Todo o Histórico</button></div>
         <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
         <div class="form-group"><label>App travou ou quer puxar versão nova?</label><button class="btn-outline" style="border-color:#fbc02d; color:#fbc02d; width: 100%; text-align: center;" onclick="forcarAtualizacao()">🔄 Forçar Atualização do App</button></div>
-        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalConfigAvancadas')">Voltar</button></div>
+        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalConfigAvancadas'); abrirModal('modalPainelUnificado');">Voltar</button></div>
     </div>
 </div>
 
@@ -450,7 +451,7 @@
         <div id="boxEditCat" style="background: #f9f9f9; padding: 10px; border-radius: 5px; border: 1px solid #ccc; transition: 0.3s; margin-bottom: 10px;">
             <div style="font-size:12px; font-weight:bold; color:var(--theme-base); margin-bottom:5px;" id="lblModoCat">Adicionar Nova Categoria</div>
             <div style="display: flex; gap: 5px;">
-                <select id="novaCatEmoji" style="flex: 0.5; padding: 8px 5px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; background: white;">
+                <select id="novaCatEmoji" style="flex: 0 0 auto; padding: 8px 4px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; background: white; width: 50px;">
                     <option value="🚗">🚗</option>
                     <option value="🚙">🚙</option>
                     <option value="🛻">🛻</option>
@@ -458,10 +459,10 @@
                     <option value="🚛">🚛</option>
                     <option value="🚜">🚜</option>
                 </select>
-                <input type="text" id="novaCatNome" placeholder="Categoria (Ex: Van)" style="flex: 2;">
-                <input type="text" id="novaCatValor" placeholder="R$ 0,00" inputmode="numeric" oninput="maskMoeda(this)" style="flex: 1.5;">
-                <button class="btn-action" onclick="addCategoria()" style="flex: none; width: 40px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold;" id="btnSalvarCat">+</button>
-                <button class="btn-cancel" id="btnCancelarEditCat" style="display:none; flex: none; width: 40px; padding: 0; align-items: center; justify-content: center; font-weight: bold;" onclick="cancelarEditCategoria()">X</button>
+                <input type="text" id="novaCatNome" placeholder="Categoria" style="flex: 1; min-width: 0;">
+                <input type="text" id="novaCatValor" placeholder="R$ 0,00" inputmode="numeric" oninput="maskMoeda(this)" style="flex: 0 0 80px; min-width: 0;">
+                <button class="btn-action" onclick="addCategoria()" style="flex: 0 0 45px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold;" id="btnSalvarCat">+</button>
+                <button class="btn-cancel" id="btnCancelarEditCat" style="display:none; flex: 0 0 45px; padding: 0; align-items: center; justify-content: center; font-weight: bold;" onclick="cancelarEditCategoria()">X</button>
             </div>
         </div>
         
@@ -602,7 +603,7 @@
         
         <div class="section-title" style="margin-bottom: 5px;">Situação Atual (<span id="lblMesAcoes"></span>)</div>
         <div class="form-group" style="background:#f9f9f9; padding:10px; border-radius:5px; text-align:center;">
-            <div id="boxStatusPagamento" style="margin-bottom:12px;"></div> <!-- AJUSTE DO ESPAÇO (29) -->
+            <div id="boxStatusPagamento" style="margin-bottom:12px;"></div>
             
             <!-- SINGLE MONTH PAYMENT -->
             <div id="boxSingleMes">
@@ -734,10 +735,12 @@
     
     function abrirModal(id) {
         let el = document.getElementById(id);
-        el.style.display = 'flex';
-        let modalBox = el.querySelector('.modal');
-        if(modalBox) {
-            modalBox.scrollTop = 0;
+        if(el) {
+            el.style.display = 'flex';
+            let modalBox = el.querySelector('.modal');
+            if(modalBox) {
+                modalBox.scrollTop = 0;
+            }
         }
     }
     
@@ -784,13 +787,15 @@
 
     // ATALHO ENTER E ESC E NAVEGACAO LISTA
     document.addEventListener('keydown', function(e) {
-        let modals = Array.from(document.querySelectorAll('.modal-overlay')).filter(m => m.style.display === 'flex');
+        let modals = Array.from(document.querySelectorAll('.modal-overlay')).filter(m => window.getComputedStyle(m).display !== 'none');
         let isModalOpen = modals.length > 0;
 
         if(e.key === 'Escape' && isModalOpen) {
-            let topModal = modals.sort((a,b) => (parseInt(getComputedStyle(a).zIndex)||0) - (parseInt(getComputedStyle(b).zIndex)||0)).pop();
-            let closeBtn = topModal.querySelector('.btn-cancel') || topModal.querySelector('button[onclick*="fechar"]');
-            if(closeBtn) closeBtn.click();
+            let topModal = modals.sort((a,b) => (parseInt(window.getComputedStyle(a).zIndex)||0) - (parseInt(window.getComputedStyle(b).zIndex)||0)).pop();
+            if(topModal) {
+                let closeBtn = topModal.querySelector('.btn-cancel') || topModal.querySelector('button[onclick*="fechar"]');
+                if(closeBtn) closeBtn.click();
+            }
             return;
         }
 
@@ -1496,11 +1501,11 @@
                 let diasPassados = Math.abs(diffDias);
                 avisoBox.innerHTML = `${nome} ${vencidoWord} há ${diasPassados} dias`;
                 avisoBox.style.display = 'block';
-                inputEl.style.color = '#D32F2F'; 
+                inputEl.style.color = '#D32F2F'; // Vermelho
             } else if(diffDias === 0) {
                 avisoBox.innerHTML = `${nome} vence HOJE`;
                 avisoBox.style.display = 'block';
-                inputEl.style.color = '#E65100'; 
+                inputEl.style.color = '#E65100'; // Laranja
             } else if(diffDias <= diasAviso) {
                 avisoBox.innerHTML = `${nome} vence em ${diffDias} dias`;
                 avisoBox.style.display = 'block';
@@ -1615,14 +1620,13 @@
         document.getElementById('acoesContId').value = id;
         document.getElementById('tituloAcoesContribuinte').innerText = c.nome;
         
-        // Render Botões Whatsapp
         let waBox = document.getElementById('boxWAAcoes');
         waBox.innerHTML = '';
         if(c.telefones && c.telefones.length > 0) {
             let primeiro = c.telefones[0];
             let num = primeiro.replace(/\D/g, '');
             waBox.innerHTML = `<button class="btn-whatsapp" onclick="window.open('https://wa.me/55${num}','_blank')">
-                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:30px; height:30px; filter:brightness(0) invert(1);"> Falar no WhatsApp
+                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:30px; height:30px; border:none; outline:none; background:transparent;"> Falar no WhatsApp
             </button>`;
         }
 
@@ -1698,6 +1702,7 @@
             pgSingle.dataset.esperado = "0";
         }
         
+        // Mantem destravado para editar a data ref
         document.getElementById('boxSingleMes').style.pointerEvents = 'auto';
         document.getElementById('boxSingleMes').style.opacity = '1';
     }
@@ -1848,7 +1853,7 @@
         if(!earliestCar) return pending;
 
         let startMes = earliestCar.substring(0,7);
-        let endMes = getHojeSTR().substring(0,7); 
+        let endMes = getHojeSTR().substring(0,7); // Vai até o mes atual
         
         if(startMes <= endMes) {
             let curr = new Date(startMes + '-01T00:00:00');
@@ -2012,20 +2017,21 @@
     function renderListasCategorias() {
         const list = document.getElementById('listaCategorias');
         list.innerHTML = tempCategorias.length ? tempCategorias.map((c, i) => `<div class="list-item-config">
-            <span><b>${c.nome}</b> - R$ ${c.valor}</span>
+            <span><b>${c.emoji || '🚗'} ${c.nome}</b> - R$ ${c.valor}</span>
             <div><button class="btn-edit-small" onclick="editarCategoria(${i})">✏️</button><button onclick="removerCategoria(${i})">X</button></div>
         </div>`).join('') : '<div style="color:#999; font-size:12px; text-align:center;">Nenhuma categoria.</div>';
     }
 
     function addCategoria() {
+        let e = document.getElementById('novaCatEmoji').value;
         let n = document.getElementById('novaCatNome').value.trim();
         let v = document.getElementById('novaCatValor').value.trim();
         let editIdx = document.getElementById('editIdxCat').value;
         if(n && v) {
             if(editIdx !== "") { 
-                tempCategorias[editIdx] = {nome: n, valor: v}; 
+                tempCategorias[editIdx] = {emoji: e, nome: n, valor: v}; 
             } else { 
-                tempCategorias.push({nome: n, valor: v}); 
+                tempCategorias.push({emoji: e, nome: n, valor: v}); 
             }
             cancelarEditCategoria();
             renderListasCategorias();
@@ -2034,6 +2040,7 @@
     
     function editarCategoria(idx) {
         let c = tempCategorias[idx];
+        document.getElementById('novaCatEmoji').value = c.emoji || '🚗';
         document.getElementById('novaCatNome').value = c.nome;
         document.getElementById('novaCatValor').value = c.valor;
         document.getElementById('editIdxCat').value = idx;
@@ -2047,6 +2054,7 @@
     }
 
     function cancelarEditCategoria() {
+        document.getElementById('novaCatEmoji').value = '🚗';
         document.getElementById('novaCatNome').value = '';
         document.getElementById('novaCatValor').value = '';
         document.getElementById('editIdxCat').value = '';
@@ -2223,6 +2231,7 @@
                         db.contribuintes.push(cExistente);
                     }
 
+                    // Aplica pagamentos achados
                     d.pagamentosTemp.forEach(pTmp => {
                         let pgExiste = isMesPago(cExistente, pTmp.ref);
                         if(!pgExiste) {
