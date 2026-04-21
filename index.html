@@ -5,9 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#008C4A" id="metaThemeColor">
-    <title>Cooptrans v1.0.9</title>
+    <title>Cooptrans v1.0.10</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Biblioteca Chart.js para Gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --theme-base: #008C4A;
@@ -96,16 +98,40 @@
         /* Alertas Maiores */
         .alert-home-text { margin-top: 8px; font-size: 16px; color: #D32F2F; line-height: 1.4; }
         
-        /* Botão do WhatsApp Totalmente Refeito */
-        .btn-whatsapp { background: #25D366; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: 0.2s; flex: 1; }
+        /* Botões Estilo WhatsApp */
+        .btn-whatsapp { background: #25D366; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: 0.2s; flex: 1; text-align: center; }
         .btn-whatsapp:active { background: #1ebe56; transform: scale(0.98); }
+
+        /* Dashboard Cards */
+        .dash-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .dash-card { background: #f9f9f9; border: 1px solid #ddd; padding: 15px; border-radius: 8px; text-align: center; }
+        .dash-card .title { font-size: 11px; color: #666; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; }
+        .dash-card .value { font-size: 20px; font-weight: bold; color: var(--theme-base); }
+        .dash-card .sub-value { font-size: 12px; color: #888; margin-top: 4px; }
+        .dash-card.red .value { color: #D32F2F; }
+        .dash-card.full { grid-column: span 2; }
     </style>
 </head>
 <body>
 
 <div id="splashScreen">
+    <!-- Imagem de Logo Injetada Dinamicamente para o Splash -->
+    <img id="splashLogoObj" style="max-height: 100px; object-fit: contain; margin-bottom: 20px; border-radius: 10px; display: none;">
+    <script>
+        try {
+            let s = localStorage.getItem('cooptrans_v1');
+            if(s) {
+                let parsed = JSON.parse(s);
+                if(parsed && parsed.cooperativa && parsed.cooperativa.logo) {
+                    let img = document.getElementById('splashLogoObj');
+                    img.src = parsed.cooperativa.logo;
+                    img.style.display = 'block';
+                }
+            }
+        } catch(e){}
+    </script>
     <div class="splash-titulo">Cooptrans</div>
-    <div class="splash-versao">v1.0.9</div>
+    <div class="splash-versao">v1.0.10</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 30px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -163,6 +189,7 @@
 <div class="modal-overlay" id="modalPainelUnificado">
     <div class="modal" style="padding-top: 25px;">
         <h2 style="text-align: center; color: var(--theme-base); margin-top: 0; margin-bottom: 20px;">Menu Cooptrans</h2>
+        <button class="btn-outline" style="background:#E8F5E9; color:#2E7D32; border-color:#2E7D32;" onclick="abrirPainelResultados()">📊 Painel de Resultados</button>
         <button class="btn-outline" onclick="abrirModalCooperativa()">🏢 Dados da Cooperativa</button>
         <button class="btn-outline" onclick="abrirGerenciarContribuintes()">👥 Gerenciar Contribuintes</button>
         <button class="btn-outline" onclick="abrirModalConfigGerais()">⚙️ Configurações Gerais</button>
@@ -171,6 +198,54 @@
         <h3 style="font-size: 16px; color: #d32f2f; margin-top: 15px; margin-bottom: 10px;">Avançado</h3>
         <button class="btn-danger" style="width: 100%; margin-bottom: 10px;" onclick="solicitarAcessoAvancado()">⚠️ Configurações Avançadas</button>
         <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalPainelUnificado')">Fechar</button></div>
+    </div>
+</div>
+
+<!-- PAINEL DE RESULTADOS (DASHBOARD) -->
+<div class="modal-overlay" id="modalPainelResultados">
+    <div class="modal" style="width: 95%; max-width: 600px; height: 90vh;">
+        <div class="modal-title">📊 Painel de Resultados</div>
+        
+        <div class="section-title" style="margin-top:0;">Resumo do Mês</div>
+        <div class="form-group" style="display:flex; gap:10px; align-items:center;">
+            <label style="margin:0;">Mês de Análise:</label>
+            <input type="month" id="dashMesSingle" onchange="renderizarResumoMes()" style="flex:1;">
+        </div>
+
+        <div class="dash-cards">
+            <div class="dash-card full">
+                <div class="title">Veículos Ativos no Mês</div>
+                <div class="value" id="dashTotalCarros">0</div>
+            </div>
+            <div class="dash-card">
+                <div class="title">Recebido</div>
+                <div class="value" id="dashRecebidoVal">R$ 0,00</div>
+                <div class="sub-value" id="dashRecebidoQtd">0 pagos</div>
+            </div>
+            <div class="dash-card red">
+                <div class="title">Pendente</div>
+                <div class="value" id="dashPendenteVal">R$ 0,00</div>
+                <div class="sub-value" id="dashPendenteQtd">0 devendo</div>
+            </div>
+        </div>
+
+        <div class="section-title">Comparativo (Gráficos)</div>
+        <div style="display:flex; gap:10px; margin-bottom:10px;">
+            <div style="flex:1;"><label>Início:</label><input type="month" id="dashGrafIni"></div>
+            <div style="flex:1;"><label>Fim:</label><input type="month" id="dashGrafFim"></div>
+        </div>
+        <button class="btn-action" style="width:100%; margin-bottom:20px;" onclick="gerarGraficosComparativos()">📈 Gerar Gráficos</button>
+
+        <div style="margin-bottom: 20px;">
+            <canvas id="chartArrecadacao" height="200"></canvas>
+        </div>
+        <div style="margin-bottom: 20px;">
+            <canvas id="chartInadimplencia" height="200"></canvas>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn-cancel" style="width: 100%;" onclick="fecharModal('modalPainelResultados'); document.getElementById('modalPainelUnificado').style.display='flex';">Voltar</button>
+        </div>
     </div>
 </div>
 
@@ -462,10 +537,14 @@
             </button>
         </div>
 
+        <!-- Alertas na Tela de Ações -->
+        <div id="boxAlertasAcoes" style="margin-bottom: 15px; background: #FFF3E0; padding: 10px; border-radius: 5px; border: 1px solid #FFCC80; display: none;"></div>
+        
         <div class="section-title">Situação Atual (<span id="lblMesAcoes"></span>)</div>
         <div class="form-group" style="background:#f9f9f9; padding:15px; border-radius:5px; text-align:center;">
             <div id="boxStatusPagamento" style="margin-bottom:15px;"></div>
             
+            <!-- SINGLE MONTH PAYMENT -->
             <div id="boxSingleMes">
                 <div style="display:flex; gap:10px; margin-bottom:10px;">
                     <div style="flex:1;"><label>Data Pgto:</label><input type="date" id="pgDataSingle"></div>
@@ -474,11 +553,13 @@
                 <button class="btn-action" style="width:100%;" onclick="registrarPagamentoSingle()">💲 Registrar Pgto do Mês</button>
             </div>
 
+            <!-- SWITCH MULTI MONTH -->
             <div style="margin-top:20px; display:flex; align-items:center; justify-content:center; gap:10px; border-top:1px solid #ccc; padding-top:15px;">
                 <label class="switch"><input type="checkbox" id="switchMultiMes" onchange="toggleMultiMes()"><span class="slider"></span></label>
                 <span style="font-size:14px; font-weight:bold; color:#333;">Receber Múltiplos Meses / Período</span>
             </div>
 
+            <!-- MULTI MONTH PAYMENT (Hidden) -->
             <div id="boxMultiMes" style="display:none; text-align:left; margin-top:15px; padding-top:15px; border-top:1px dashed #ccc;">
                 <div style="display:flex; gap:10px; margin-bottom:5px;">
                     <div style="flex:1;"><label>Mês Início:</label><input type="month" id="pgIni" onchange="calcPgtoMulti(true)"></div>
@@ -531,6 +612,8 @@
     let tempCarros = [];
     let tempPixCoop = [];
     let filtroViewAtual = 'todos'; 
+    let chartArrecadacao = null;
+    let chartInadimplencia = null;
 
     function carregarBanco() {
         let base = {
@@ -644,6 +727,7 @@
         let soma = 0;
         (c.carros || []).forEach(car => {
             if(!car.ativo) return;
+            // Só cobra o carro a partir do mes de cadastro do veículo
             let cadMonth = car.dataCadastro ? car.dataCadastro.substring(0,7) : '2000-01'; 
             if(mesRef >= cadMonth) {
                 soma += parseMoeda(car.valor);
@@ -651,6 +735,105 @@
         });
         let desc = parseMoeda(c.desconto || "0");
         return Math.max(0, soma - desc);
+    }
+
+    // DASHBOARD / PAINEL RESULTADOS
+    function abrirPainelResultados() {
+        fecharModal('modalPainelUnificado');
+        document.getElementById('dashMesSingle').value = document.getElementById('filtroMesGeral').value || getHojeSTR().substring(0,7);
+        
+        let currYear = new Date().getFullYear();
+        document.getElementById('dashGrafIni').value = `${currYear}-01`;
+        document.getElementById('dashGrafFim').value = `${currYear}-12`;
+        
+        renderizarResumoMes();
+        document.getElementById('modalPainelResultados').style.display = 'flex';
+        // Delay para renderizar graficos na tela visivel
+        setTimeout(() => gerarGraficosComparativos(), 300);
+    }
+
+    function renderizarResumoMes() {
+        let mesRef = document.getElementById('dashMesSingle').value;
+        if(!mesRef) return;
+        
+        let totalCarrosAtivos = 0;
+        let recebidoVal = 0;
+        let recebidoQtd = 0;
+        let pendenteVal = 0;
+        let pendenteQtd = 0;
+
+        db.contribuintes.forEach(c => {
+            let valEsp = calcularValorEsperado(c, mesRef);
+            if(valEsp > 0) {
+                let carrosDeste = c.carros.filter(car => car.ativo && car.dataCadastro.substring(0,7) <= mesRef).length;
+                totalCarrosAtivos += carrosDeste;
+
+                if(isMesPago(c, mesRef)) {
+                    recebidoVal += valEsp;
+                    recebidoQtd++;
+                } else {
+                    pendenteVal += valEsp;
+                    pendenteQtd++;
+                }
+            }
+        });
+
+        document.getElementById('dashTotalCarros').innerText = totalCarrosAtivos;
+        document.getElementById('dashRecebidoVal').innerText = `R$ ${formatMoeda(recebidoVal)}`;
+        document.getElementById('dashRecebidoQtd').innerText = `${recebidoQtd} contribuintes`;
+        document.getElementById('dashPendenteVal').innerText = `R$ ${formatMoeda(pendenteVal)}`;
+        document.getElementById('dashPendenteQtd').innerText = `${pendenteQtd} contribuintes`;
+    }
+
+    function gerarGraficosComparativos() {
+        let ini = document.getElementById('dashGrafIni').value;
+        let fim = document.getElementById('dashGrafFim').value;
+        if(!ini || !fim) return;
+        if(fim < ini) { let temp=ini; ini=fim; fim=temp; }
+
+        let meses = getMesesRange(ini, fim);
+        let labelsArr = [];
+        let arrRecebido = [];
+        let arrPendente = [];
+
+        meses.forEach(m => {
+            let p = m.split('-');
+            labelsArr.push(`${getAbrevMes(p[1])}/${p[0].substring(2)}`);
+            
+            let rec = 0;
+            let pen = 0;
+            db.contribuintes.forEach(c => {
+                let valEsp = calcularValorEsperado(c, m);
+                if(valEsp > 0) {
+                    if(isMesPago(c, m)) rec += valEsp;
+                    else pen += valEsp;
+                }
+            });
+            arrRecebido.push(rec);
+            arrPendente.push(pen);
+        });
+
+        let ctxArr = document.getElementById('chartArrecadacao').getContext('2d');
+        if(chartArrecadacao) chartArrecadacao.destroy();
+        chartArrecadacao = new Chart(ctxArr, {
+            type: 'bar',
+            data: {
+                labels: labelsArr,
+                datasets: [{ label: 'Arrecadação (R$)', data: arrRecebido, backgroundColor: '#2E7D32', borderRadius: 4 }]
+            },
+            options: { responsive: true, plugins: { title: { display: true, text: 'Evolução da Arrecadação' } } }
+        });
+
+        let ctxInad = document.getElementById('chartInadimplencia').getContext('2d');
+        if(chartInadimplencia) chartInadimplencia.destroy();
+        chartInadimplencia = new Chart(ctxInad, {
+            type: 'bar',
+            data: {
+                labels: labelsArr,
+                datasets: [{ label: 'Inadimplência / Pendente (R$)', data: arrPendente, backgroundColor: '#D32F2F', borderRadius: 4 }]
+            },
+            options: { responsive: true, plugins: { title: { display: true, text: 'Inadimplência por Mês' } } }
+        });
     }
 
     // 3. MAIN LIST & FILTERS
@@ -1059,15 +1242,26 @@
         document.getElementById('acoesContId').value = id;
         document.getElementById('tituloAcoesContribuinte').innerText = c.nome;
         
-        // Render Botões Whatsapp
+        // Render Botões Whatsapp Minimalista
         let waBox = document.getElementById('boxWAAcoes');
         waBox.innerHTML = '';
         if(c.telefones && c.telefones.length > 0) {
             let primeiro = c.telefones[0];
             let num = primeiro.replace(/\D/g, '');
             waBox.innerHTML = `<button class="btn-whatsapp" onclick="window.open('https://wa.me/55${num}','_blank')">
-                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:20px; height:20px; filter:brightness(0) invert(1);"> Falar no WhatsApp
+                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:20px; height:20px; border:none; outline:none; background:transparent;"> Falar no WhatsApp
             </button>`;
+        }
+
+        // Renderiza Painel de Alertas se houver
+        let alertasArr = [];
+        (c.carros || []).forEach(car => { alertasArr = alertasArr.concat(checarAlertasCarro(car)); });
+        let boxAlertas = document.getElementById('boxAlertasAcoes');
+        if(alertasArr.length > 0) {
+            boxAlertas.innerHTML = `<div style="font-size:16px; color:#D32F2F; text-align:center; line-height:1.4;">${alertasArr.join('<br>')}</div>`;
+            boxAlertas.style.display = 'block';
+        } else {
+            boxAlertas.style.display = 'none';
         }
 
         let mesRef = document.getElementById('filtroMesGeral').value;
