@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#008C4A" id="metaThemeColor">
-    <title>Cooptrans v1.0.13</title>
+    <title>Cooptrans v1.0.14</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <!-- Biblioteca Chart.js para Gráficos -->
@@ -17,9 +17,9 @@
             --theme-sub: #ffffff;
         }
 
-        html, body { width: 100%; height: 100%; position: fixed; overflow: hidden; margin: 0; padding: 0; }
+        html, body { width: 100%; height: 100%; position: fixed; overflow: hidden; margin: 0; padding: 0; touch-action: none; }
         body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; }
-        input, select, textarea, .modal { user-select: text; -webkit-user-select: text; font-family: inherit; }
+        input, select, textarea, .modal, .scroll-area { user-select: text; -webkit-user-select: text; font-family: inherit; touch-action: auto; }
         .app-container { width: 100%; max-width: 100%; height: 100%; background-color: #ffffff; display: flex; flex-direction: column; position: absolute; top: 0; left: 0; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
         
         #splashScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--theme-base); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; transition: opacity 0.5s ease; }
@@ -37,9 +37,7 @@
         
         .area-conteudo { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
         
-        /* Ocultar barra nativa de rolagem */
         .scroll-area { overflow-y: auto; flex: 1; padding-bottom: 90px; padding-right: 22px; -webkit-overflow-scrolling: touch; }
-        .scroll-area::-webkit-scrollbar { display: none; width: 0; }
         
         .filters { padding: 10px 15px; display: flex; gap: 10px; align-items: center; overflow-x: auto; white-space: nowrap; border-bottom: 1px solid #eee; background-color: var(--theme-sub); flex-shrink: 0; }
         .chip { background-color: #e0e0e0; color: #333; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: bold; border: 2px solid transparent; transition: 0.3s; }
@@ -51,15 +49,17 @@
         
         #inputBuscaNome { display: none; padding: 6px 12px; border-radius: 20px; border: 1px solid #ccc; font-size: 14px; outline: none; transition: 0.3s; width: 150px; }
 
-        /* Barra Alfabética Integrada e Bonita */
-        .alfabeto-bar { position: absolute; right: 0; top: 60px; bottom: 90px; width: 22px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; font-size: 9px; font-weight: bold; color: var(--theme-base); z-index: 50; padding: 5px 0; background: rgba(255,255,255,0.8); backdrop-filter: blur(2px); border-left: 1px solid rgba(0,0,0,0.05); border-radius: 10px 0 0 10px;}
-        .alfabeto-bar span { cursor: pointer; flex: 1; display: flex; align-items: center; width: 100%; justify-content: center; transition: 0.2s; }
-        .alfabeto-bar span:active { transform: scale(1.6); background: var(--theme-base); color: white; border-radius: 50%; }
+        /* Barra Alfabética Dinâmica */
+        .alfabeto-bar { position: absolute; right: 0; top: 60px; bottom: 90px; width: 22px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; font-size: 10px; font-weight: bold; color: var(--theme-base); z-index: 50; padding: 5px 0; background: rgba(255,255,255,0.7); backdrop-filter: blur(2px); user-select: none; touch-action: none; cursor: grab;}
+        .alfabeto-bar span { pointer-events: none; width: 100%; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; }
+        
+        /* Indicador Gigante de Letra */
+        #letterIndicator { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 80px; font-weight: bold; color: white; background: rgba(0,140,74,0.85); width: 130px; height: 130px; align-items: center; justify-content: center; border-radius: 25px; z-index: 9999; pointer-events: none; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
 
         .list { padding: 0; margin: 0; list-style: none; }
-        /* Itens Condensados */
-        .item { display: flex; align-items: center; padding: 8px 10px; border-bottom: 1px solid #eee; position: relative; user-select: none; width: 100%; box-sizing: border-box; }
-        .item-avatar { width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px; color: white; font-size: 16px; flex-shrink: 0; transition: background-color 0.3s;}
+        /* Itens Condensados e Centralizados */
+        .item { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border-bottom: 1px solid #eee; position: relative; user-select: none; min-height: 55px; }
+        .item-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px; color: white; font-size: 14px; flex-shrink: 0; transition: background-color 0.3s;}
         .item-title { font-weight: bold; font-size: 15px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;}
         .item-subtitle { color: #666; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
         
@@ -133,9 +133,12 @@
             }
         } catch(e){}
     </script>
-    <div class="splash-versao">v1.0.13</div>
+    <div class="splash-versao">v1.0.14</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 40px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
+
+<!-- O Overlay da Letra Gigante -->
+<div id="letterIndicator">A</div>
 
 <div id="syncIndicador"></div>
 <div id="loadingOverlay">
@@ -152,7 +155,6 @@
             <input type="hidden" id="filtroMesGeral">
         </div>
         
-        <!-- Logo Ampliada -->
         <div style="position: absolute; left: 50%; transform: translateX(-50%); top: 15px; z-index: 100;">
             <img id="headerLogo" src="" style="height: 85px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); display: none; background: transparent;">
         </div>
@@ -170,14 +172,12 @@
             <div class="chip pendente" id="chipPendentes" onclick="setFiltroView('pendentes')">Pagamento Pendente</div>
             <div class="chip alerta" id="chipVencimentos" onclick="setFiltroView('vencimentos')">Documentos a Vencer</div>
         </div>
-        
-        <!-- Alfabeto Rolagem -->
+        <!-- Alfabeto Rolagem Scrubber -->
         <div class="alfabeto-bar" id="alfabetoBar"></div>
         <div class="scroll-area"><ul class="list" id="listaPrincipal"></ul></div>
     </div>
 </div>
 
-<!-- Modal Personalizado para Selecionar Mês e Ano -->
 <div class="modal-overlay" id="modalMonthPicker" style="z-index: 2000;">
     <div class="modal" style="width: 320px; padding: 20px;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px;">
@@ -192,7 +192,6 @@
     </div>
 </div>
 
-<!-- MENU PRINCIPAL -->
 <div class="modal-overlay" id="modalPainelUnificado">
     <div class="modal" style="padding-top: 25px;">
         <h2 style="text-align: center; color: var(--theme-base); margin-top: 0; margin-bottom: 20px;">Menu Cooptrans</h2>
@@ -208,7 +207,7 @@
     </div>
 </div>
 
-<!-- PAINEL DE RESULTADOS (DASHBOARD) -->
+<!-- PAINEL DE RESULTADOS -->
 <div class="modal-overlay" id="modalPainelResultados">
     <div class="modal" style="width: 95%; max-width: 600px; height: 90vh;">
         <div class="modal-title">
@@ -251,21 +250,21 @@
 
         <div class="section-title">Comparativo (Gráficos)</div>
         
-        <!-- Seletores de Data Centralizados e Setinha no meio -->
-        <div style="display:flex; align-items:center; justify-content:center; background:#f9f9f9; padding:15px; border-radius:8px; border:1px solid #ddd;">
-            <div style="flex:1; text-align:center;">
+        <!-- Seletores de Data Centralizados Corrigidos -->
+        <div style="display:flex; align-items:center; justify-content:space-between; background:#f9f9f9; padding:15px 10px; border-radius:8px; border:1px solid #ddd; width: 100%; box-sizing: border-box;">
+            <div style="flex:1; text-align:center; min-width:0;">
                 <div style="font-size:11px; color:#666; font-weight:bold; margin-bottom:4px; text-transform:uppercase;">Início</div>
-                <div class="month-picker-box" onclick="abrirSeletorMes('dashGrafIni')" style="background:#fff; border-color:#ccc; color:#333; width:100%; justify-content:center; padding:10px;">📅 <span id="lblDashGrafIni">Jan 2026</span></div>
+                <div class="month-picker-box" onclick="abrirSeletorMes('dashGrafIni')" style="background:#fff; border-color:#ccc; color:#333; width:90%; justify-content:center; padding:8px 5px; font-size:12px;">📅 <span id="lblDashGrafIni">Jan 2026</span></div>
                 <input type="hidden" id="dashGrafIni">
             </div>
-            <div style="font-size:24px; color:#ccc; font-weight:bold; padding-top:15px; margin: 0 10px; flex:none; text-align:center;">➔</div>
-            <div style="flex:1; text-align:center;">
+            <div style="font-size:24px; color:#ccc; font-weight:bold; padding-top:15px; flex:none; transform: translateX(10px);">➔</div>
+            <div style="flex:1; text-align:center; min-width:0;">
                 <div style="font-size:11px; color:#666; font-weight:bold; margin-bottom:4px; text-transform:uppercase;">Fim</div>
-                <div class="month-picker-box" onclick="abrirSeletorMes('dashGrafFim')" style="background:#fff; border-color:#ccc; color:#333; width:100%; justify-content:center; padding:10px;">📅 <span id="lblDashGrafFim">Dez 2026</span></div>
+                <div class="month-picker-box" onclick="abrirSeletorMes('dashGrafFim')" style="background:#fff; border-color:#ccc; color:#333; width:90%; justify-content:center; padding:8px 5px; font-size:12px;">📅 <span id="lblDashGrafFim">Dez 2026</span></div>
                 <input type="hidden" id="dashGrafFim">
             </div>
         </div>
-        <!-- Resumo do Período -->
+        
         <div id="dashResumoPeriodo" style="text-align:center; font-size:14px; font-weight:bold; margin-top:10px; margin-bottom:15px; color:#333;"></div>
         
         <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
@@ -300,7 +299,6 @@
     </div>
 </div>
 
-<!-- ZONA DE RISCO E NUVEM -->
 <div class="modal-overlay" id="modalSenhaAvancada">
     <div class="modal">
         <div class="modal-title" style="color:#d32f2f;">Zona de Risco</div>
@@ -333,7 +331,6 @@
     </div>
 </div>
 
-<!-- LISTAGENS GENÉRICAS -->
 <div class="modal-overlay" id="modalListagem">
     <div class="modal" style="width: 95%; height: 85vh; display: flex; flex-direction: column;">
         <div class="modal-title" id="tituloListagem" style="flex-shrink: 0;">Gerenciar</div>
@@ -355,7 +352,6 @@
     </div>
 </div>
 
-<!-- DADOS DA COOPERATIVA -->
 <div class="modal-overlay" id="modalFormCooperativa">
     <div class="modal">
         <div class="modal-title">Dados da Cooperativa</div>
@@ -392,7 +388,6 @@
     </div>
 </div>
 
-<!-- CONFIG GERAIS -->
 <div class="modal-overlay" id="modalConfigGerais">
     <div class="modal" style="max-height: 90vh;">
         <div class="modal-title">Configurações Gerais</div>
@@ -462,7 +457,6 @@
     </div>
 </div>
 
-<!-- FORM ADMINISTRADOR -->
 <div class="modal-overlay" id="modalFormAdmin">
     <div class="modal">
         <div class="modal-title">Administrador</div>
@@ -473,7 +467,6 @@
     </div>
 </div>
 
-<!-- FORM CONTRIBUINTE -->
 <div class="modal-overlay" id="modalFormContribuinte">
     <div class="modal" style="padding-top:15px; width: 95%; height: 90vh;">
         <div class="modal-title">Cadastro de Contribuinte</div>
@@ -513,7 +506,6 @@
     </div>
 </div>
 
-<!-- FORM CARRO -->
 <div class="modal-overlay" id="modalFormCarro" style="z-index: 1500;">
     <div class="modal">
         <div class="modal-title" id="tituloModalCarro">Dados do Veículo</div>
@@ -572,7 +564,7 @@
     </div>
 </div>
 
-<!-- AÇÕES DO CONTRIBUINTE (RECEBIMENTOS) -->
+<!-- AÇÕES DO CONTRIBUINTE -->
 <div class="modal-overlay" id="modalAcoesContribuinte">
     <div class="modal">
         <div class="modal-title" style="display:flex; justify-content:space-between; align-items:center;">
@@ -588,14 +580,12 @@
             </button>
         </div>
 
-        <!-- Alertas na Tela de Ações -->
         <div id="boxAlertasAcoes" style="margin-bottom: 15px; background: #FFF3E0; padding: 10px; border-radius: 5px; border: 1px solid #FFCC80; display: none;"></div>
         
         <div class="section-title">Situação Atual (<span id="lblMesAcoes"></span>)</div>
         <div class="form-group" style="background:#f9f9f9; padding:15px; border-radius:5px; text-align:center;">
             <div id="boxStatusPagamento" style="margin-bottom:15px;"></div>
             
-            <!-- SINGLE MONTH PAYMENT -->
             <div id="boxSingleMes">
                 <div style="display:flex; gap:10px; margin-bottom:10px;">
                     <div style="flex:1;"><label>Data Pgto:</label><input type="date" id="pgDataSingle"></div>
@@ -604,13 +594,11 @@
                 <button class="btn-action" style="width:100%;" onclick="registrarPagamentoSingle()">💲 Registrar Pgto do Mês</button>
             </div>
 
-            <!-- SWITCH MULTI MONTH -->
             <div style="margin-top:20px; display:flex; align-items:center; justify-content:center; gap:10px; border-top:1px solid #ccc; padding-top:15px;">
                 <label class="switch"><input type="checkbox" id="switchMultiMes" onchange="toggleMultiMes()"><span class="slider"></span></label>
                 <span style="font-size:14px; font-weight:bold; color:#333;">Receber Múltiplos Meses / Período</span>
             </div>
 
-            <!-- MULTI MONTH PAYMENT -->
             <div id="boxMultiMes" style="display:none; text-align:left; margin-top:15px; padding-top:15px; border-top:1px dashed #ccc;">
                 <div style="display:flex; gap:10px; margin-bottom:5px;">
                     <div style="flex:1;">
@@ -656,7 +644,7 @@
     function toggleDiv(id) { let el = document.getElementById(id); el.style.display = (el.style.display === 'none') ? 'block' : 'none'; }
     function converterLogo(input) { if (input.files && input.files[0]) { let reader = new FileReader(); reader.onload = function(e) { document.getElementById('coopLogoBase64').value = e.target.result; document.getElementById('previewLogo').innerHTML = `<img src="${e.target.result}" style="max-height:50px;">`; }; reader.readAsDataURL(input.files[0]); } }
     
-    // 1. MÁSCARAS
+    // MÁSCARAS
     function maskCNPJ(el) { let v = el.value.replace(/\D/g, ""); if (v.length > 14) v = v.substring(0, 14); v = v.replace(/^(\d{2})(\d)/, "$1.$2"); v = v.replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3"); v = v.replace(/\.(\d{3})(\d)/, ".$1/$2"); v = v.replace(/(\d{4})(\d)/, "$1-$2"); el.value = v; }
     function maskTelefone(el) { let v = el.value.replace(/\D/g,""); if (v.length > 11) v = v.substring(0, 11); v = v.replace(/^(\d{2})(\d)/g,"($1) $2"); v = v.replace(/(\d{5})(\d{4})$/,"$1-$2"); el.value = v; }
     function maskMoeda(el) { let v = el.value.replace(/\D/g, ""); if(!v) { el.value = ""; return; } v = (parseFloat(v) / 100).toLocaleString('pt-BR', {minimumFractionDigits: 2}); el.value = v; }
@@ -668,7 +656,7 @@
     function getExtensoMes(mesNum) { const m = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]; return m[parseInt(mesNum)-1] || ""; }
     function getAbrevMes(mesNum) { const m = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]; return m[parseInt(mesNum)-1] || ""; }
 
-    // 2. DADOS BASE E TEMA
+    // DADOS BASE E TEMA
     let db = carregarBanco(); 
     let isSyncingFundo = false;
     let tempCategorias = [];
@@ -727,13 +715,9 @@
         if(db.cooperativa.logo) {
             logoImg.src = db.cooperativa.logo;
             logoImg.style.display = 'block';
-            if(splashLogo) {
-                splashLogo.src = db.cooperativa.logo;
-                splashLogo.style.display = 'block';
-            }
+            if(splashLogo) splashLogo.src = db.cooperativa.logo;
         } else {
             logoImg.style.display = 'none';
-            if(splashLogo) splashLogo.style.display = 'none';
         }
     }
 
@@ -748,10 +732,11 @@
         let hjMes = getHojeSTR().substring(0,7);
         document.getElementById('filtroMesGeral').value = hjMes;
         atualizarTextoMesGeral();
-        renderizarAlfabeto();
+        
+        initAlfabetoScrubber();
     });
 
-    // ATALHO ENTER (27.1)
+    // ATALHO ENTER
     document.addEventListener('keydown', function(e) {
         if(e.key === 'Enter') {
             let modals = document.querySelectorAll('.modal-overlay');
@@ -762,19 +747,47 @@
         }
     });
 
-    // BARRA ALFABÉTICA
-    function renderizarAlfabeto() {
+    // BARRA ALFABÉTICA (SCRUBBER DESLIZANTE)
+    function initAlfabetoScrubber() {
         let bar = document.getElementById('alfabetoBar');
+        let ind = document.getElementById('letterIndicator');
         let letras = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
+        
         let html = '';
-        letras.forEach(l => {
-            html += `<span onclick="scrollToLetter('${l}')">${l}</span>`;
-        });
+        letras.forEach(l => { html += `<span>${l}</span>`; });
         bar.innerHTML = html;
-    }
-    function scrollToLetter(l) {
-        let el = document.getElementById('letra-'+l);
-        if(el) el.scrollIntoView({behavior: 'smooth', block: 'start'});
+
+        function onMove(e) {
+            e.preventDefault();
+            let touch = e.touches ? e.touches[0] : e;
+            let rect = bar.getBoundingClientRect();
+            let y = touch.clientY - rect.top;
+            let perc = y / rect.height;
+            let idx = Math.floor(perc * letras.length);
+            if(idx >= 0 && idx < letras.length) {
+                let l = letras[idx];
+                ind.innerText = l;
+                ind.style.display = 'flex';
+                let el = document.getElementById('letra-'+l);
+                if(el) el.scrollIntoView({behavior:'auto', block:'start'});
+            }
+        }
+        
+        bar.addEventListener('touchstart', onMove, {passive:false});
+        bar.addEventListener('touchmove', onMove, {passive:false});
+        bar.addEventListener('touchend', () => ind.style.display = 'none');
+        
+        bar.addEventListener('mousedown', (e) => {
+            onMove(e);
+            function mouseMove(ev) { onMove(ev); }
+            function mouseUp() {
+                ind.style.display = 'none';
+                document.removeEventListener('mousemove', mouseMove);
+                document.removeEventListener('mouseup', mouseUp);
+            }
+            document.addEventListener('mousemove', mouseMove, {passive:false});
+            document.addEventListener('mouseup', mouseUp);
+        });
     }
 
     // LOGICA CUSTOM MONTH PICKER UNIFICADA
@@ -839,10 +852,9 @@
             let mesNome = getExtensoMes(partes[1]);
             document.getElementById('lblMesVisivel').innerText = `${mesNome} ${partes[0]}`;
         }
-        try { renderizarLista(); } catch(e) { console.error("Erro ao renderizar lista", e); }
+        try { renderizarLista(); } catch(e) { console.error("Erro", e); }
     }
 
-    // CALCULO VALOR ESPERADO NO MES
     function calcularValorEsperado(c, mesRef) {
         let soma = 0;
         (c.carros || []).forEach(car => {
@@ -856,7 +868,7 @@
         return Math.max(0, soma - desc);
     }
 
-    // DASHBOARD / PAINEL RESULTADOS
+    // DASHBOARD
     let dashOrigem = 'menu';
 
     function abrirPainelResultados(fromHome = false) {
@@ -947,10 +959,7 @@
     let arrPendenteVal = []; let arrPendenteQtd = [];
 
     function gerarGraficosComparativos() {
-        if(typeof Chart === 'undefined') {
-            console.warn("Chart.js não carregado (verifique a internet). Gráficos indisponíveis.");
-            return;
-        }
+        if(typeof Chart === 'undefined') return;
 
         let ini = document.getElementById('dashGrafIni').value;
         let fim = document.getElementById('dashGrafFim').value;
@@ -999,7 +1008,6 @@
             }
         });
 
-        // Atualiza Resumo Periodo
         document.getElementById('dashResumoPeriodo').innerHTML = `Recebido (Período): <span style="color:#2E7D32;">R$ ${formatMoeda(totalValRecPer)}</span> <br> Pendente (Período): <span style="color:#D32F2F;">R$ ${formatMoeda(totalValPenPer)}</span>`;
 
         let isLinha = document.getElementById('dashSwTipoGrafico').checked;
@@ -1071,7 +1079,6 @@
         });
     }
 
-    // 3. MAIN LIST & FILTERS
     let isBuscaAberto = false;
     function clickFiltroTodos() {
         if(filtroViewAtual !== 'todos') {
@@ -1115,7 +1122,6 @@
             let d = new Date(dataStr + "T00:00:00");
             let diffDias = Math.ceil((d - hoje) / (1000 * 60 * 60 * 24));
             let diasAviso = parseInt(confAlertas[confKey].dias) || 7;
-            
             let vencidoWord = genero === 'a' ? 'vencida' : 'vencido';
             
             if(diffDias < 0) {
@@ -1158,9 +1164,9 @@
                 }
             }
         }
-        if(owesPast) return '#D32F2F'; // Vermelho
-        if(temAlerta) return '#E65100'; // Laranja
-        return '#2E7D32'; // Verde
+        if(owesPast) return '#D32F2F'; // Vermelho (Devendo anterior)
+        if(temAlerta) return '#E65100'; // Laranja (Documento Vencendo)
+        return 'var(--theme-base)'; // Verde (OK)
     }
 
     function renderizarLista() {
@@ -1170,12 +1176,11 @@
         let buscaNome = document.getElementById('inputBuscaNome').value.toLowerCase();
 
         let contribs = [...db.contribuintes].sort((a,b) => (a.nome || '').localeCompare(b.nome || ''));
-        
         let lastLetra = '';
 
         contribs.forEach(c => {
             let carrosAtivos = (c.carros || []).filter(car=>car.ativo).length;
-            if (carrosAtivos === 0) return;
+            if (carrosAtivos === 0) return; // Nao mostra se nao tem carro ativo
 
             if (buscaNome && !(c.nome || '').toLowerCase().includes(buscaNome)) return;
 
@@ -1206,32 +1211,30 @@
                 lastLetra = primeiraLetra;
             }
 
-            html += `<li class="item" onclick="abrirAcoesContribuinte('${c.id}')" ${idLetra} style="padding: 8px 10px;">
+            html += `<li class="item" onclick="abrirAcoesContribuinte('${c.id}')" ${idLetra}>
                 <div style="display: flex; align-items: center; width: 100%;">
-                    <div class="item-avatar" style="background-color:${avatarCor}; width:35px; height:35px; font-size:16px; margin-right:10px;">${primeiraLetra}</div>
-                    <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
-                        <div class="item-title" style="font-size:15px; margin:0;">${c.nome}</div>
-                        <div class="item-subtitle" style="font-size:11px;">${carrosAtivos} veículo(s) vinculados</div>
+                    <div class="item-avatar" style="background-color:${avatarCor};">${primeiraLetra}</div>
+                    <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; margin-right: 5px;">
+                        <div class="item-title">${c.nome}</div>
+                        <div class="item-subtitle">${carrosAtivos} veículo(s) vinculados</div>
                     </div>
-                    <div style="display:flex; align-items:center; justify-content:center; padding: 0 10px; flex-shrink:0;">
+                    <div style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-right: 5px;">
                         ${statusPgtoHtml}
                     </div>
-                    ${temAlerta ? `<div style="text-align: right; flex-shrink: 0; display:flex; align-items:center;"><div class="alert-home-text" style="margin:0; font-size:11px;">${alertasHtml}</div></div>` : ''}
+                    ${temAlerta ? `<div style="text-align: right; flex-shrink: 0; display:flex; align-items:center;"><div class="alert-home-text">${alertasHtml}</div></div>` : ''}
                 </div>
             </li>`;
         });
 
-        if(html === '') html = `<li style="padding: 20px; text-align: center; color: #999;">Nenhum contribuinte encontrado para este filtro.</li>`;
+        if(html === '') html = `<li style="padding: 20px; text-align: center; color: #999;">Nenhum contribuinte encontrado.</li>`;
         lista.innerHTML = html;
     }
 
-    // 4. CADASTRO DE CONTRIBUINTES E CARROS
     function abrirGerenciarContribuintes() {
         fecharModal('modalPainelUnificado');
         document.getElementById('tituloListagem').innerText = "Gerenciar Contribuintes";
         document.getElementById('btnNovoListagem').onclick = () => abrirFormContribuinte(null);
         document.getElementById('btnVoltarListagem').onclick = () => { fecharModal('modalListagem'); document.getElementById('modalPainelUnificado').style.display='flex'; };
-        
         document.getElementById('boxAcoesExtrasExcel').style.display = 'flex';
         
         let htmlLista = '';
@@ -1343,7 +1346,6 @@
         renderizarLista();
     }
 
-    // 5. CARROS DO CONTRIBUINTE (EDIÇÃO E ALERTAS)
     function renderListaCarros() {
         const box = document.getElementById('listaCarros');
         if(tempCarros.length === 0) { box.innerHTML = '<div style="color:#999; font-size:12px; text-align:center;">Nenhum carro vinculado.</div>'; calcTotalContribuinte(); return; }
@@ -1496,7 +1498,7 @@
             c.valorTotal = formatMoeda(Math.max(0, somaCarros - desc));
 
             salvarBanco();
-            abrirAcoesContribuinte(contId);
+            abrirAcoesContribuinte(contId); 
         } else {
             renderListaCarros();
         }
@@ -1532,7 +1534,6 @@
         document.getElementById('acoesContId').value = id;
         document.getElementById('tituloAcoesContribuinte').innerText = c.nome;
         
-        // Render Botões Whatsapp
         let waBox = document.getElementById('boxWAAcoes');
         waBox.innerHTML = '';
         if(c.telefones && c.telefones.length > 0) {
@@ -1543,7 +1544,6 @@
             </button>`;
         }
 
-        // Renderiza Painel de Alertas se houver
         let alertasArr = [];
         (c.carros || []).forEach(car => { alertasArr = alertasArr.concat(checarAlertasCarro(car)); });
         let boxAlertas = document.getElementById('boxAlertasAcoes');
@@ -1558,7 +1558,6 @@
         let partes = mesRef.split('-');
         document.getElementById('lblMesAcoes').innerText = `${partes[1]}/${partes[0]}`;
         
-        // Reset inputs UI
         document.getElementById('switchMultiMes').checked = false;
         toggleMultiMes();
 
@@ -1629,7 +1628,6 @@
 
         if(!dataPgto) return alert("Preencha a data do pagamento.");
         if(esperado <= 0) return alert("Não há valor devido para receber.");
-
         if(isMesPago(c, mesRef)) return alert("Este mês já consta como pago!");
 
         if(!c.pagamentos) c.pagamentos = [];
@@ -1850,6 +1848,7 @@
         document.getElementById('modalPainelUnificado').style.display = 'flex';
     }
 
+    // Config Gerais / Alertas / Temas
     function abrirModalConfigGerais() {
         fecharModal('modalPainelUnificado');
         
