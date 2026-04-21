@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#008C4A" id="metaThemeColor">
-    <title>Cooptrans v1.0.8</title>
+    <title>Cooptrans v1.0.9</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -96,8 +96,8 @@
         /* Alertas Maiores */
         .alert-home-text { margin-top: 8px; font-size: 16px; color: #D32F2F; line-height: 1.4; }
         
-        /* Botões Estilo WhatsApp */
-        .btn-whatsapp { background: #25D366; color: white; border: none; padding: 10px 12px; border-radius: 8px; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: 0.2s; flex: 1; text-align: center; }
+        /* Botão do WhatsApp Totalmente Refeito */
+        .btn-whatsapp { background: #25D366; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: 0.2s; flex: 1; }
         .btn-whatsapp:active { background: #1ebe56; transform: scale(0.98); }
     </style>
 </head>
@@ -105,7 +105,7 @@
 
 <div id="splashScreen">
     <div class="splash-titulo">Cooptrans</div>
-    <div class="splash-versao">v1.0.8</div>
+    <div class="splash-versao">v1.0.9</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 30px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -406,13 +406,28 @@
         <div class="form-group"><label>Valor Atribuído (R$):</label><input type="text" id="carValor" inputmode="numeric" oninput="maskMoeda(this)"></div>
         
         <div style="display: flex; gap: 10px;">
-            <div class="form-group" style="flex:1;"><label>Data Laudo:</label><input type="date" id="carLaudo"></div>
-            <div class="form-group" style="flex:1;"><label>Data Seguro:</label><input type="date" id="carSeguro"></div>
+            <div class="form-group" style="flex:1;">
+                <label>Data Laudo:</label>
+                <input type="date" id="carLaudo" onchange="verificarDatasCarroUI()">
+                <div id="avisoCarLaudo" style="font-size:11px; color:#D32F2F; font-weight:bold; margin-top:4px; display:none;"></div>
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label>Data Seguro:</label>
+                <input type="date" id="carSeguro" onchange="verificarDatasCarroUI()">
+                <div id="avisoCarSeguro" style="font-size:11px; color:#D32F2F; font-weight:bold; margin-top:4px; display:none;"></div>
+            </div>
         </div>
         
         <div style="display: flex; gap: 10px;">
-            <div class="form-group" style="flex:1;"><label>Data Licença:</label><input type="date" id="carLicenca"></div>
-            <div class="form-group" style="flex:1;"><label style="color:var(--theme-base);">Data Cadastro:</label><input type="date" id="carCadastro" style="border: 1px solid var(--theme-base);"></div>
+            <div class="form-group" style="flex:1;">
+                <label>Data Licença:</label>
+                <input type="date" id="carLicenca" onchange="verificarDatasCarroUI()">
+                <div id="avisoCarLicenca" style="font-size:11px; color:#D32F2F; font-weight:bold; margin-top:4px; display:none;"></div>
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label style="color:var(--theme-base);">Data Cadastro:</label>
+                <input type="date" id="carCadastro" style="border: 1px solid var(--theme-base);">
+            </div>
         </div>
 
         <div class="form-group" style="display:flex; align-items:center; background:#ffebee; padding:10px; border-radius:5px; margin-bottom: 5px; margin-top:15px;">
@@ -442,19 +457,15 @@
 
         <div style="display:flex; justify-content:space-between; align-items:stretch; margin-bottom:15px; gap:10px;">
             <div id="boxWAAcoes" style="display:flex; flex:1;"></div>
-            <button class="btn-whatsapp" style="background:var(--theme-base);" onclick="enviarChavePixWhatsApp()">
-                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:20px; height:20px; filter:brightness(0) invert(1);"> Enviar Chave PIX
+            <button class="btn-action" style="flex:none; padding:10px 12px; border-radius:8px; font-size:14px; background:var(--theme-base);" onclick="enviarChavePixWhatsApp()">
+                <span style="font-size:18px; margin-right:4px;">🔑</span> Enviar Chave PIX
             </button>
         </div>
 
-        <!-- Alertas na Tela de Ações -->
-        <div id="boxAlertasAcoes" style="margin-bottom: 15px; background: #FFF3E0; padding: 10px; border-radius: 5px; border: 1px solid #FFCC80; display: none;"></div>
-        
         <div class="section-title">Situação Atual (<span id="lblMesAcoes"></span>)</div>
         <div class="form-group" style="background:#f9f9f9; padding:15px; border-radius:5px; text-align:center;">
             <div id="boxStatusPagamento" style="margin-bottom:15px;"></div>
             
-            <!-- SINGLE MONTH PAYMENT -->
             <div id="boxSingleMes">
                 <div style="display:flex; gap:10px; margin-bottom:10px;">
                     <div style="flex:1;"><label>Data Pgto:</label><input type="date" id="pgDataSingle"></div>
@@ -463,20 +474,18 @@
                 <button class="btn-action" style="width:100%;" onclick="registrarPagamentoSingle()">💲 Registrar Pgto do Mês</button>
             </div>
 
-            <!-- SWITCH MULTI MONTH -->
             <div style="margin-top:20px; display:flex; align-items:center; justify-content:center; gap:10px; border-top:1px solid #ccc; padding-top:15px;">
                 <label class="switch"><input type="checkbox" id="switchMultiMes" onchange="toggleMultiMes()"><span class="slider"></span></label>
                 <span style="font-size:14px; font-weight:bold; color:#333;">Receber Múltiplos Meses / Período</span>
             </div>
 
-            <!-- MULTI MONTH PAYMENT (Hidden) -->
             <div id="boxMultiMes" style="display:none; text-align:left; margin-top:15px; padding-top:15px; border-top:1px dashed #ccc;">
                 <div style="display:flex; gap:10px; margin-bottom:5px;">
-                    <div style="flex:1;"><label>Mês Início:</label><input type="month" id="pgIni" onchange="calcPgtoMulti()"></div>
-                    <div style="flex:1;"><label>Mês Fim (Opc):</label><input type="month" id="pgFim" onchange="calcPgtoMulti()"></div>
+                    <div style="flex:1;"><label>Mês Início:</label><input type="month" id="pgIni" onchange="calcPgtoMulti(true)"></div>
+                    <div style="flex:1;"><label>Mês Fim (Opc):</label><input type="month" id="pgFim" onchange="calcPgtoMulti(true)"></div>
                 </div>
                 <div style="display:flex; gap:10px; margin-bottom:5px;">
-                    <div style="flex:1;"><label style="color:#673AB7;">Desconto Extra (R$):</label><input type="text" id="pgDescontoMulti" oninput="maskMoeda(this); calcPgtoMulti();" placeholder="0,00"></div>
+                    <div style="flex:1;"><label style="color:#673AB7;">Desconto Extra (R$):</label><input type="text" id="pgDescontoMulti" oninput="maskMoeda(this); calcPgtoMulti(false);" placeholder="0,00"></div>
                     <div style="flex:1;"><label>Total a Pagar (R$):</label><input type="text" id="pgValorMulti" readonly style="font-weight:bold; color:var(--theme-base); background:#eee;"></div>
                 </div>
                 <div id="avisoErroMulti" style="display:none; text-align:center; margin-bottom:10px;"></div>
@@ -492,6 +501,9 @@
         <div class="section-title">Histórico de Pagamentos</div>
         <div id="listaHistoricoPagamentos" style="background:#f9f9f9; padding:8px; border-radius:4px; max-height:150px; overflow-y:auto; font-size:13px; margin-bottom:15px;"></div>
         
+        <div class="section-title">Veículos Vinculados</div>
+        <div id="listaCarrosAcoes" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:15px;"></div>
+
         <div class="modal-actions"><button class="btn-cancel" style="width: 100%;" onclick="fecharModal('modalAcoesContribuinte')">Voltar</button></div>
     </div>
 </div>
@@ -632,7 +644,6 @@
         let soma = 0;
         (c.carros || []).forEach(car => {
             if(!car.ativo) return;
-            // Só cobra o carro a partir do mes de cadastro do veículo
             let cadMonth = car.dataCadastro ? car.dataCadastro.substring(0,7) : '2000-01'; 
             if(mesRef >= cadMonth) {
                 soma += parseMoeda(car.valor);
@@ -737,7 +748,7 @@
         lista.innerHTML = html;
     }
 
-    // 4. CADASTRO DE CONTRIBUINTES
+    // 4. CADASTRO DE CONTRIBUINTES E CARROS
     function abrirGerenciarContribuintes() {
         fecharModal('modalPainelUnificado');
         document.getElementById('tituloListagem').innerText = "Gerenciar Contribuintes";
@@ -855,7 +866,7 @@
         renderizarLista();
     }
 
-    // 5. CARROS DO CONTRIBUINTE
+    // 5. CARROS DO CONTRIBUINTE (EDIÇÃO E ALERTAS)
     function renderListaCarros() {
         const box = document.getElementById('listaCarros');
         if(tempCarros.length === 0) { box.innerHTML = '<div style="color:#999; font-size:12px; text-align:center;">Nenhum carro vinculado.</div>'; calcTotalContribuinte(); return; }
@@ -869,6 +880,14 @@
         });
         box.innerHTML = html;
         calcTotalContribuinte();
+    }
+
+    // Abre carro diretamente da tela de ações
+    function abrirCarroFromAcoes(carIdx) {
+        let contId = document.getElementById('acoesContId').value;
+        let c = db.contribuintes.find(x => x.id === contId);
+        tempCarros = c.carros ? JSON.parse(JSON.stringify(c.carros)) : [];
+        abrirFormCarro(carIdx);
     }
 
     function abrirFormCarro(idx) {
@@ -903,7 +922,51 @@
             document.getElementById('carMotivo').value = '';
         }
         toggleMotivoArquivamento();
+        verificarDatasCarroUI();
         document.getElementById('modalFormCarro').style.display = 'flex';
+    }
+
+    function verificarDatasCarroUI() {
+        let hoje = new Date();
+        hoje.setHours(0,0,0,0);
+        let confAlertas = db.configGerais.alertas || { laudo:{dias:7}, seguro:{dias:7}, licenca:{dias:7} };
+
+        let check = (inputId, avisoId, nome, confKey, genero) => {
+            let val = document.getElementById(inputId).value;
+            let avisoBox = document.getElementById(avisoId);
+            let inputEl = document.getElementById(inputId);
+            if(!val) {
+                avisoBox.style.display = 'none';
+                inputEl.style.color = 'inherit';
+                return;
+            }
+            let d = new Date(val + "T00:00:00");
+            let diffDias = Math.ceil((d - hoje) / (1000 * 60 * 60 * 24));
+            let diasAviso = parseInt(confAlertas[confKey].dias) || 7;
+            let vencidoWord = genero === 'a' ? 'vencida' : 'vencido';
+
+            if(diffDias < 0) {
+                let diasPassados = Math.abs(diffDias);
+                avisoBox.innerHTML = `${nome} ${vencidoWord} há ${diasPassados} dias`;
+                avisoBox.style.display = 'block';
+                inputEl.style.color = '#D32F2F'; // Vermelho
+            } else if(diffDias === 0) {
+                avisoBox.innerHTML = `${nome} vence HOJE`;
+                avisoBox.style.display = 'block';
+                inputEl.style.color = '#E65100'; // Laranja
+            } else if(diffDias <= diasAviso) {
+                avisoBox.innerHTML = `${nome} vence em ${diffDias} dias`;
+                avisoBox.style.display = 'block';
+                inputEl.style.color = '#E65100';
+            } else {
+                avisoBox.style.display = 'none';
+                inputEl.style.color = 'inherit';
+            }
+        };
+
+        check('carLaudo', 'avisoCarLaudo', 'Laudo', 'laudo', 'o');
+        check('carSeguro', 'avisoCarSeguro', 'Seguro', 'seguro', 'o');
+        check('carLicenca', 'avisoCarLicenca', 'Licença', 'licenca', 'a');
     }
 
     function toggleMotivoArquivamento() {
@@ -946,7 +1009,24 @@
         if(idx !== '') tempCarros[idx] = novoCar;
         else tempCarros.push(novoCar);
 
-        renderListaCarros();
+        // Salvar diretamente se estiver vindo da tela de Ações
+        let isFromAcoes = document.getElementById('modalAcoesContribuinte').style.display === 'flex';
+        if (isFromAcoes) {
+            let contId = document.getElementById('acoesContId').value;
+            let c = db.contribuintes.find(x => x.id === contId);
+            c.carros = tempCarros;
+            
+            // Recalcula o valor total base
+            let somaCarros = c.carros.filter(car => car.ativo).reduce((acc, car) => acc + parseMoeda(car.valor), 0);
+            let desc = parseMoeda(c.desconto || "0");
+            c.valorTotal = formatMoeda(Math.max(0, somaCarros - desc));
+
+            salvarBanco();
+            abrirAcoesContribuinte(contId); // Recarrega tela
+        } else {
+            renderListaCarros();
+        }
+        
         fecharModal('modalFormCarro');
     }
 
@@ -979,6 +1059,7 @@
         document.getElementById('acoesContId').value = id;
         document.getElementById('tituloAcoesContribuinte').innerText = c.nome;
         
+        // Render Botões Whatsapp
         let waBox = document.getElementById('boxWAAcoes');
         waBox.innerHTML = '';
         if(c.telefones && c.telefones.length > 0) {
@@ -987,17 +1068,6 @@
             waBox.innerHTML = `<button class="btn-whatsapp" onclick="window.open('https://wa.me/55${num}','_blank')">
                 <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:20px; height:20px; filter:brightness(0) invert(1);"> Falar no WhatsApp
             </button>`;
-        }
-
-        // Renderiza Painel de Alertas se houver
-        let alertasArr = [];
-        (c.carros || []).forEach(car => { alertasArr = alertasArr.concat(checarAlertasCarro(car)); });
-        let boxAlertas = document.getElementById('boxAlertasAcoes');
-        if(alertasArr.length > 0) {
-            boxAlertas.innerHTML = `<div style="font-size:16px; color:#D32F2F; text-align:center; line-height:1.4;">${alertasArr.join('<br>')}</div>`;
-            boxAlertas.style.display = 'block';
-        } else {
-            boxAlertas.style.display = 'none';
         }
 
         let mesRef = document.getElementById('filtroMesGeral').value;
@@ -1017,8 +1087,21 @@
         
         renderizarStatusPagamento(c, mesRef);
         renderizarHistPagamentos(c);
+        renderListaCarrosAcoes(c); // Renderiza seção de veículos vinculados
         
         document.getElementById('modalAcoesContribuinte').style.display = 'flex';
+    }
+
+    function renderListaCarrosAcoes(c) {
+        let boxCarros = document.getElementById('listaCarrosAcoes');
+        boxCarros.innerHTML = '';
+        if(c.carros && c.carros.length > 0) {
+            c.carros.forEach((car, idx) => {
+                boxCarros.innerHTML += `<button class="btn-outline" style="flex:1; min-width:100px; padding:10px; font-size:14px; font-weight:bold; text-align:center; border-radius:8px;" onclick="abrirCarroFromAcoes(${idx})">🚗 ${car.placa}</button>`;
+            });
+        } else {
+            boxCarros.innerHTML = '<div style="color:#999; font-size:13px; text-align:center; width:100%;">Nenhum veículo vinculado.</div>';
+        }
     }
 
     function renderizarStatusPagamento(c, mesRef) {
