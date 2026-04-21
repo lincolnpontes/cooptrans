@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#008C4A" id="metaThemeColor">
-    <title>Cooptrans v1.0.7</title>
+    <title>Cooptrans v1.0.8</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -94,14 +94,18 @@
         .month-btn:active { opacity: 0.7; }
         
         /* Alertas Maiores */
-        .alert-home-text { margin-top: 8px; font-size: 15px; color: #E65100; line-height: 1.4; font-weight: 500;}
+        .alert-home-text { margin-top: 8px; font-size: 16px; color: #D32F2F; line-height: 1.4; }
+        
+        /* Botões Estilo WhatsApp */
+        .btn-whatsapp { background: #25D366; color: white; border: none; padding: 10px 12px; border-radius: 8px; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: 0.2s; flex: 1; text-align: center; }
+        .btn-whatsapp:active { background: #1ebe56; transform: scale(0.98); }
     </style>
 </head>
 <body>
 
 <div id="splashScreen">
     <div class="splash-titulo">Cooptrans</div>
-    <div class="splash-versao">v1.0.7</div>
+    <div class="splash-versao">v1.0.8</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 30px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -120,8 +124,8 @@
             <input type="hidden" id="filtroMesGeral">
         </div>
         
-        <!-- Logo Ampliada, Transparente e Sobreposta -->
-        <div style="position: absolute; left: 50%; transform: translateX(-50%); top: 5px; z-index: 100;">
+        <!-- Logo Ampliada, Transparente e Sobreposta (+ Deslocada 10px para baixo) -->
+        <div style="position: absolute; left: 50%; transform: translateX(-50%); top: 15px; z-index: 100;">
             <img id="headerLogo" src="" style="height: 85px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); display: none; background: transparent;">
         </div>
 
@@ -436,12 +440,15 @@
         </div>
         <input type="hidden" id="acoesContId">
 
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; gap:10px;">
-            <div id="boxWAAcoes" style="display:flex; gap:5px; flex-wrap:wrap; flex:1;"></div>
-            <button class="btn-action" style="flex:none; padding:10px 12px; font-size:14px; border-radius:8px;" onclick="enviarChavePixWhatsApp()">
-                <span style="font-size:18px; margin-right:4px;">🔗</span> Enviar Chave PIX
+        <div style="display:flex; justify-content:space-between; align-items:stretch; margin-bottom:15px; gap:10px;">
+            <div id="boxWAAcoes" style="display:flex; flex:1;"></div>
+            <button class="btn-whatsapp" style="background:var(--theme-base);" onclick="enviarChavePixWhatsApp()">
+                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:20px; height:20px; filter:brightness(0) invert(1);"> Enviar Chave PIX
             </button>
         </div>
+
+        <!-- Alertas na Tela de Ações -->
+        <div id="boxAlertasAcoes" style="margin-bottom: 15px; background: #FFF3E0; padding: 10px; border-radius: 5px; border: 1px solid #FFCC80; display: none;"></div>
         
         <div class="section-title">Situação Atual (<span id="lblMesAcoes"></span>)</div>
         <div class="form-group" style="background:#f9f9f9; padding:15px; border-radius:5px; text-align:center;">
@@ -625,6 +632,7 @@
         let soma = 0;
         (c.carros || []).forEach(car => {
             if(!car.ativo) return;
+            // Só cobra o carro a partir do mes de cadastro do veículo
             let cadMonth = car.dataCadastro ? car.dataCadastro.substring(0,7) : '2000-01'; 
             if(mesRef >= cadMonth) {
                 soma += parseMoeda(car.valor);
@@ -665,11 +673,11 @@
             
             if(diffDias < 0) {
                 let diasPassados = Math.abs(diffDias);
-                alertas.push(`<b>${nome} ${vencidoWord}</b> há ${diasPassados} dias (${carro.placa})`);
+                alertas.push(`<b>${nome} ${vencidoWord} há ${diasPassados} dias (${carro.placa})</b>`);
             } else if(diffDias === 0) {
-                alertas.push(`<b>${nome} vence HOJE</b> (${carro.placa})`);
+                alertas.push(`<b>${nome} vence HOJE (${carro.placa})</b>`);
             } else if(diffDias <= diasAviso) {
-                alertas.push(`<b>${nome} vence em ${diffDias} dias</b> (${carro.placa})`);
+                alertas.push(`<b>${nome} vence em ${diffDias} dias (${carro.placa})</b>`);
             }
         };
         
@@ -942,7 +950,7 @@
         fecharModal('modalFormCarro');
     }
 
-    // 6. PAGAMENTOS E AÇÕES
+    // 6. PAGAMENTOS E AÇÕES (RECEBIMENTOS)
     function enviarChavePixWhatsApp() {
         let c = db.contribuintes.find(x => x.id === document.getElementById('acoesContId').value);
         if(!c || !c.telefones || c.telefones.length === 0) return alert('O contribuinte não possui nenhum telefone (WhatsApp) cadastrado.');
@@ -960,7 +968,9 @@
         let isMulti = document.getElementById('switchMultiMes').checked;
         document.getElementById('boxSingleMes').style.display = isMulti ? 'none' : 'block';
         document.getElementById('boxMultiMes').style.display = isMulti ? 'block' : 'none';
-        if(isMulti) calcPgtoMulti();
+        // zera o aviso ao trocar
+        document.getElementById('avisoErroMulti').style.display = 'none';
+        if(isMulti) calcPgtoMulti(false);
     }
 
     function abrirAcoesContribuinte(id) {
@@ -975,8 +985,19 @@
             let primeiro = c.telefones[0];
             let num = primeiro.replace(/\D/g, '');
             waBox.innerHTML = `<button class="btn-whatsapp" onclick="window.open('https://wa.me/55${num}','_blank')">
-                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:20px; height:20px;"> Falar no WhatsApp
+                <img src="https://raw.githubusercontent.com/lincolnpontes/cooptrans/refs/heads/main/whatsapp.png" style="width:20px; height:20px; filter:brightness(0) invert(1);"> Falar no WhatsApp
             </button>`;
+        }
+
+        // Renderiza Painel de Alertas se houver
+        let alertasArr = [];
+        (c.carros || []).forEach(car => { alertasArr = alertasArr.concat(checarAlertasCarro(car)); });
+        let boxAlertas = document.getElementById('boxAlertasAcoes');
+        if(alertasArr.length > 0) {
+            boxAlertas.innerHTML = `<div style="font-size:16px; color:#D32F2F; text-align:center; line-height:1.4;">${alertasArr.join('<br>')}</div>`;
+            boxAlertas.style.display = 'block';
+        } else {
+            boxAlertas.style.display = 'none';
         }
 
         let mesRef = document.getElementById('filtroMesGeral').value;
@@ -1068,7 +1089,7 @@
         return res;
     }
 
-    function calcPgtoMulti() {
+    function calcPgtoMulti(mostrarErro = true) {
         let ini = document.getElementById('pgIni').value;
         let fim = document.getElementById('pgFim').value;
         if(!ini) return;
@@ -1096,7 +1117,7 @@
             iptValor.value = '0,00';
             iptValor.dataset.esperado = 0;
             boxAviso.innerHTML = `<span style="color:#D32F2F; font-size:13px; font-weight:bold;">⚠️ ${erro}</span>`;
-            boxAviso.style.display = 'block';
+            if(mostrarErro) boxAviso.style.display = 'block';
         } else {
             iptValor.value = formatMoeda(finalVal);
             iptValor.dataset.esperado = finalVal;
