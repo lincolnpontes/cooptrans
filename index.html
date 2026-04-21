@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#008C4A" id="metaThemeColor">
-    <title>Cooptrans v1.0.19</title>
+    <title>Cooptrans v1.0.20</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <!-- Biblioteca Chart.js para Gráficos -->
@@ -134,7 +134,7 @@
             }
         } catch(e){}
     </script>
-    <div class="splash-versao">v1.0.19</div>
+    <div class="splash-versao">v1.0.20</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 40px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -253,7 +253,7 @@
 
         <div class="section-title">Comparativo (Gráficos)</div>
         
-        <!-- Seletores de Data Centralizados com Seta deslocada 1px para a esquerda -->
+        <!-- Seletores de Data Centralizados (Ajuste seta 1px pra esquerda) -->
         <div style="display:flex; align-items:center; justify-content:space-between; background:#f9f9f9; padding:15px 10px; border-radius:8px; border:1px solid #ddd; width: 100%; box-sizing: border-box;">
             <div style="flex:1; text-align:center; min-width:0;">
                 <div style="font-size:11px; color:#666; font-weight:bold; margin-bottom:4px; text-transform:uppercase;">Início</div>
@@ -595,15 +595,26 @@
         
         <div class="section-title" style="margin-bottom: 5px;">Situação Atual (<span id="lblMesAcoes"></span>)</div>
         <div class="form-group" style="background:#f9f9f9; padding:10px; border-radius:5px; text-align:center;">
-            <div id="boxStatusPagamento" style="margin-bottom:12px;"></div> <!-- AJUSTE DO ESPAÇO (29) -->
+            <div id="boxStatusPagamento" style="margin-bottom:12px;"></div>
             
             <!-- SINGLE MONTH PAYMENT -->
             <div id="boxSingleMes">
-                <div style="display:flex; gap:5px; margin-bottom:5px;">
-                    <!-- Ajuste Mês Ref Box (30) -->
-                    <div style="flex:1.2; text-align:left;"><label>Mês de Referência:</label><input type="month" id="pgMesRefSingle" onchange="atualizarStatusSingleAcoes()" style="padding: 8px 4px; font-size:13px; text-align:center;"></div>
-                    <div style="flex:0.8; text-align:left;"><label>Data Pgto:</label><input type="date" id="pgDataSingle" style="text-align:center; padding: 8px 4px; font-size:13px;"></div>
-                    <div style="flex:1; text-align:left;"><label>Valor (R$):</label><input type="text" id="pgValorSingle" readonly style="text-align:center; font-weight:bold; color:var(--theme-base); background:#eee; padding:8px 5px;"></div>
+                <div style="display:flex; gap:5px; margin-bottom:5px; align-items:flex-end;">
+                    <div style="flex:1; text-align:left;">
+                        <label style="font-size:11px;">Mês Ref.:</label>
+                        <div class="month-picker-box" onclick="abrirSeletorMes('pgMesRefSingle')" style="width:100%; justify-content:center; padding: 8px 2px; font-size:12px; background:#fff; color:#333; border-color:#ccc; box-sizing:border-box; margin:0;">
+                            📅 <span id="lblPgMesRefSingle">Abril 2026</span>
+                        </div>
+                        <input type="hidden" id="pgMesRefSingle">
+                    </div>
+                    <div style="flex:1; text-align:left;">
+                        <label style="font-size:11px;">Data Pgto:</label>
+                        <input type="date" id="pgDataSingle" style="text-align:center; padding: 8px 2px; font-size:12px; width:100%; box-sizing:border-box;">
+                    </div>
+                    <div style="flex:1; text-align:left;">
+                        <label style="font-size:11px;">Valor (R$):</label>
+                        <input type="text" id="pgValorSingle" oninput="maskMoeda(this)" style="text-align:center; font-weight:bold; color:var(--theme-base); background:#fff; border:1px solid #ccc; border-radius:5px; padding:8px 2px; font-size:13px; width:100%; box-sizing:border-box;">
+                    </div>
                 </div>
                 <button class="btn-action" style="width:100%; padding:8px; font-size:14px;" onclick="registrarPagamentoSingle()">💲 Registrar Pgto do Mês</button>
             </div>
@@ -618,14 +629,14 @@
             <div id="boxMultiMes" style="display:none; text-align:left; padding-top:10px;">
                 <div style="display:flex; gap:10px; margin-bottom:5px;">
                     <div style="flex:1;">
-                        <label>Mês Início:</label>
+                        <label style="text-align:center;">Mês Início:</label>
                         <div class="month-picker-box" onclick="abrirSeletorMes('pgIni')" style="width:100%; justify-content:center; padding: 8px; background:#fff; color:#333; border-color:#ccc;">
                             📅 <span id="lblPgIni">Abril 2026</span>
                         </div>
                         <input type="hidden" id="pgIni">
                     </div>
                     <div style="flex:1;">
-                        <label>Mês Fim (Opc):</label>
+                        <label style="text-align:center;">Mês Fim (Opc):</label>
                         <div class="month-picker-box" onclick="abrirSeletorMes('pgFim')" style="width:100%; justify-content:center; padding: 8px; background:#fff; color:#333; border-color:#ccc;">
                             📅 <span id="lblPgFim">Abril 2026</span>
                         </div>
@@ -633,12 +644,12 @@
                     </div>
                 </div>
                 <div style="display:flex; gap:10px; margin-bottom:5px;">
-                    <div style="flex:1;"><label style="color:#673AB7;">Desconto Extra (R$):</label><input type="text" id="pgDescontoMulti" oninput="maskMoeda(this); calcPgtoMulti(false);" placeholder="0,00" style="text-align:center;"></div>
-                    <div style="flex:1;"><label>Total a Pagar (R$):</label><input type="text" id="pgValorMulti" readonly style="font-weight:bold; color:var(--theme-base); background:#eee; text-align:center;"></div>
+                    <div style="flex:1;"><label style="color:#673AB7; text-align:center;">Desconto Extra (R$):</label><input type="text" id="pgDescontoMulti" oninput="maskMoeda(this); calcPgtoMulti(false);" placeholder="0,00" style="text-align:center;"></div>
+                    <div style="flex:1;"><label style="text-align:center;">Total a Pagar (R$):</label><input type="text" id="pgValorMulti" readonly style="font-weight:bold; color:var(--theme-base); background:#eee; text-align:center;"></div>
                 </div>
                 <div id="avisoErroMulti" style="display:none; text-align:center; margin-bottom:10px;"></div>
                 <div style="display:flex; gap:10px; margin-bottom:5px;">
-                    <div style="flex:1;"><label>Data Pgto:</label><input type="date" id="pgDataMulti" style="text-align:center;"></div>
+                    <div style="flex:1;"><label style="text-align:center;">Data Pgto:</label><input type="date" id="pgDataMulti" style="text-align:center;"></div>
                     <div style="flex:1; display:flex; align-items:flex-end;">
                         <button class="btn-action" style="width:100%; padding:8px; font-size:14px;" onclick="registrarPagamentoMulti()">💲 Confirmar</button>
                     </div>
@@ -646,7 +657,7 @@
             </div>
         </div>
 
-        <div class="section-title" style="margin-top: 10px; margin-bottom: 5px;">Histórico de Pagamentos</div>
+        <div class="section-title" style="margin-top: 5px; margin-bottom: 5px;">Histórico de Pagamentos</div>
         <div id="listaHistoricoPagamentos" style="background:#f9f9f9; padding:8px; border-radius:4px; font-size:13px; margin-bottom:10px;"></div>
         
         <div class="section-title" style="margin-top: 0;">Veículos Vinculados</div>
@@ -868,6 +879,7 @@
             document.getElementById('lblPgFim').innerText = `${getExtensoMes(mesStr)} ${mpCurrentYear}`;
             calcPgtoMulti(true);
         } else if(activeMonthTarget === 'pgMesRefSingle') {
+            document.getElementById('lblPgMesRefSingle').innerText = `${getExtensoMes(mesStr)} ${mpCurrentYear}`;
             atualizarStatusSingleAcoes();
         }
     }
@@ -879,7 +891,7 @@
             let mesNome = getExtensoMes(partes[1]);
             document.getElementById('lblMesVisivel').innerText = `${mesNome} ${partes[0]}`;
         }
-        try { renderizarLista(); } catch(e) { console.error("Erro ao renderizar lista", e); }
+        try { renderizarLista(); } catch(e) { console.error("Erro", e); }
     }
 
     function calcularValorEsperado(c, mesRef) {
@@ -1209,7 +1221,7 @@
 
         contribs.forEach(c => {
             let carrosAtivos = (c.carros || []).filter(car=>car.ativo).length;
-            if (carrosAtivos === 0) return;
+            if (carrosAtivos === 0) return; // Nao mostra se nao tem carro ativo
 
             if (buscaNome && !(c.nome || '').toLowerCase().includes(buscaNome)) return;
 
@@ -1456,11 +1468,11 @@
                 let diasPassados = Math.abs(diffDias);
                 avisoBox.innerHTML = `${nome} ${vencidoWord} há ${diasPassados} dias`;
                 avisoBox.style.display = 'block';
-                inputEl.style.color = '#D32F2F'; 
+                inputEl.style.color = '#D32F2F'; // Vermelho
             } else if(diffDias === 0) {
                 avisoBox.innerHTML = `${nome} vence HOJE`;
                 avisoBox.style.display = 'block';
-                inputEl.style.color = '#E65100'; 
+                inputEl.style.color = '#E65100'; // Laranja
             } else if(diffDias <= diasAviso) {
                 avisoBox.innerHTML = `${nome} vence em ${diffDias} dias`;
                 avisoBox.style.display = 'block';
@@ -1516,18 +1528,20 @@
         if(idx !== '') tempCarros[idx] = novoCar;
         else tempCarros.push(novoCar);
 
+        // Salvar diretamente se estiver vindo da tela de Ações
         let isFromAcoes = document.getElementById('modalAcoesContribuinte').style.display === 'flex';
         if (isFromAcoes) {
             let contId = document.getElementById('acoesContId').value;
             let c = db.contribuintes.find(x => x.id === contId);
             c.carros = tempCarros;
             
+            // Recalcula o valor total base
             let somaCarros = c.carros.filter(car => car.ativo).reduce((acc, car) => acc + parseMoeda(car.valor), 0);
             let desc = parseMoeda(c.desconto || "0");
             c.valorTotal = formatMoeda(Math.max(0, somaCarros - desc));
 
             salvarBanco();
-            abrirAcoesContribuinte(contId); 
+            abrirAcoesContribuinte(contId); // Recarrega tela
         } else {
             renderListaCarros();
         }
@@ -1575,6 +1589,7 @@
         document.getElementById('acoesContId').value = id;
         document.getElementById('tituloAcoesContribuinte').innerText = c.nome;
         
+        // Render Botões Whatsapp
         let waBox = document.getElementById('boxWAAcoes');
         waBox.innerHTML = '';
         if(c.telefones && c.telefones.length > 0) {
@@ -1604,6 +1619,7 @@
 
         document.getElementById('pgDataSingle').value = getHojeSTR();
         document.getElementById('pgMesRefSingle').value = mesRef;
+        document.getElementById('lblPgMesRefSingle').innerText = `${getExtensoMes(partes[1])} ${partes[0]}`;
 
         document.getElementById('pgIni').value = mesRef;
         document.getElementById('lblPgIni').innerText = `${getExtensoMes(partes[1])} ${partes[0]}`;
@@ -1643,18 +1659,15 @@
         if(!pago && valorEsperado > 0) {
             box.innerHTML = `<div style="font-size:24px; font-weight:bold; color:#D32F2F;">Falta Pagar: R$ ${formatMoeda(valorEsperado)}</div>`;
             pgSingle.value = formatMoeda(valorEsperado);
-            pgSingle.dataset.esperado = valorEsperado;
         } else if (pago) {
             box.innerHTML = `<div style="font-size:24px; font-weight:bold; color:#2E7D32;">✅ Mês já foi Pago</div>`;
             pgSingle.value = formatMoeda(valorEsperado);
-            pgSingle.dataset.esperado = valorEsperado;
         } else {
             box.innerHTML = `<div style="font-size:18px; font-weight:bold; color:#666;">Isento / Sem Valor Devido</div>`;
             pgSingle.value = "0,00";
-            pgSingle.dataset.esperado = "0";
         }
         
-        // Mantem destravado para editar a data ref (mudança 31 da v1.0.19 mantida)
+        // Em qualquer caso, deixamos a tela ativa (mudanca 31 da v1.0.19/v1.0.20 mantida)
         document.getElementById('boxSingleMes').style.pointerEvents = 'auto';
         document.getElementById('boxSingleMes').style.opacity = '1';
     }
@@ -1664,11 +1677,11 @@
         let c = db.contribuintes.find(x => x.id === id);
         let mesRef = document.getElementById('pgMesRefSingle').value; 
         
-        let esperado = parseFloat(document.getElementById('pgValorSingle').dataset.esperado);
+        let valorPago = parseMoeda(document.getElementById('pgValorSingle').value); // Lê o valor da caixa editável (mudanca 31)
         let dataPgto = document.getElementById('pgDataSingle').value;
 
         if(!dataPgto) return alert("Preencha a data do pagamento.");
-        if(esperado <= 0) return alert("Não há valor devido para receber neste mês.");
+        if(valorPago <= 0) return alert("Digite um valor válido para receber.");
 
         if(isMesPago(c, mesRef)) return alert("Este mês já consta como pago!");
 
@@ -1678,7 +1691,7 @@
             mesAno: mesRef,
             mesesRef: [mesRef],
             labelRef: buildLabelRef([mesRef]),
-            valorPago: esperado,
+            valorPago: valorPago,
             dataPagamento: dataPgto
         });
         
