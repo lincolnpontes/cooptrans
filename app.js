@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.24";
+﻿const APP_VERSION = "v1.0.25";
 const SYNC_PULL_INTERVAL_MS = 30000;
 
 try {
@@ -629,15 +629,17 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             let d = new Date(dataStr + "T00:00:00");
             let diffDias = Math.ceil((d - hoje) / (1000 * 60 * 60 * 24));
             let diasAviso = parseInt(confAlertas[confKey].dias) || 7;
-            let vencidoWord = genero === 'a' ? 'vencida' : 'vencido';
+            let placa = escapeHTML(carro.placa);
             
             if(diffDias < 0) {
                 let diasPassados = Math.abs(diffDias);
-                alertas.push(`<b>${nome} ${vencidoWord} há ${diasPassados} dias (${escapeHTML(carro.placa)})</b>`);
+                let labelDias = diasPassados === 1 ? 'dia' : 'dias';
+                alertas.push(`<span class="alert-chip-home alert-expired">🚨${nome} (${placa}): há ${diasPassados} ${labelDias}</span>`);
             } else if(diffDias === 0) {
-                alertas.push(`<b>${nome} vence HOJE (${escapeHTML(carro.placa)})</b>`);
+                alertas.push(`<span class="alert-chip-home alert-warning">⚠️${nome} (${placa}): em 0 dias</span>`);
             } else if(diffDias <= diasAviso) {
-                alertas.push(`<b>${nome} vence em ${diffDias} dias (${escapeHTML(carro.placa)})</b>`);
+                let labelDias = diffDias === 1 ? 'dia' : 'dias';
+                alertas.push(`<span class="alert-chip-home alert-warning">⚠️${nome} (${placa}): em ${diffDias} ${labelDias}</span>`);
             }
         };
         
@@ -718,7 +720,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 : `<div class="item-subtitle" style="font-size:11px;">Nenhum veículo ativo</div>`;
             
             let alertasHtml = '';
-            if(temAlerta) alertasHtml = alertasArr.join('<br>');
+            if(temAlerta) alertasHtml = alertasArr.join('');
             
             let primeiraLetra = (c.nome || '?').charAt(0).toUpperCase();
             let idLetra = '';
@@ -737,7 +739,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                     <div style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-right: 5px;">
                         ${statusPgtoHtml}
                     </div>
-                    ${temAlerta ? `<div style="text-align: right; flex-shrink: 0; display:flex; align-items:center;"><div class="alert-home-text">${alertasHtml}</div></div>` : ''}
+                    ${temAlerta ? `<div class="alert-home-box"><div class="alert-home-text">${alertasHtml}</div></div>` : ''}
                 </div>
             </li>`;
         });
@@ -1031,20 +1033,40 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     function enviarChavePixWhatsApp() {
         let c = db.contribuintes.find(x => x.id === document.getElementById('acoesContId').value);
         if(!c || !c.telefones || c.telefones.length === 0) return alert('O contribuinte não possui nenhum telefone (WhatsApp) cadastrado.');
-        let num = c.telefones[0].replace(/\D/g, ''); 
-        
         if(!db.cooperativa.pixList || db.cooperativa.pixList.length === 0) return alert("Nenhuma chave cadastrada nos dados da Cooperativa!");
-        let p = db.cooperativa.pixList.find(x => x.principal) || db.cooperativa.pixList[0];
-        let fan = db.cooperativa.fantasia || "Cooperativa";
 
+        if(db.cooperativa.pixList.length === 1) {
+            enviarPixSelecionado(0);
+            return;
+        }
+
+        let box = document.getElementById('listaPixEnvio');
+        box.innerHTML = db.cooperativa.pixList.map((p, i) => `
+            <button class="pix-choice-card" onclick="enviarPixSelecionado(${i})">
+                <span>${escapeHTML(p.tipo)}</span>
+                <b>${escapeHTML(p.chave)}</b>
+                <small>Beneficiário: ${escapeHTML(p.beneficiario)}</small>
+            </button>
+        `).join('');
+        abrirModal('modalEscolherPix');
+    }
+
+    function enviarPixSelecionado(idx) {
+        let c = db.contribuintes.find(x => x.id === document.getElementById('acoesContId').value);
+        let p = db.cooperativa.pixList[idx];
+        if(!c || !p) return;
+
+        let num = c.telefones[0].replace(/\D/g, '');
+        let fan = db.cooperativa.fantasia || "Cooperativa";
         let txt = `> PIX da *${fan}:*\n*Tipo:* ${p.tipo}\n*Chave:* ${p.chave}\n*Beneficiário:* ${p.beneficiario}`;
+        fecharModal('modalEscolherPix');
         window.open(`https://wa.me/55${num}?text=${encodeURIComponent(txt)}`, '_blank');
     }
 
     function toggleMultiMes() {
         let isMulti = document.getElementById('switchMultiMes').checked;
-        document.getElementById('boxSingleMes').style.display = isMulti ? 'none' : 'block';
-        document.getElementById('boxMultiMes').style.display = isMulti ? 'block' : 'none';
+        document.getElementById('boxSingleMes').classList.toggle('open', !isMulti);
+        document.getElementById('boxMultiMes').classList.toggle('open', isMulti);
         document.getElementById('avisoErroMulti').style.display = 'none';
         if(isMulti) calcPgtoMulti(false);
     }
@@ -1082,7 +1104,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         (c.carros || []).forEach(car => { alertasArr = alertasArr.concat(checarAlertasCarro(car)); });
         let boxAlertas = document.getElementById('boxAlertasAcoes');
         if(alertasArr.length > 0) {
-            boxAlertas.innerHTML = `<div style="font-size:16px; color:#D32F2F; text-align:center; line-height:1.4;">${alertasArr.join('<br>')}</div>`;
+            boxAlertas.innerHTML = `<div class="alertas-acoes-list">${alertasArr.join('')}</div>`;
             boxAlertas.style.display = 'block';
         } else {
             boxAlertas.style.display = 'none';
@@ -1406,7 +1428,6 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             <div class="pix-card-main">
                 <div class="pix-key"><span>${escapeHTML(p.tipo)}</span><b>${escapeHTML(p.chave)}</b></div>
                 <div class="pix-beneficiario">Beneficiário: ${escapeHTML(p.beneficiario)}</div>
-                <label class="radio-custom"><input type="radio" name="pixPrinc" onchange="setPixPrincipal(${i})" ${p.principal ? 'checked' : ''}> Principal</label>
             </div>
             <button type="button" onclick="removerPixCoop(${i})" aria-label="Remover chave PIX">X</button>
         </div>`).join('');
@@ -1847,6 +1868,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     }
     async function excluirTodoHistorico() { let frase = document.getElementById('inputExcluirTudo').value.trim().toLowerCase(); if(frase === "quero excluir todo o histórico") { if(!confirm("⚠️ TEM CERTEZA?")) return; db.contribuintes.forEach(c => c.pagamentos = []); marcarMudancaEstrutural(); document.getElementById('inputExcluirTudo').value = ''; fecharModal('modalConfigAvancadas'); alert("✅ Limpo!"); renderizarLista(); } else { alert("Frase incorreta."); } }
     function forcarAtualizacao() { if(confirm("Deseja forçar a atualização do aplicativo?")) { if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(function(registrations) { for(let registration of registrations) registration.update(); }); } window.location.href = window.location.pathname + '?nocache=' + new Date().getTime(); } }
+
 
 
 

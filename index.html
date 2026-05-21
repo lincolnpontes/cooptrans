@@ -7,9 +7,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Cooptrans">
     <meta name="theme-color" content="#008C4A" id="metaThemeColor">
-    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="manifest" href="manifest.json">
     <link rel="icon" href="icons/icon-192.png">
-    <title>Cooptrans v1.0.24</title>
+    <title>Cooptrans v1.0.25</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <!-- Biblioteca Chart.js para Gráficos -->
@@ -20,7 +20,7 @@
 
 <div id="splashScreen">
     <img id="splashLogoObj" style="max-height: 100px; object-fit: contain; margin-bottom: 20px; border-radius: 10px; display: none;">
-    <div class="splash-versao" id="splashVersao">v1.0.24</div>
+    <div class="splash-versao" id="splashVersao">v1.0.25</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 40px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -83,7 +83,7 @@
 <!-- MENU PRINCIPAL -->
 <div class="modal-overlay" id="modalPainelUnificado">
     <div class="modal" style="padding-top: 25px;">
-        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.24</span></h2>
+        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.25</span></h2>
         <button class="btn-outline" onclick="abrirModalCooperativa()">🏢 Dados da Cooperativa</button>
         <button class="btn-outline" onclick="abrirGerenciarContribuintes()">👥 Gerenciar Contribuintes</button>
         <button class="btn-outline" onclick="abrirModalConfigGerais()">⚙️ Configurações Gerais</button>
@@ -491,9 +491,18 @@
         <div class="section-title" style="margin-bottom: 5px;">Recebimento</div>
         <div class="payment-panel">
             <div id="boxStatusPagamento" class="payment-status"></div>
-            
+
+            <!-- SWITCH MULTI MONTH -->
+            <div class="multi-toggle">
+                <label class="switch"><input type="checkbox" id="switchMultiMes" onchange="toggleMultiMes()"><span class="slider"></span></label>
+                <div>
+                    <strong>Receber período</strong>
+                    <small>Múltiplos meses de uma vez</small>
+                </div>
+            </div>
+
             <!-- SINGLE MONTH PAYMENT -->
-            <div id="boxSingleMes">
+            <div id="boxSingleMes" class="payment-mode-box open">
                 <div class="payment-grid single-payment-grid">
                     <!-- Ajuste Mês Ref Box (30 e 31) -->
                     <div>
@@ -515,18 +524,8 @@
                 <button class="btn-action primary-wide" onclick="registrarPagamentoSingle()">💲 Registrar Pagamento do Mês</button>
             </div>
 
-            <!-- SWITCH MULTI MONTH -->
-            <div class="multi-toggle">
-                <label class="switch"><input type="checkbox" id="switchMultiMes" onchange="toggleMultiMes()"><span class="slider"></span></label>
-                <div>
-                    <strong>Receber período</strong>
-                    <small>Múltiplos meses de uma vez</small>
-                </div>
-            </div>
-
             <!-- MULTI MONTH PAYMENT -->
-            <div id="boxMultiMes" class="multi-payment-box">
-                <div class="period-hint">Escolha o início e o fim. O app calcula o total pendente automaticamente.</div>
+            <div id="boxMultiMes" class="payment-mode-box multi-payment-box">
                 <div class="payment-grid">
                     <div>
                         <label>Mês Inicial</label>
@@ -562,6 +561,20 @@
         <div id="listaCarrosAcoes" class="vehicle-actions"></div>
 
         <div class="modal-actions"><button class="btn-cancel" style="width: 100%;" onclick="fecharModal('modalAcoesContribuinte')">Voltar</button></div>
+    </div>
+</div>
+
+<!-- ESCOLHER PIX PARA ENVIO -->
+<div class="modal-overlay" id="modalEscolherPix" style="z-index: 2100;">
+    <div class="modal modal-pix-choice">
+        <div class="modal-title">
+            <span>Escolher PIX</span>
+            <button class="icon-btn" onclick="fecharModal('modalEscolherPix')">✖</button>
+        </div>
+        <div id="listaPixEnvio" class="pix-choice-list"></div>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="fecharModal('modalEscolherPix')">Cancelar</button>
+        </div>
     </div>
 </div>
 <script src="app.js"></script>

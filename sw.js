@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.24';
+const CACHE_NAME = 'cooptrans-v1.0.25';
 const APP_SHELL = [
   './',
   './index.html',
   './style.css',
   './app.js',
-  './manifest.webmanifest',
+  './manifest.json',
   './whatsapp.png',
   './icons/icon-192.png',
   './icons/icon-512.png'

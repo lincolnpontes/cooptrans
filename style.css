@@ -90,7 +90,11 @@
         .month-btn.active { background: var(--theme-base); color: white; border-color: var(--theme-base); }
         .month-btn:active { opacity: 0.7; }
         
-        .alert-home-text { margin: 0; font-size: 11px; color: #D32F2F; line-height: 1.3; text-align: right; font-weight:bold;}
+        .alert-home-box { text-align: right; flex-shrink: 0; display:flex; align-items:center; justify-content:flex-end; max-width: 42%; }
+        .alert-home-text { margin: 0; line-height: 1.2; text-align: right; font-weight:800; display:flex; flex-direction:column; align-items:flex-end; gap:4px; }
+        .alert-chip-home { color:#111; display:inline-block; border-radius:6px; padding:4px 7px; font-size:11px; line-height:1.2; font-weight:800; border:1px solid transparent; max-width:100%; overflow-wrap:anywhere; }
+        .alert-expired { background:#ffcdd2; border-color:#ef9a9a; }
+        .alert-warning { background:#ffe0b2; border-color:#ffcc80; }
         
         .btn-whatsapp { background: #25D366; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: 0.2s; flex: 1; text-align: center; }
         .btn-whatsapp:active { background: #1ebe56; transform: scale(0.98); }
@@ -123,7 +127,8 @@
         .acoes-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; margin-bottom: 10px; align-items: stretch; }
         .acoes-whatsapp { display: flex; min-width: 0; }
         .action-pix-btn { flex: none; min-width: 124px; border-radius: 8px; padding: 8px 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-        .alertas-acoes { display: none; margin-bottom: 10px; background: #FFF3E0; padding: 10px; border-radius: 8px; border: 1px solid #FFCC80; }
+        .alertas-acoes { display: none; margin-bottom: 10px; background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #eee; }
+        .alertas-acoes-list { display:flex; flex-direction:column; align-items:center; gap:6px; }
 
         .payment-panel { background:#f9f9f9; padding:12px; border-radius:8px; text-align:center; border: 1px solid #eee; }
         .payment-status { margin-bottom: 12px; }
@@ -141,11 +146,13 @@
         .money-input { text-align:center; font-weight:900; color:var(--theme-base); background:#fff; }
         .money-input.readonly { background:#eef4f1; }
         .primary-wide { width: 100%; min-height: 42px; border-radius: 8px; font-size: 14px; display: flex; align-items: center; justify-content: center; }
-        .multi-toggle { margin-top:12px; display:flex; align-items:center; justify-content:center; gap:10px; border-top:1px solid #ddd; padding-top:12px; text-align: left; }
+        .multi-toggle { margin:0 0 10px; display:flex; align-items:center; justify-content:center; gap:10px; text-align: left; }
         .multi-toggle strong { display:block; font-size:14px; color:#333; }
         .multi-toggle small { display:block; font-size:11px; color:#777; font-weight:700; }
-        .multi-payment-box { display:none; text-align:left; padding-top:10px; }
-        .period-hint { background: #EEF7F3; color: #236246; border: 1px solid rgba(0,140,74,0.18); border-radius: 8px; padding: 8px 10px; font-size: 12px; font-weight: 700; margin-bottom: 10px; }
+        .payment-mode-box { display:none; opacity:0; pointer-events:none; transform:translateY(2px); }
+        .payment-mode-box.open { display:block; opacity:1; pointer-events:auto; transform:none; animation: paymentModeIn .14s ease; }
+        @keyframes paymentModeIn { from { opacity:0; transform:translateY(2px); } to { opacity:1; transform:none; } }
+        .multi-payment-box { text-align:left; }
         .multi-error { display:none; text-align:center; margin-bottom:10px; }
         .payment-grid-action { align-items: end; }
 
@@ -172,9 +179,16 @@
         .pix-key b { font-size:15px; color:#111; }
         .pix-beneficiario { color:#333; margin-bottom:6px; }
         .pix-card button { background:#ffcdd2; color:#d32f2f; border:none; border-radius:7px; padding:8px 10px; cursor:pointer; font-weight:bold; flex-shrink:0; }
+        .modal-pix-choice { max-width: 420px; }
+        .pix-choice-list { display: flex; flex-direction: column; gap: 8px; }
+        .pix-choice-card { width: 100%; border: 1px solid #ddd; background: #fff; border-radius: 8px; padding: 12px; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 3px; }
+        .pix-choice-card span { font-size: 12px; color: #555; font-weight: 800; }
+        .pix-choice-card b { color: #111; font-size: 15px; word-break: break-word; }
+        .pix-choice-card small { color: #555; font-weight: 700; }
 
         @media (min-width: 760px) {
             .status-badge { font-size: 13px; padding: 6px 10px; }
+            .alert-chip-home { font-size: 12px; padding: 5px 8px; }
             .item { min-height: 64px; padding: 8px 14px; }
             .item-title { font-size: 16px; }
             .item-avatar { width: 36px; height: 36px; }
@@ -183,6 +197,8 @@
         }
 
         @media (max-width: 520px) {
+            .alert-home-box { max-width: 50%; }
+            .alert-chip-home { font-size: 10px; padding: 4px 6px; }
             .acoes-toolbar { grid-template-columns: 1fr; }
             .action-pix-btn { width: 100%; }
             .payment-grid, .single-payment-grid, .payment-grid-action { grid-template-columns: 1fr; }
