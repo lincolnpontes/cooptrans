@@ -6,7 +6,8 @@
 
         html, body { width: 100%; height: 100%; position: fixed; overflow: hidden; margin: 0; padding: 0; touch-action: none; }
         body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; }
-        input, select, textarea, .modal, .scroll-area { user-select: text; -webkit-user-select: text; font-family: inherit; touch-action: auto; }
+        input, select, textarea, .modal, .scroll-area { user-select: text; -webkit-user-select: text; font-family: inherit; touch-action: manipulation; }
+        .modal, .scroll-area { touch-action: pan-y; }
         .app-container { width: 100%; max-width: 100%; height: 100%; background-color: #ffffff; display: flex; flex-direction: column; position: absolute; top: 0; left: 0; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
         
         #splashScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--theme-base); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; transition: opacity 0.5s ease; }
@@ -102,4 +103,91 @@
         .dash-card .sub-value { font-size: 12px; color: #888; margin-top: 4px; }
         .dash-card.red .value { color: #D32F2F; }
         .dash-card.full { grid-column: span 2; }
+
+        .menu-title { text-align: center; color: var(--theme-base); margin: 0 0 20px; font-size: 24px; line-height: 1.1; display: flex; align-items: baseline; justify-content: center; gap: 8px; }
+        .menu-title span { font-size: 12px; color: #666; font-weight: 700; background: var(--theme-light); border: 1px solid rgba(0, 140, 74, 0.2); padding: 3px 7px; border-radius: 999px; }
+
+        .icon-btn { background: var(--theme-light); color: var(--theme-base); border: 1px solid rgba(0, 140, 74, 0.18); border-radius: 8px; min-width: 38px; height: 38px; cursor: pointer; font-size: 18px; display: inline-flex; align-items: center; justify-content: center; }
+
+        .excel-actions { display: none; gap: 8px; margin-bottom: 12px; }
+        .excel-btn { min-height: 48px; border: 0; border-radius: 8px; color: white; cursor: pointer; font-weight: 800; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 13px; line-height: 1.1; box-shadow: 0 2px 5px rgba(0,0,0,0.08); }
+        .excel-btn small { font-size: 10px; font-weight: 700; opacity: 0.9; }
+        .excel-export { background: var(--theme-base); }
+        .excel-import { background: #F57F17; }
+        .excel-model { background: #455A64; }
+
+        .modal-acoes { max-width: 560px; }
+        .modal-title-acoes > div { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+        .modal-title-acoes span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .modal-title-acoes small { font-size: 12px; color: #666; font-weight: 700; }
+        .acoes-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; margin-bottom: 10px; align-items: stretch; }
+        .acoes-whatsapp { display: flex; min-width: 0; }
+        .action-pix-btn { flex: none; min-width: 124px; border-radius: 8px; padding: 8px 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+        .alertas-acoes { display: none; margin-bottom: 10px; background: #FFF3E0; padding: 10px; border-radius: 8px; border: 1px solid #FFCC80; }
+
+        .payment-panel { background:#f9f9f9; padding:12px; border-radius:8px; text-align:center; border: 1px solid #eee; }
+        .payment-status { margin-bottom: 12px; }
+        .payment-status-value { font-weight: 900; border-radius: 8px; padding: 10px; line-height: 1.2; }
+        .payment-status-value span { display: inline-block; }
+        .payment-status-value.pending { color:#C62828; background:#FFEBEE; border:1px solid #EF9A9A; font-size: 22px; }
+        .payment-status-value.paid { color:#2E7D32; background:#E8F5E9; border:1px solid #A5D6A7; font-size: 22px; }
+        .payment-status-value.neutral { color:#666; background:#fff; border:1px solid #ddd; font-size: 17px; }
+
+        .payment-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; text-align: left; }
+        .single-payment-grid { grid-template-columns: 1.2fr 0.9fr 1fr; }
+        .payment-grid label { display: block; color:#555; font-weight:800; font-size:11px; margin-bottom:4px; }
+        .payment-grid input { width: 100%; min-height: 39px; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; text-align: center; }
+        .field-month { width: 100%; justify-content:center; padding: 8px 4px; font-size:13px; background:#fff; color:#333; border-color:#ccc; box-sizing:border-box; margin:0; min-height: 39px; }
+        .money-input { text-align:center; font-weight:900; color:var(--theme-base); background:#fff; }
+        .money-input.readonly { background:#eef4f1; }
+        .primary-wide { width: 100%; min-height: 42px; border-radius: 8px; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+        .multi-toggle { margin-top:12px; display:flex; align-items:center; justify-content:center; gap:10px; border-top:1px solid #ddd; padding-top:12px; text-align: left; }
+        .multi-toggle strong { display:block; font-size:14px; color:#333; }
+        .multi-toggle small { display:block; font-size:11px; color:#777; font-weight:700; }
+        .multi-payment-box { display:none; text-align:left; padding-top:10px; }
+        .period-hint { background: #EEF7F3; color: #236246; border: 1px solid rgba(0,140,74,0.18); border-radius: 8px; padding: 8px 10px; font-size: 12px; font-weight: 700; margin-bottom: 10px; }
+        .multi-error { display:none; text-align:center; margin-bottom:10px; }
+        .payment-grid-action { align-items: end; }
+
+        .history-box { background:#f9f9f9; padding:10px; border-radius:8px; font-size:13px; margin-bottom:10px; border:1px solid #eee; }
+        .pending-box { margin-bottom:10px; padding-bottom:10px; border-bottom:1px dashed #ccc; }
+        .pending-box.ok { color:#2E7D32; font-weight:bold; }
+        .pending-title { font-weight:bold; color:#D32F2F; margin-bottom:6px; }
+        .pending-month { background:#FFEBEE; color:#D32F2F; padding:3px 7px; border-radius:5px; font-weight:bold; margin-right:4px; margin-bottom:4px; display:inline-block; }
+        .history-row { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ddd; padding:8px 0; gap: 8px; }
+        .history-row small { color:#666; }
+        .history-row > div:last-child { display:flex; align-items:center; gap:10px; flex-shrink: 0; }
+        .history-row > div:last-child b { color:#2E7D32; }
+        .history-row button { background:none; border:none; color:#d32f2f; cursor:pointer; font-weight:bold; font-size:16px; }
+        .history-toggle { width:100%; margin-top:10px; font-size:12px; padding:8px; border-radius: 7px; border:1px solid var(--theme-base); color:var(--theme-base); background:white; font-weight:800; }
+        .vehicle-actions { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+        .vehicle-chip { flex:1; min-width:100px; padding:10px; font-size:14px; font-weight:bold; text-align:center; border-radius:8px; border:1px solid var(--theme-base); color:var(--theme-base); background:white; cursor:pointer; }
+        .empty-state { color:#999; text-align:center; font-size:13px; padding: 8px; }
+
+        .pix-card { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; background:#fff; border:1px solid #ddd; padding:12px; border-radius:8px; margin-bottom:8px; font-size:13px; }
+        .pix-list-box { background:#f9f9f9; padding:10px; border-radius:8px; max-height:220px; overflow-y:auto; border:1px solid #eee; }
+        .pix-card-main { min-width: 0; }
+        .pix-key { display:flex; flex-wrap:wrap; align-items:baseline; gap:6px; margin-bottom:4px; word-break: break-word; }
+        .pix-key span { font-weight:800; color:#333; }
+        .pix-key b { font-size:15px; color:#111; }
+        .pix-beneficiario { color:#333; margin-bottom:6px; }
+        .pix-card button { background:#ffcdd2; color:#d32f2f; border:none; border-radius:7px; padding:8px 10px; cursor:pointer; font-weight:bold; flex-shrink:0; }
+
+        @media (min-width: 760px) {
+            .status-badge { font-size: 13px; padding: 6px 10px; }
+            .item { min-height: 64px; padding: 8px 14px; }
+            .item-title { font-size: 16px; }
+            .item-avatar { width: 36px; height: 36px; }
+            .modal { max-width: 520px; }
+            .modal-acoes { max-width: 640px; }
+        }
+
+        @media (max-width: 520px) {
+            .acoes-toolbar { grid-template-columns: 1fr; }
+            .action-pix-btn { width: 100%; }
+            .payment-grid, .single-payment-grid, .payment-grid-action { grid-template-columns: 1fr; }
+            .excel-actions { gap: 6px; }
+            .excel-btn { min-height: 46px; font-size: 12px; }
+            .payment-status-value.pending, .payment-status-value.paid { font-size: 20px; }
+        }
 

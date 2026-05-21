@@ -1,4 +1,7 @@
-﻿try {
+﻿const APP_VERSION = "v1.0.24";
+const SYNC_PULL_INTERVAL_MS = 30000;
+
+try {
             let s = localStorage.getItem('cooptrans_v1');
             if(s) {
                 let parsed = JSON.parse(s);
@@ -55,7 +58,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                     licenca: { ativo: true, dias: 7 }
                 }
             },
-            configs: { url: "", dadosBaixados: false, ultimaMudancaLocal: 0, senhaAdmin: "1999" }
+            configs: { url: "", dadosBaixados: false, ultimaMudancaLocal: 0, ultimaSincronizacao: 0, syncRevision: 0, senhaAdmin: "1999" },
+            _deleted: { contribuintes: {}, pagamentos: {}, pix: {}, categorias: {} }
         };
     }
 
@@ -89,10 +93,17 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         };
 
         dados.configs = { ...base.configs, ...(dados.configs || {}) };
+        dados._deleted = { ...base._deleted, ...(dados._deleted || {}) };
+        dados._deleted.contribuintes = dados._deleted.contribuintes || {};
+        dados._deleted.pagamentos = dados._deleted.pagamentos || {};
+        dados._deleted.pix = dados._deleted.pix || {};
+        dados._deleted.categorias = dados._deleted.categorias || {};
         return dados;
     }
     
     function salvarBanco(opcoes = {}) {
+        db.configs = { ...criarBancoBase().configs, ...(db.configs || {}) };
+        if(opcoes.marcarLocal !== false) db.configs.ultimaMudancaLocal = Date.now();
         localStorage.setItem('cooptrans_v1', JSON.stringify(db));
         if(opcoes.sincronizar !== false) agendarSincronizacao();
     }
@@ -102,6 +113,18 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         syncPendente = true;
         clearTimeout(syncTimer);
         syncTimer = setTimeout(() => sincronizarFundo(false, true), 1500);
+    }
+
+    function registrarExclusao(tipo, id) {
+        if(!id) return;
+        db._deleted = db._deleted || criarBancoBase()._deleted;
+        db._deleted[tipo] = db._deleted[tipo] || {};
+        db._deleted[tipo][id] = Date.now();
+    }
+
+    function tocarRegistro(registro) {
+        if(registro) registro.updatedAt = Date.now();
+        return registro;
     }
     
     function abrirModal(id) {
@@ -144,6 +167,9 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     }
 
     document.addEventListener("DOMContentLoaded", () => { 
+        document.title = `Cooptrans ${APP_VERSION}`;
+        document.getElementById('splashVersao').innerText = APP_VERSION;
+        document.getElementById('menuAppVersion').innerText = APP_VERSION;
         aplicarTema();
         renderizarCabecalhoPrincipal();
         setTimeout(() => {
@@ -154,7 +180,33 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let hjMes = getHojeSTR().substring(0,7);
         document.getElementById('filtroMesGeral').value = hjMes;
         atualizarTextoMesGeral();
+        configurarBloqueioZoom();
+        registrarServiceWorker();
+        inicializarSincronizacaoAutomatica();
     });
+
+    function configurarBloqueioZoom() {
+        document.addEventListener('wheel', (e) => { if(e.ctrlKey) e.preventDefault(); }, { passive: false });
+        document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+        document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
+        document.addEventListener('keydown', (e) => {
+            const zoomKeys = ['+', '-', '=', '0'];
+            if((e.ctrlKey || e.metaKey) && zoomKeys.includes(e.key)) e.preventDefault();
+        }, { capture: true });
+    }
+
+    function registrarServiceWorker() {
+        if('serviceWorker' in navigator && location.protocol !== 'file:') {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
+    }
+
+    function inicializarSincronizacaoAutomatica() {
+        if(!db.configs.url) return;
+        setTimeout(() => puxarDadosNuvem(true), 2500);
+        setInterval(() => puxarDadosNuvem(true), SYNC_PULL_INTERVAL_MS);
+        window.addEventListener('focus', () => puxarDadosNuvem(true));
+    }
 
     // ATALHO ENTER E ESC E NAVEGACAO LISTA
     document.addEventListener('keydown', function(e) {
@@ -725,6 +777,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
     function excluirContribuinte(id) {
         if(confirm("Deseja realmente excluir este contribuinte e todo o seu histórico?")) {
+            registrarExclusao('contribuintes', id);
             db.contribuintes = db.contribuintes.filter(x => x.id !== id);
             salvarBanco();
             abrirGerenciarContribuintes();
@@ -792,7 +845,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             desconto: document.getElementById('contDesconto').value,
             valorTotal: document.getElementById('contValor').value,
             carros: tempCarros,
-            pagamentos: db.contribuintes.find(x=>x.id===id)?.pagamentos || []
+            pagamentos: db.contribuintes.find(x=>x.id===id)?.pagamentos || [],
+            updatedAt: Date.now()
         };
         
         const idx = db.contribuintes.findIndex(x => x.id === id);
@@ -962,6 +1016,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             let somaCarros = c.carros.filter(car => car.ativo).reduce((acc, car) => acc + parseMoeda(car.valor), 0);
             let desc = parseMoeda(c.desconto || "0");
             c.valorTotal = formatMoeda(Math.max(0, somaCarros - desc));
+            tocarRegistro(c);
 
             salvarBanco();
             abrirAcoesContribuinte(contId); 
@@ -1067,7 +1122,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             c.carros.forEach((car, idx) => {
                 let catObj = db.categorias.find(x => x.nome === car.categoria);
                 let emj = catObj && catObj.emoji ? catObj.emoji : '🚗';
-                boxCarros.innerHTML += `<button class="btn-outline" style="flex:1; min-width:100px; padding:10px; font-size:14px; font-weight:bold; text-align:center; border-radius:8px;" onclick="abrirCarroFromAcoes(${idx})">${escapeHTML(emj)} ${escapeHTML(car.placa)}</button>`;
+                boxCarros.innerHTML += `<button class="vehicle-chip" onclick="abrirCarroFromAcoes(${idx})">${escapeHTML(emj)} ${escapeHTML(car.placa)}</button>`;
             });
         } else {
             boxCarros.innerHTML = '<div style="color:#999; font-size:13px; text-align:center; width:100%;">Nenhum veículo vinculado.</div>';
@@ -1082,15 +1137,15 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let pgSingle = document.getElementById('pgValorSingle');
 
         if(!pago && valorEsperado > 0) {
-            box.innerHTML = `<div style="font-size:24px; font-weight:bold; color:#D32F2F;">Falta Pagar: R$ ${formatMoeda(valorEsperado)}</div>`;
+            box.innerHTML = `<div class="payment-status-value pending">Falta Pagar <span>R$ ${formatMoeda(valorEsperado)}</span></div>`;
             pgSingle.value = formatMoeda(valorEsperado);
             pgSingle.dataset.esperado = valorEsperado;
         } else if (pago) {
-            box.innerHTML = `<div style="font-size:24px; font-weight:bold; color:#2E7D32;">✅ Mês já foi Pago</div>`;
+            box.innerHTML = `<div class="payment-status-value paid">✅ Mês já foi Pago</div>`;
             pgSingle.value = formatMoeda(valorEsperado);
             pgSingle.dataset.esperado = valorEsperado;
         } else {
-            box.innerHTML = `<div style="font-size:18px; font-weight:bold; color:#666;">Isento / Sem Valor Devido</div>`;
+            box.innerHTML = `<div class="payment-status-value neutral">Isento / Sem Valor Devido</div>`;
             pgSingle.value = "0,00";
             pgSingle.dataset.esperado = "0";
         }
@@ -1121,8 +1176,10 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             mesesRef: [mesRef],
             labelRef: buildLabelRef([mesRef]),
             valorPago: valorPago,
-            dataPagamento: dataPgto
+            dataPagamento: dataPgto,
+            updatedAt: Date.now()
         });
+        tocarRegistro(c);
         
         salvarBanco();
         abrirAcoesContribuinte(id);
@@ -1220,8 +1277,10 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             mesesRef: meses,
             labelRef: buildLabelRef(meses),
             valorPago: esperadoFinal,
-            dataPagamento: dataPgto
+            dataPagamento: dataPgto,
+            updatedAt: Date.now()
         });
+        tocarRegistro(c);
         
         salvarBanco();
         abrirAcoesContribuinte(id); 
@@ -1231,7 +1290,9 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     function excluirPagamento(contId, pgId) {
         if(!confirm("Remover este pagamento?")) return;
         let c = db.contribuintes.find(x => x.id === contId);
+        registrarExclusao('pagamentos', pgId);
         c.pagamentos = c.pagamentos.filter(p => p.id !== pgId);
+        tocarRegistro(c);
         salvarBanco();
         abrirAcoesContribuinte(contId);
         renderizarLista();
@@ -1271,18 +1332,18 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         if(pendentes.length > 0) {
             let pTags = pendentes.map(m => {
                 let parts = m.split('-');
-                return `<span style="background:#FFEBEE; color:#D32F2F; padding:2px 6px; border-radius:4px; font-weight:bold; margin-right:4px; margin-bottom:4px; display:inline-block;">${parts[1]}/${parts[0]}</span>`;
+                return `<span class="pending-month">${parts[1]}/${parts[0]}</span>`;
             }).join('');
-            pendentesHtml = `<div style="margin-bottom:10px; padding-bottom:10px; border-bottom:1px dashed #ccc;">
-                <div style="font-weight:bold; color:#D32F2F; margin-bottom:5px;">Meses Pendentes:</div>
+            pendentesHtml = `<div class="pending-box">
+                <div class="pending-title">Meses Pendentes</div>
                 ${pTags}
             </div>`;
         } else {
-            pendentesHtml = `<div style="margin-bottom:10px; padding-bottom:10px; border-bottom:1px dashed #ccc; color:#2E7D32; font-weight:bold;">✅ Nenhuma pendência em aberto.</div>`;
+            pendentesHtml = `<div class="pending-box ok">✅ Nenhuma pendência em aberto.</div>`;
         }
 
         if(!c.pagamentos || c.pagamentos.length === 0) { 
-            box.innerHTML = pendentesHtml + '<div style="color:#999; text-align:center;">Nenhum pagamento registrado.</div>'; 
+            box.innerHTML = pendentesHtml + '<div class="empty-state">Nenhum pagamento registrado.</div>'; 
             return; 
         }
         
@@ -1293,11 +1354,11 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
         pgtos.forEach((p, i) => {
             let label = p.labelRef ? p.labelRef : p.mesAno.split('-').reverse().join('/');
-            let row = `<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ddd; padding:8px 0;">
-                <div><b>Ref: ${label}</b><br><small style="color:#666;">Pago em: ${formatDataBR(p.dataPagamento)}</small></div>
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <b style="color:#2E7D32;">R$ ${formatMoeda(p.valorPago)}</b>
-                    <button style="background:none; border:none; color:#d32f2f; cursor:pointer; font-weight:bold; font-size:16px;" onclick="excluirPagamento('${c.id}', '${p.id}')">X</button>
+            let row = `<div class="history-row">
+                <div><b>Ref: ${escapeHTML(label)}</b><br><small>Pago em: ${formatDataBR(p.dataPagamento)}</small></div>
+                <div>
+                    <b>R$ ${formatMoeda(p.valorPago)}</b>
+                    <button onclick="excluirPagamento('${c.id}', '${p.id}')">X</button>
                 </div>
             </div>`;
             if(i < 3) html3 += row;
@@ -1307,7 +1368,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         box.innerHTML = pendentesHtml + html3;
         if(pgtos.length > 3) {
             box.innerHTML += `<div id="histRestante" style="display:none;">${htmlRest}</div>
-            <button id="btnToggleHist" class="btn-outline" style="width:100%; margin-top:10px; font-size:12px; padding:6px;" onclick="toggleHistoricoAcoes()">Ver Todo o Histórico</button>`;
+            <button id="btnToggleHist" class="history-toggle" onclick="toggleHistoricoAcoes()">Ver Todo o Histórico</button>`;
         }
     }
 
@@ -1340,11 +1401,14 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
     function renderListaPixCoop() {
         const box = document.getElementById('listaPixCoop');
-        if(tempPixCoop.length === 0) { box.innerHTML = '<div style="color:#999; font-size:12px; text-align:center;">Nenhuma chave PIX.</div>'; return; }
-        box.innerHTML = tempPixCoop.map((p, i) => `<div class="list-item-config" style="align-items:flex-start;">
-            <div><span style="word-break: break-all;">${escapeHTML(p.tipo)}: <b>${escapeHTML(p.chave)}</b></span><br><small>Ben: ${escapeHTML(p.beneficiario)}</small><br>
-            <label class="radio-custom"><input type="radio" name="pixPrinc" onchange="setPixPrincipal(${i})" ${p.principal ? 'checked' : ''}> Principal</label></div>
-            <button onclick="removerPixCoop(${i})" style="margin-top:5px;">X</button>
+        if(tempPixCoop.length === 0) { box.innerHTML = '<div class="empty-state">Nenhuma chave PIX.</div>'; return; }
+        box.innerHTML = tempPixCoop.map((p, i) => `<div class="pix-card">
+            <div class="pix-card-main">
+                <div class="pix-key"><span>${escapeHTML(p.tipo)}</span><b>${escapeHTML(p.chave)}</b></div>
+                <div class="pix-beneficiario">Beneficiário: ${escapeHTML(p.beneficiario)}</div>
+                <label class="radio-custom"><input type="radio" name="pixPrinc" onchange="setPixPrincipal(${i})" ${p.principal ? 'checked' : ''}> Principal</label>
+            </div>
+            <button type="button" onclick="removerPixCoop(${i})" aria-label="Remover chave PIX">X</button>
         </div>`).join('');
     }
     
@@ -1354,7 +1418,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let ben = document.getElementById('novoPixBenCoop').value.trim();
         if(tipo === 'E-mail') { chv = chv.toLowerCase(); if(!chv.includes('@') || !chv.includes('.')) return alert('E-mail inválido.'); }
         if(chv && ben) {
-            tempPixCoop.push({ tipo: tipo, chave: chv, beneficiario: ben, principal: tempPixCoop.length === 0 });
+            tempPixCoop.push({ id: 'pix_' + Date.now(), tipo: tipo, chave: chv, beneficiario: ben, principal: tempPixCoop.length === 0, updatedAt: Date.now() });
             document.getElementById('novoPixInputCoop').value = ''; 
             document.getElementById('novoPixBenCoop').value = ''; 
             renderListaPixCoop(); 
@@ -1362,8 +1426,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             alert('Preencha a chave e o nome do beneficiário.');
         }
     }
-    function removerPixCoop(idx) { tempPixCoop.splice(idx, 1); if(tempPixCoop.length > 0 && !tempPixCoop.some(p => p.principal)) tempPixCoop[0].principal = true; renderListaPixCoop(); }
-    function setPixPrincipal(idx) { tempPixCoop.forEach((p, i) => p.principal = (i === idx)); }
+    function removerPixCoop(idx) { if(tempPixCoop[idx]?.id) registrarExclusao('pix', tempPixCoop[idx].id); tempPixCoop.splice(idx, 1); if(tempPixCoop.length > 0 && !tempPixCoop.some(p => p.principal)) tempPixCoop[0].principal = true; renderListaPixCoop(); }
+    function setPixPrincipal(idx) { tempPixCoop.forEach((p, i) => { p.principal = (i === idx); p.updatedAt = Date.now(); }); }
 
     function salvarCooperativa() {
         db.cooperativa.logo = document.getElementById('coopLogoBase64').value;
@@ -1371,6 +1435,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         db.cooperativa.fantasia = document.getElementById('coopFantasia').value;
         db.cooperativa.cnpj = document.getElementById('coopCNPJ').value;
         db.cooperativa.pixList = tempPixCoop;
+        db.cooperativa.updatedAt = Date.now();
         salvarBanco();
         renderizarCabecalhoPrincipal();
         fecharModal('modalFormCooperativa');
@@ -1423,9 +1488,9 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let editIdx = document.getElementById('editIdxCat').value;
         if(n && v) {
             if(editIdx !== "") { 
-                tempCategorias[editIdx] = {emoji: e, nome: n, valor: v}; 
+                tempCategorias[editIdx] = { ...tempCategorias[editIdx], emoji: e, nome: n, valor: v, updatedAt: Date.now() }; 
             } else { 
-                tempCategorias.push({emoji: e, nome: n, valor: v}); 
+                tempCategorias.push({ id: 'cat_' + Date.now(), emoji: e, nome: n, valor: v, updatedAt: Date.now() }); 
             }
             cancelarEditCategoria();
             renderListasCategorias();
@@ -1461,7 +1526,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         document.getElementById('btnCancelarEditCat').style.display = "none";
     }
 
-    function removerCategoria(idx) { tempCategorias.splice(idx, 1); renderListasCategorias(); }
+    function removerCategoria(idx) { let cat = tempCategorias[idx]; registrarExclusao('categorias', cat?.id || cat?.nome); tempCategorias.splice(idx, 1); renderListasCategorias(); }
 
     function salvarConfigGerais() {
         db.configGerais.corTema = document.getElementById('confCorTema').value;
@@ -1472,6 +1537,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             licenca: { ativo: document.getElementById('confAlertaLicenca').checked, dias: document.getElementById('confDiasLicenca').value || 7 }
         };
         db.categorias = tempCategorias;
+        db.configGerais.updatedAt = Date.now();
         salvarBanco();
         aplicarTema();
         fecharModal('modalConfigGerais');
@@ -1509,7 +1575,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
     function salvarAdmin() {
         let id = document.getElementById('adminId').value || 'adm_' + Date.now();
-        let novo = { id: id, nome: document.getElementById('adminNome').value, senha: document.getElementById('adminSenha').value };
+        let novo = { id: id, nome: document.getElementById('adminNome').value, senha: document.getElementById('adminSenha').value, updatedAt: Date.now() };
         const idx = db.administradores.findIndex(x => x.id === id);
         if(idx >= 0) db.administradores[idx] = novo; else db.administradores.push(novo);
         salvarBanco(); fecharModal('modalFormAdmin'); abrirGerenciar('administradores');
@@ -1636,10 +1702,12 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                                 mesesRef: [pTmp.ref],
                                 labelRef: buildLabelRef([pTmp.ref]),
                                 valorPago: valEsperado > 0 ? valEsperado : 0,
-                                dataPagamento: pTmp.dt
+                                dataPagamento: pTmp.dt,
+                                updatedAt: Date.now()
                             });
                         }
                     });
+                    tocarRegistro(cExistente);
                 });
                 
                 salvarBanco();
@@ -1673,8 +1741,9 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             let nuvemDB = normalizarBanco(dadosNuvem);
             nuvemDB.configs.url = inputUrl;
             nuvemDB.configs.dadosBaixados = true;
+            nuvemDB.configs.ultimaSincronizacao = Date.now();
             db = nuvemDB;
-            salvarBanco({ sincronizar: false });
+            salvarBanco({ sincronizar: false, marcarLocal: false });
             alert("✅ Concluído!");
             location.reload();
         } catch(e) {
@@ -1697,9 +1766,15 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 method: 'POST',
                 redirect: "follow",
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'salvar_banco', dados: db })
+                body: JSON.stringify({ action: 'salvar_banco', dados: db, baseRevision: db.configs.syncRevision || 0 })
             });
             if(!res.ok) throw new Error("Falha ao salvar na nuvem");
+            let retorno = await res.json().catch(() => null);
+            if(retorno && retorno.ok) {
+                db.configs.syncRevision = retorno.revision || db.configs.syncRevision || 0;
+                db.configs.ultimaSincronizacao = Date.now();
+                localStorage.setItem('cooptrans_v1', JSON.stringify(db));
+            }
         } catch(e) {
             syncPendente = true;
         } finally {
@@ -1709,6 +1784,35 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 clearTimeout(syncTimer);
                 syncTimer = setTimeout(() => sincronizarFundo(false, true), 5000);
             }
+        }
+    }
+
+    async function puxarDadosNuvem(silencioso = true) {
+        if(!db.configs.url || isSyncingFundo || syncPendente) return;
+        if((db.configs.ultimaMudancaLocal || 0) > (db.configs.ultimaSincronizacao || 0)) return;
+
+        try {
+            let fetchUrl = db.configs.url + (db.configs.url.includes('?') ? '&' : '?') + 'nocache=' + Date.now();
+            let res = await fetch(fetchUrl, { redirect: "follow", cache: "no-store" });
+            if(!res.ok) throw new Error("Falha ao puxar dados da nuvem");
+            let nuvemDB = await res.json();
+            if(!validarBancoImportado(nuvemDB)) return;
+
+            nuvemDB = normalizarBanco(nuvemDB);
+            let revisaoNuvem = parseInt(nuvemDB.configs.syncRevision || 0);
+            let revisaoLocal = parseInt(db.configs.syncRevision || 0);
+            if(revisaoNuvem <= revisaoLocal) return;
+
+            let urlSalva = db.configs.url;
+            db = nuvemDB;
+            db.configs.url = urlSalva;
+            db.configs.ultimaSincronizacao = Date.now();
+            salvarBanco({ sincronizar: false, marcarLocal: false });
+            aplicarTema();
+            renderizarCabecalhoPrincipal();
+            atualizarTextoMesGeral();
+        } catch(e) {
+            if(!silencioso) alert("Não foi possível puxar os dados da nuvem.");
         }
     }
     async function forcarEnvioNuvemCompleto() { if(!db.configs.url) return alert("Configure a URL!"); document.getElementById('loadingOverlay').style.display = 'flex'; try { let res = await fetch(db.configs.url, { method: 'POST', redirect: "follow", headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'salvar_banco', dados: db }) }); if(!res.ok) throw new Error("Erro"); alert("✅ Backup salvo!"); } catch(e) { alert("❌ Falha."); } finally { document.getElementById('loadingOverlay').style.display = 'none'; } }
@@ -1743,4 +1847,6 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     }
     async function excluirTodoHistorico() { let frase = document.getElementById('inputExcluirTudo').value.trim().toLowerCase(); if(frase === "quero excluir todo o histórico") { if(!confirm("⚠️ TEM CERTEZA?")) return; db.contribuintes.forEach(c => c.pagamentos = []); marcarMudancaEstrutural(); document.getElementById('inputExcluirTudo').value = ''; fecharModal('modalConfigAvancadas'); alert("✅ Limpo!"); renderizarLista(); } else { alert("Frase incorreta."); } }
     function forcarAtualizacao() { if(confirm("Deseja forçar a atualização do aplicativo?")) { if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(function(registrations) { for(let registration of registrations) registration.update(); }); } window.location.href = window.location.pathname + '?nocache=' + new Date().getTime(); } }
+
+
 
