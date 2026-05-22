@@ -120,6 +120,13 @@
         .excel-import { background: #F57F17; }
         .excel-model { background: #455A64; }
 
+        .contributor-total-box { background:var(--theme-light); padding:10px; border-radius:7px; }
+        .contributor-total-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:5px; }
+        .contributor-total-grid label { color:#333; font-weight:800; }
+        .contributor-total-grid input { font-weight:800; text-align:center; }
+        .contributor-total-grid input#contValor { color:var(--theme-base); background:#fff; border-color:rgba(0, 140, 74, 0.25); }
+        .contributor-total-note { font-size:11px; color:#555; font-weight:700; }
+
         .modal-acoes { max-width: 560px; }
         .modal-title-acoes > div { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
         .modal-title-acoes span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -127,9 +134,6 @@
         .acoes-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; margin-bottom: 10px; align-items: stretch; }
         .acoes-whatsapp { display: flex; min-width: 0; }
         .action-pix-btn { flex: none; min-width: 124px; border-radius: 8px; padding: 8px 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-        .alertas-acoes { display: none; margin-bottom: 10px; background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #eee; }
-        .alertas-acoes-list { display:flex; flex-direction:column; align-items:center; gap:6px; }
-
         .payment-panel { background:#f9f9f9; padding:12px; border-radius:8px; text-align:center; border: 1px solid #eee; }
         .payment-status { margin-bottom: 12px; }
         .payment-status-value { font-weight: 900; border-radius: 8px; padding: 10px; line-height: 1.2; }
@@ -145,7 +149,13 @@
         .field-month { width: 100%; justify-content:center; padding: 8px 4px; font-size:13px; background:#fff; color:#333; border-color:#ccc; box-sizing:border-box; margin:0; min-height: 39px; }
         .money-input { text-align:center; font-weight:900; color:var(--theme-base); background:#fff; }
         .money-input.readonly { background:#eef4f1; }
+        .amount-due-input { color:#C62828; background:#FFEBEE; border-color:#EF9A9A; font-weight:900; }
+        .amount-paid-input { color:#2E7D32; background:#E8F5E9; border-color:#A5D6A7; font-weight:900; }
+        .amount-neutral-input { color:#666; background:#fff; border-color:#ddd; font-weight:900; }
         .primary-wide { width: 100%; min-height: 42px; border-radius: 8px; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+        .payment-confirm-btn { background:#FBC02D; color:#1b1b1b; border:1px solid #F9A825; font-weight:900; }
+        .payment-confirm-btn:active { background:#F9A825; }
+        .payment-confirm-btn:disabled, .payment-disabled-btn { background:#E8F5E9; color:#2E7D32; border-color:#A5D6A7; cursor:not-allowed; opacity:1; }
         .multi-toggle { margin:0 0 10px; display:flex; align-items:center; justify-content:center; gap:10px; text-align: left; }
         .multi-toggle strong { display:block; font-size:14px; color:#333; }
         .multi-toggle small { display:block; font-size:11px; color:#777; font-weight:700; }
@@ -155,6 +165,10 @@
         .multi-payment-box { text-align:left; }
         .multi-error { display:none; text-align:center; margin-bottom:10px; }
         .payment-grid-action { align-items: end; }
+        .discount-dual-field { min-width:0; }
+        .discount-dual-grid { display:grid; grid-template-columns:1fr 0.72fr; gap:6px; }
+        .discount-dual-grid input { font-weight:800; }
+        .discount-dual-grid input:last-child { color:#6D4C41; background:#FFF8E1; border-color:#FFE082; }
 
         .history-box { background:#f9f9f9; padding:10px; border-radius:8px; font-size:13px; margin-bottom:10px; border:1px solid #eee; }
         .pending-box { margin-bottom:10px; padding-bottom:10px; border-bottom:1px dashed #ccc; }
@@ -167,8 +181,21 @@
         .history-row > div:last-child b { color:#2E7D32; }
         .history-row button { background:none; border:none; color:#d32f2f; cursor:pointer; font-weight:bold; font-size:16px; }
         .history-toggle { width:100%; margin-top:10px; font-size:12px; padding:8px; border-radius: 7px; border:1px solid var(--theme-base); color:var(--theme-base); background:white; font-weight:800; }
-        .vehicle-actions { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
-        .vehicle-chip { flex:1; min-width:100px; padding:10px; font-size:14px; font-weight:bold; text-align:center; border-radius:8px; border:1px solid var(--theme-base); color:var(--theme-base); background:white; cursor:pointer; }
+        .history-tag { margin-left:6px; display:inline-block; padding:2px 6px; border-radius:999px; font-size:10px; font-weight:900; vertical-align:middle; }
+        .history-tag.partial { background:#FFF8E1; color:#6D4C41; border:1px solid #FFE082; }
+        .history-tag.discount { background:#E3F2FD; color:#1565C0; border:1px solid #90CAF9; }
+        .vehicle-actions { display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
+        .vehicle-action-card { width:100%; padding:10px; font-size:14px; text-align:left; border-radius:8px; border:1px solid rgba(0, 140, 74, 0.22); color:#222; background:white; cursor:pointer; }
+        .vehicle-action-head, .vehicle-temp-head { display:flex; align-items:center; justify-content:space-between; gap:8px; line-height:1.2; }
+        .vehicle-action-head b, .vehicle-temp-head b { color:var(--theme-base); }
+        .vehicle-action-meta { margin-top:4px; font-size:12px; color:#666; font-weight:700; }
+        .vehicle-alerts { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
+        .vehicle-status { display:inline-flex; align-items:center; justify-content:center; min-width:62px; padding:3px 8px; border-radius:999px; font-size:11px; font-weight:900; flex-shrink:0; }
+        .vehicle-status.active { color:#2E7D32; background:#E8F5E9; border:1px solid #A5D6A7; }
+        .vehicle-status.archived { color:#D32F2F; background:#FFEBEE; border:1px solid #EF9A9A; }
+        .vehicle-temp-card { align-items:center; }
+        .vehicle-temp-main { min-width:0; flex:1; }
+        .vehicle-temp-main small { color:#666; font-weight:700; }
         .empty-state { color:#999; text-align:center; font-size:13px; padding: 8px; }
 
         .pix-card { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; background:#fff; border:1px solid #ddd; padding:12px; border-radius:8px; margin-bottom:8px; font-size:13px; }
@@ -185,6 +212,14 @@
         .pix-choice-card span { font-size: 12px; color: #555; font-weight: 800; }
         .pix-choice-card b { color: #111; font-size: 15px; word-break: break-word; }
         .pix-choice-card small { color: #555; font-weight: 700; }
+        .modal-payment-decision { max-width: 440px; }
+        .payment-decision-text { margin:0 0 12px; color:#333; line-height:1.4; font-size:14px; }
+        .payment-decision-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .payment-decision-card { border:1px solid #ddd; border-radius:8px; background:#fff; padding:12px; cursor:pointer; text-align:left; display:flex; flex-direction:column; gap:5px; min-height:96px; }
+        .payment-decision-card strong { font-size:14px; color:#222; }
+        .payment-decision-card span { font-size:12px; line-height:1.25; color:#555; font-weight:700; }
+        .payment-decision-card.partial { border-color:#FFE082; background:#FFFDE7; }
+        .payment-decision-card.discount { border-color:#A5D6A7; background:#F1F8E9; }
 
         @media (min-width: 760px) {
             .status-badge { font-size: 13px; padding: 6px 10px; }
@@ -202,6 +237,7 @@
             .acoes-toolbar { grid-template-columns: 1fr; }
             .action-pix-btn { width: 100%; }
             .payment-grid, .single-payment-grid, .payment-grid-action { grid-template-columns: 1fr; }
+            .contributor-total-grid, .payment-decision-actions { grid-template-columns: 1fr; }
             .excel-actions { gap: 6px; }
             .excel-btn { min-height: 46px; font-size: 12px; }
             .payment-status-value.pending, .payment-status-value.paid { font-size: 20px; }

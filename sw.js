@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cooptrans-v1.0.25';
+const CACHE_NAME = 'cooptrans-v1.0.26';
 const APP_SHELL = [
   './',
   './index.html',
@@ -6,6 +6,7 @@ const APP_SHELL = [
   './app.js',
   './manifest.json',
   './whatsapp.png',
+  './icons/apple-touch-icon.png',
   './icons/icon-192.png',
   './icons/icon-512.png'
 ];

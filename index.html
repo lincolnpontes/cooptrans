@@ -8,8 +8,9 @@
     <meta name="apple-mobile-web-app-title" content="Cooptrans">
     <meta name="theme-color" content="#008C4A" id="metaThemeColor">
     <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <link rel="icon" href="icons/icon-192.png">
-    <title>Cooptrans v1.0.25</title>
+    <title>Cooptrans v1.0.26</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <!-- Biblioteca Chart.js para Gráficos -->
@@ -20,7 +21,7 @@
 
 <div id="splashScreen">
     <img id="splashLogoObj" style="max-height: 100px; object-fit: contain; margin-bottom: 20px; border-radius: 10px; display: none;">
-    <div class="splash-versao" id="splashVersao">v1.0.25</div>
+    <div class="splash-versao" id="splashVersao">v1.0.26</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 40px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -83,7 +84,7 @@
 <!-- MENU PRINCIPAL -->
 <div class="modal-overlay" id="modalPainelUnificado">
     <div class="modal" style="padding-top: 25px;">
-        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.25</span></h2>
+        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.26</span></h2>
         <button class="btn-outline" onclick="abrirModalCooperativa()">🏢 Dados da Cooperativa</button>
         <button class="btn-outline" onclick="abrirGerenciarContribuintes()">👥 Gerenciar Contribuintes</button>
         <button class="btn-outline" onclick="abrirModalConfigGerais()">⚙️ Configurações Gerais</button>
@@ -386,19 +387,19 @@
             <div id="listaTelefones" style="background:#f9f9f9; padding:8px; border-radius:4px; max-height:80px; overflow-y:auto;"></div>
         </div>
 
-        <div class="form-group" style="background:var(--theme-light); padding:10px; border-radius:5px;">
-            <div style="display: flex; gap: 10px; margin-bottom: 5px;">
-                <div style="flex:1;"><label style="color:#673AB7; font-weight:bold;">Desconto Base (R$):</label><input type="text" id="contDesconto" inputmode="numeric" oninput="maskMoeda(this); calcTotalContribuinte();" placeholder="0,00"></div>
-                <div style="flex:1;"><label style="color:var(--theme-base);">Total a Pagar (R$):</label><input type="text" id="contValor" readonly style="font-weight:bold; color:var(--theme-base); background:#eee; text-align:center;"></div>
-            </div>
-            <div style="font-size:11px; color:#555;">*Desconto fixo cobrado por mês.</div>
-        </div>
-
         <div class="section-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
             <span style="flex:1;">Veículos Vinculados</span>
             <button class="btn-action" style="padding:6px 12px; font-size:12px; width:auto; flex-shrink: 0;" onclick="abrirFormCarro(null)">+ Carro</button>
         </div>
         <div id="listaCarros" style="background:#f9f9f9; padding:8px; border-radius:4px; min-height:50px; margin-bottom:15px;"></div>
+
+        <div class="form-group contributor-total-box">
+            <div class="contributor-total-grid">
+                <div><label>Desconto Base (R$):</label><input type="text" id="contDesconto" inputmode="numeric" oninput="maskMoeda(this); calcTotalContribuinte();" placeholder="0,00"></div>
+                <div><label>Total a Pagar (R$):</label><input type="text" id="contValor" readonly></div>
+            </div>
+            <div class="contributor-total-note">*Desconto fixo concedido por mês.</div>
+        </div>
 
         <div class="modal-actions">
             <button class="btn-cancel" onclick="cancelarFormContribuinte()">Cancelar</button>
@@ -485,12 +486,12 @@
             </button>
         </div>
 
-        <!-- Alertas na Tela de Ações -->
-        <div id="boxAlertasAcoes" class="alertas-acoes"></div>
-        
+        <div class="section-title" style="margin-top: 0;">Veículos Vinculados</div>
+        <div id="listaCarrosAcoes" class="vehicle-actions"></div>
+
         <div class="section-title" style="margin-bottom: 5px;">Recebimento</div>
         <div class="payment-panel">
-            <div id="boxStatusPagamento" class="payment-status"></div>
+            <div id="boxStatusPagamento" class="payment-status" style="display:none;"></div>
 
             <!-- SWITCH MULTI MONTH -->
             <div class="multi-toggle">
@@ -517,11 +518,11 @@
                         <input type="date" id="pgDataSingle">
                     </div>
                     <div>
-                        <label>Valor Recebido</label>
-                        <input type="text" id="pgValorSingle" oninput="maskMoeda(this)" class="money-input">
+                        <label>Valor a Receber</label>
+                        <input type="text" id="pgValorSingle" oninput="maskMoeda(this)" class="money-input amount-due-input">
                     </div>
                 </div>
-                <button class="btn-action primary-wide" onclick="registrarPagamentoSingle()">💲 Registrar Pagamento do Mês</button>
+                <button id="btnRegistrarSingle" class="btn-action primary-wide payment-confirm-btn" onclick="registrarPagamentoSingle()">💲 Registrar Pagamento do Mês</button>
             </div>
 
             <!-- MULTI MONTH PAYMENT -->
@@ -543,13 +544,19 @@
                     </div>
                 </div>
                 <div class="payment-grid">
-                    <div><label>Desconto Extra</label><input type="text" id="pgDescontoMulti" oninput="maskMoeda(this); calcPgtoMulti(false);" placeholder="0,00"></div>
+                    <div class="discount-dual-field">
+                        <label>Desconto Extra</label>
+                        <div class="discount-dual-grid">
+                            <input type="text" id="pgDescontoMulti" oninput="maskMoeda(this); calcPgtoMulti(false, 'valor');" placeholder="R$ 0,00">
+                            <input type="text" id="pgDescontoPctMulti" oninput="maskPercentual(this); calcPgtoMulti(false, 'pct');" placeholder="0%">
+                        </div>
+                    </div>
                     <div><label>Total Calculado</label><input type="text" id="pgValorMulti" readonly class="money-input readonly"></div>
                 </div>
                 <div id="avisoErroMulti" class="multi-error"></div>
                 <div class="payment-grid payment-grid-action">
                     <div><label>Data do Pagamento</label><input type="date" id="pgDataMulti"></div>
-                    <button class="btn-action primary-wide" onclick="registrarPagamentoMulti()">💲 Confirmar Período</button>
+                    <button class="btn-action primary-wide payment-confirm-btn" onclick="registrarPagamentoMulti()">💲 Confirmar Período</button>
                 </div>
             </div>
         </div>
@@ -557,10 +564,31 @@
         <div class="section-title" style="margin-top: 0; margin-bottom: 5px;">Histórico de Pagamentos</div>
         <div id="listaHistoricoPagamentos" class="history-box"></div>
         
-        <div class="section-title" style="margin-top: 0;">Veículos Vinculados</div>
-        <div id="listaCarrosAcoes" class="vehicle-actions"></div>
-
         <div class="modal-actions"><button class="btn-cancel" style="width: 100%;" onclick="fecharModal('modalAcoesContribuinte')">Voltar</button></div>
+    </div>
+</div>
+
+<!-- DECISÃO DE PAGAMENTO MENOR -->
+<div class="modal-overlay" id="modalPagamentoMenor" style="z-index: 2200;">
+    <div class="modal modal-payment-decision">
+        <div class="modal-title">
+            <span>Valor menor que o previsto</span>
+            <button class="icon-btn" onclick="fecharModal('modalPagamentoMenor')">✖</button>
+        </div>
+        <p id="textoPagamentoMenor" class="payment-decision-text"></p>
+        <div class="payment-decision-actions">
+            <button class="payment-decision-card partial" onclick="confirmarPagamentoMenor('parcial')">
+                <strong>Receber como parcial</strong>
+                <span>Abate esse valor e mantém o restante pendente.</span>
+            </button>
+            <button class="payment-decision-card discount" onclick="confirmarPagamentoMenor('desconto')">
+                <strong>Quitar com desconto</strong>
+                <span>Considera o mês pago e registra a diferença como desconto.</span>
+            </button>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="fecharModal('modalPagamentoMenor')">Voltar e conferir</button>
+        </div>
     </div>
 </div>
 

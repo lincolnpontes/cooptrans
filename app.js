@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.25";
+﻿const APP_VERSION = "v1.0.26";
 const SYNC_PULL_INTERVAL_MS = 30000;
 
 try {
@@ -22,6 +22,9 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     function maskMoeda(el) { let v = el.value.replace(/\D/g, ""); if(!v) { el.value = ""; return; } v = (parseFloat(v) / 100).toLocaleString('pt-BR', {minimumFractionDigits: 2}); el.value = v; }
     function parseMoeda(str) { if(!str) return 0; return parseFloat(String(str).replace(/\./g, "").replace(",", ".")); }
     function formatMoeda(val) { return parseFloat(val).toLocaleString('pt-BR', {minimumFractionDigits: 2}); }
+    function maskPercentual(el) { let v = el.value.replace(/[^\d,\.]/g, "").replace(".", ","); let partes = v.split(","); if(partes.length > 2) v = partes[0] + "," + partes.slice(1).join(""); el.value = v; }
+    function parsePercentual(str) { let n = parseFloat(String(str || '').replace(",", ".")); if(isNaN(n)) return 0; return Math.max(0, Math.min(100, n)); }
+    function formatPercentual(val) { return parseFloat(val || 0).toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 2}); }
     function formatDataBR(dataStr) { if(!dataStr) return ""; const partes = dataStr.split('-'); if(partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`; return dataStr; }
     function escapeHTML(valor) { return String(valor ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
     function getHojeSTR() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
@@ -41,6 +44,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     let chartInadimplencia = null;
     let syncTimer = null;
     let syncPendente = false;
+    let pagamentoMenorPendente = null;
 
     function criarBancoBase() {
         return {
@@ -434,6 +438,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
         db.contribuintes.forEach(c => {
             let valEsp = calcularValorEsperado(c, mesRef);
+            let valPen = calcularValorPendenteMes(c, mesRef);
             let carrosDeste = (c.carros || []).filter(car => car.ativo && car.dataCadastro.substring(0,7) <= mesRef).length;
             
             if(valEsp > 0 || carrosDeste > 0) {
@@ -443,8 +448,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 if(isMesPago(c, mesRef)) {
                     recebidoVal += valEsp;
                     recebidoQtd++;
-                } else if(valEsp > 0) {
-                    pendenteVal += valEsp;
+                } else if(valPen > 0) {
+                    pendenteVal += valPen;
                     pendenteQtd++;
                 }
             }
@@ -495,8 +500,11 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                         recVal += valEsp;
                         recQtd++;
                     } else {
-                        penVal += valEsp;
-                        penQtd++;
+                        let valPen = calcularValorPendenteMes(c, m);
+                        if(valPen > 0) {
+                            penVal += valPen;
+                            penQtd++;
+                        }
                     }
                 }
             });
@@ -651,7 +659,27 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
     function isMesPago(c, mesRef) {
         if(!c.pagamentos) return false;
-        return c.pagamentos.some(p => (p.mesesRef && p.mesesRef.includes(mesRef)) || p.mesAno === mesRef);
+        if(c.pagamentos.some(p => !p.parcial && pagamentoRefereMes(p, mesRef))) return true;
+        let esperado = calcularValorEsperado(c, mesRef);
+        return esperado > 0 && calcularParciaisMes(c, mesRef) >= esperado;
+    }
+
+    function pagamentoRefereMes(p, mesRef) {
+        return (p.mesesRef && p.mesesRef.includes(mesRef)) || p.mesAno === mesRef;
+    }
+
+    function calcularParciaisMes(c, mesRef) {
+        if(!c.pagamentos) return 0;
+        return c.pagamentos
+            .filter(p => p.parcial && pagamentoRefereMes(p, mesRef))
+            .reduce((acc, p) => acc + (parseFloat(p.valorPago) || 0), 0);
+    }
+
+    function calcularValorPendenteMes(c, mesRef) {
+        if(isMesPago(c, mesRef)) return 0;
+        let esperado = calcularValorEsperado(c, mesRef);
+        let parciais = calcularParciaisMes(c, mesRef);
+        return Math.max(0, esperado - parciais);
     }
 
     function getAvatarColor(c, temAlerta) {
@@ -668,7 +696,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 let end = new Date(endMes + '-01T00:00:00');
                 while(curr <= end) {
                     let m = `${curr.getFullYear()}-${String(curr.getMonth()+1).padStart(2,'0')}`;
-                    if(calcularValorEsperado(c, m) > 0 && !isMesPago(c, m)) { owesPast = true; break; }
+                    if(calcularValorPendenteMes(c, m) > 0) { owesPast = true; break; }
                     curr.setMonth(curr.getMonth() + 1);
                 }
             }
@@ -694,8 +722,9 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             if (buscaNome && !(c.nome || '').toLowerCase().includes(buscaNome)) return;
 
             let valorEsperado = calcularValorEsperado(c, mesRef);
+            let valorPendente = calcularValorPendenteMes(c, mesRef);
             let pago = isMesPago(c, mesRef);
-            let pendente = !pago && valorEsperado > 0;
+            let pendente = valorPendente > 0;
 
             let alertasArr = [];
             (c.carros || []).forEach(car => { alertasArr = alertasArr.concat(checarAlertasCarro(car)); });
@@ -707,7 +736,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             let avatarCor = getAvatarColor(c, temAlerta);
 
             let statusPgtoHtml = pendente 
-                ? `<span class="status-badge status-pendente">Falta Pagar R$ ${formatMoeda(valorEsperado)}</span>` 
+                ? `<span class="status-badge status-pendente">Falta Pagar R$ ${formatMoeda(valorPendente)}</span>` 
                 : `<span class="status-badge status-ok">Pago / Regular</span>`;
             
             let emojisCarros = '';
@@ -873,9 +902,12 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         tempCarros.forEach((c, i) => {
             let catObj = db.categorias.find(x => x.nome === c.categoria);
             let emj = catObj && catObj.emoji ? catObj.emoji : '🚗';
-            let badge = c.ativo ? '<span style="color:#2E7D32; font-weight:bold; font-size:11px;">Ativo</span>' : '<span style="color:#D32F2F; font-weight:bold; font-size:11px;">Arquivado</span>';
-            html += `<div class="list-item-config" style="align-items:flex-start;">
-                <div><span style="font-size:16px;">${escapeHTML(emj)}</span> <strong>${escapeHTML(c.placa)}</strong> - ${escapeHTML(c.ano)}<br><small>${escapeHTML(c.categoria)} | R$ ${escapeHTML(c.valor)}</small><br>${badge}</div>
+            let badge = c.ativo ? '<span class="vehicle-status active">Ativo</span>' : '<span class="vehicle-status archived">Arquivado</span>';
+            html += `<div class="list-item-config vehicle-temp-card">
+                <div class="vehicle-temp-main">
+                    <div class="vehicle-temp-head"><span><span style="font-size:16px;">${escapeHTML(emj)}</span> <strong>${escapeHTML(c.placa)}</strong> - ${escapeHTML(c.ano)}</span>${badge}</div>
+                    <small>${escapeHTML(c.categoria)} | R$ ${escapeHTML(c.valor)}</small>
+                </div>
                 <div><button class="btn-edit-small" onclick="abrirFormCarro(${i})">✏️</button></div>
             </div>`;
         });
@@ -1100,16 +1132,6 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             </button>`;
         }
 
-        let alertasArr = [];
-        (c.carros || []).forEach(car => { alertasArr = alertasArr.concat(checarAlertasCarro(car)); });
-        let boxAlertas = document.getElementById('boxAlertasAcoes');
-        if(alertasArr.length > 0) {
-            boxAlertas.innerHTML = `<div class="alertas-acoes-list">${alertasArr.join('')}</div>`;
-            boxAlertas.style.display = 'block';
-        } else {
-            boxAlertas.style.display = 'none';
-        }
-
         let mesRef = document.getElementById('filtroMesGeral').value;
         let partes = mesRef.split('-');
         document.getElementById('lblMesAcoes').innerText = `${partes[1]}/${partes[0]}`;
@@ -1127,6 +1149,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         document.getElementById('lblPgFim').innerText = `${getExtensoMes(partes[1])} ${partes[0]}`;
         
         document.getElementById('pgDescontoMulti').value = '';
+        document.getElementById('pgDescontoPctMulti').value = '';
         document.getElementById('pgDataMulti').value = getHojeSTR();
         document.getElementById('avisoErroMulti').style.display = 'none';
         
@@ -1144,7 +1167,16 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             c.carros.forEach((car, idx) => {
                 let catObj = db.categorias.find(x => x.nome === car.categoria);
                 let emj = catObj && catObj.emoji ? catObj.emoji : '🚗';
-                boxCarros.innerHTML += `<button class="vehicle-chip" onclick="abrirCarroFromAcoes(${idx})">${escapeHTML(emj)} ${escapeHTML(car.placa)}</button>`;
+                let alertas = checarAlertasCarro(car);
+                let status = car.ativo ? '<span class="vehicle-status active">Ativo</span>' : '<span class="vehicle-status archived">Arquivado</span>';
+                boxCarros.innerHTML += `<button class="vehicle-action-card" onclick="abrirCarroFromAcoes(${idx})">
+                    <div class="vehicle-action-head">
+                        <span><b>${escapeHTML(emj)} ${escapeHTML(car.placa)}</b> ${escapeHTML(car.ano || '')}</span>
+                        ${status}
+                    </div>
+                    <div class="vehicle-action-meta">${escapeHTML(car.categoria || 'Sem categoria')} | R$ ${escapeHTML(car.valor || '0,00')}</div>
+                    ${alertas.length ? `<div class="vehicle-alerts">${alertas.join('')}</div>` : ''}
+                </button>`;
             });
         } else {
             boxCarros.innerHTML = '<div style="color:#999; font-size:13px; text-align:center; width:100%;">Nenhum veículo vinculado.</div>';
@@ -1153,28 +1185,65 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
     function renderizarStatusPagamento(c, mesRef) {
         let valorEsperado = calcularValorEsperado(c, mesRef);
+        let valorPendente = calcularValorPendenteMes(c, mesRef);
         let pago = isMesPago(c, mesRef);
         
         let box = document.getElementById('boxStatusPagamento');
         let pgSingle = document.getElementById('pgValorSingle');
+        let btnSingle = document.getElementById('btnRegistrarSingle');
+        box.style.display = 'none';
+        pgSingle.classList.remove('amount-due-input', 'amount-paid-input', 'amount-neutral-input');
+        btnSingle.classList.remove('payment-disabled-btn');
+        btnSingle.disabled = false;
 
-        if(!pago && valorEsperado > 0) {
-            box.innerHTML = `<div class="payment-status-value pending">Falta Pagar <span>R$ ${formatMoeda(valorEsperado)}</span></div>`;
-            pgSingle.value = formatMoeda(valorEsperado);
-            pgSingle.dataset.esperado = valorEsperado;
+        if(!pago && valorPendente > 0) {
+            pgSingle.classList.add('amount-due-input');
+            pgSingle.value = formatMoeda(valorPendente);
+            pgSingle.dataset.esperado = valorPendente;
+            pgSingle.readOnly = false;
+            btnSingle.innerHTML = '💲 Registrar Pagamento do Mês';
         } else if (pago) {
-            box.innerHTML = `<div class="payment-status-value paid">✅ Mês já foi Pago</div>`;
+            pgSingle.classList.add('amount-paid-input');
             pgSingle.value = formatMoeda(valorEsperado);
             pgSingle.dataset.esperado = valorEsperado;
+            pgSingle.readOnly = true;
+            btnSingle.innerHTML = '✅ Mês já foi Pago';
+            btnSingle.disabled = true;
+            btnSingle.classList.add('payment-disabled-btn');
         } else {
-            box.innerHTML = `<div class="payment-status-value neutral">Isento / Sem Valor Devido</div>`;
+            pgSingle.classList.add('amount-neutral-input');
             pgSingle.value = "0,00";
             pgSingle.dataset.esperado = "0";
+            pgSingle.readOnly = true;
+            btnSingle.innerHTML = 'Sem valor a receber';
+            btnSingle.disabled = true;
+            btnSingle.classList.add('payment-disabled-btn');
         }
         
         // Mantem destravado para editar a data ref
         document.getElementById('boxSingleMes').style.pointerEvents = 'auto';
         document.getElementById('boxSingleMes').style.opacity = '1';
+    }
+
+    function salvarPagamentoSingle(id, c, mesRef, valorPago, dataPgto, opcoes = {}) {
+        if(!c.pagamentos) c.pagamentos = [];
+        c.pagamentos.push({
+            id: 'pg_' + Date.now(),
+            mesAno: mesRef,
+            mesesRef: [mesRef],
+            labelRef: buildLabelRef([mesRef]),
+            valorPago: valorPago,
+            valorOriginal: opcoes.valorOriginal || valorPago,
+            descontoConcedido: opcoes.descontoConcedido || 0,
+            parcial: opcoes.parcial || false,
+            tipoPagamento: opcoes.tipoPagamento || 'total',
+            dataPagamento: dataPgto,
+            updatedAt: Date.now()
+        });
+        tocarRegistro(c);
+        salvarBanco();
+        abrirAcoesContribuinte(id);
+        renderizarLista();
     }
 
     function registrarPagamentoSingle() {
@@ -1185,27 +1254,44 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let valorPagoStr = document.getElementById('pgValorSingle').value; 
         let valorPago = parseMoeda(valorPagoStr);
         let dataPgto = document.getElementById('pgDataSingle').value;
+        let valorEsperado = parseFloat(document.getElementById('pgValorSingle').dataset.esperado) || calcularValorPendenteMes(c, mesRef);
 
         if(!dataPgto) return alert("Preencha a data do pagamento.");
         if(valorPago <= 0) return alert("Digite um valor válido para receber.");
 
         if(isMesPago(c, mesRef)) return alert("Este mês já consta como pago!");
 
-        if(!c.pagamentos) c.pagamentos = [];
-        c.pagamentos.push({
-            id: 'pg_' + Date.now(),
-            mesAno: mesRef,
-            mesesRef: [mesRef],
-            labelRef: buildLabelRef([mesRef]),
-            valorPago: valorPago,
-            dataPagamento: dataPgto,
-            updatedAt: Date.now()
-        });
-        tocarRegistro(c);
-        
-        salvarBanco();
-        abrirAcoesContribuinte(id);
-        renderizarLista();
+        if(valorPago < valorEsperado) {
+            pagamentoMenorPendente = { id, mesRef, valorPago, dataPgto, valorEsperado };
+            document.getElementById('textoPagamentoMenor').innerHTML = `O valor previsto é <b>R$ ${formatMoeda(valorEsperado)}</b>, mas você informou <b>R$ ${formatMoeda(valorPago)}</b>. Como deseja registrar a diferença de <b>R$ ${formatMoeda(valorEsperado - valorPago)}</b>?`;
+            abrirModal('modalPagamentoMenor');
+            return;
+        }
+
+        salvarPagamentoSingle(id, c, mesRef, valorPago, dataPgto, { valorOriginal: valorEsperado });
+    }
+
+    function confirmarPagamentoMenor(tipo) {
+        if(!pagamentoMenorPendente) return fecharModal('modalPagamentoMenor');
+        let { id, mesRef, valorPago, dataPgto, valorEsperado } = pagamentoMenorPendente;
+        let c = db.contribuintes.find(x => x.id === id);
+        if(!c) return fecharModal('modalPagamentoMenor');
+
+        fecharModal('modalPagamentoMenor');
+        if(tipo === 'parcial') {
+            salvarPagamentoSingle(id, c, mesRef, valorPago, dataPgto, {
+                valorOriginal: valorEsperado,
+                parcial: true,
+                tipoPagamento: 'parcial'
+            });
+        } else {
+            salvarPagamentoSingle(id, c, mesRef, valorPago, dataPgto, {
+                valorOriginal: valorEsperado,
+                descontoConcedido: Math.max(0, valorEsperado - valorPago),
+                tipoPagamento: 'desconto'
+            });
+        }
+        pagamentoMenorPendente = null;
     }
 
     function getMesesRange(mIni, mFim) {
@@ -1219,7 +1305,28 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         return res;
     }
 
-    function calcPgtoMulti(mostrarErro = true) {
+    function sincronizarDescontoPeriodo(total, origem) {
+        let inputValor = document.getElementById('pgDescontoMulti');
+        let inputPct = document.getElementById('pgDescontoPctMulti');
+        let descValor = parseMoeda(inputValor.value);
+        let descPct = parsePercentual(inputPct.value);
+
+        if(origem === 'pct') {
+            descValor = total > 0 ? (total * descPct / 100) : 0;
+            inputValor.value = descValor > 0 ? formatMoeda(descValor) : '';
+            inputPct.value = descPct > 0 ? formatPercentual(descPct) : '';
+        } else {
+            if(descValor > total) {
+                descValor = total;
+                inputValor.value = total > 0 ? formatMoeda(total) : '';
+            }
+            descPct = total > 0 ? (descValor / total) * 100 : 0;
+            inputPct.value = descValor > 0 ? formatPercentual(descPct) : '';
+        }
+        return Math.min(descValor, total);
+    }
+
+    function calcPgtoMulti(mostrarErro = true, origemDesconto = null) {
         let ini = document.getElementById('pgIni').value;
         let fim = document.getElementById('pgFim').value;
         if(!ini) return;
@@ -1239,11 +1346,11 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         
         meses.forEach(m => {
             if(isMesPago(c, m)) erro = `Mês ${m.split('-').reverse().join('/')} já consta como pago!`;
-            else total += calcularValorEsperado(c, m);
+            else total += calcularValorPendenteMes(c, m);
         });
         
         let iptValor = document.getElementById('pgValorMulti');
-        let descExtra = parseMoeda(document.getElementById('pgDescontoMulti').value);
+        let descExtra = sincronizarDescontoPeriodo(total, origemDesconto);
         let finalVal = Math.max(0, total - descExtra);
 
         let boxAviso = document.getElementById('avisoErroMulti');
@@ -1336,7 +1443,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             let end = new Date(endMes + '-01T00:00:00');
             while(curr <= end) {
                 let m = `${curr.getFullYear()}-${String(curr.getMonth()+1).padStart(2,'0')}`;
-                if(calcularValorEsperado(c, m) > 0 && !isMesPago(c, m)) {
+                if(calcularValorPendenteMes(c, m) > 0) {
                     pending.push(m);
                 }
                 curr.setMonth(curr.getMonth() + 1);
@@ -1376,8 +1483,11 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
         pgtos.forEach((p, i) => {
             let label = p.labelRef ? p.labelRef : p.mesAno.split('-').reverse().join('/');
+            let detalhe = '';
+            if(p.parcial) detalhe = '<span class="history-tag partial">Parcial</span>';
+            else if(p.descontoConcedido > 0) detalhe = `<span class="history-tag discount">Desconto R$ ${formatMoeda(p.descontoConcedido)}</span>`;
             let row = `<div class="history-row">
-                <div><b>Ref: ${escapeHTML(label)}</b><br><small>Pago em: ${formatDataBR(p.dataPagamento)}</small></div>
+                <div><b>Ref: ${escapeHTML(label)}</b>${detalhe}<br><small>Pago em: ${formatDataBR(p.dataPagamento)}</small></div>
                 <div>
                     <b>R$ ${formatMoeda(p.valorPago)}</b>
                     <button onclick="excluirPagamento('${c.id}', '${p.id}')">X</button>
@@ -1868,6 +1978,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     }
     async function excluirTodoHistorico() { let frase = document.getElementById('inputExcluirTudo').value.trim().toLowerCase(); if(frase === "quero excluir todo o histórico") { if(!confirm("⚠️ TEM CERTEZA?")) return; db.contribuintes.forEach(c => c.pagamentos = []); marcarMudancaEstrutural(); document.getElementById('inputExcluirTudo').value = ''; fecharModal('modalConfigAvancadas'); alert("✅ Limpo!"); renderizarLista(); } else { alert("Frase incorreta."); } }
     function forcarAtualizacao() { if(confirm("Deseja forçar a atualização do aplicativo?")) { if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(function(registrations) { for(let registration of registrations) registration.update(); }); } window.location.href = window.location.pathname + '?nocache=' + new Date().getTime(); } }
+
 
 
 
