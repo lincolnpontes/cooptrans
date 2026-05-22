@@ -1147,7 +1147,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         document.getElementById('lblPgFim').innerText = `${getExtensoMes(partes[1])} ${partes[0]}`;
         
         document.getElementById('pgDescontoMulti').value = '';
-        document.getElementById('pgDescontoPctMulti').value = '';
+        let inputDescPctMulti = document.getElementById('pgDescontoPctMulti');
+        if(inputDescPctMulti) inputDescPctMulti.value = '';
         document.getElementById('pgDataMulti').value = getHojeSTR();
         document.getElementById('avisoErroMulti').style.display = 'none';
         
@@ -1192,20 +1193,20 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let btnSingle = document.getElementById('btnRegistrarSingle');
         box.style.display = 'none';
         pgSingle.classList.remove('amount-due-input', 'amount-paid-input', 'amount-neutral-input');
-        pgSingleBox.classList.remove('amount-due-affix', 'amount-paid-affix', 'amount-neutral-affix');
+        if(pgSingleBox) pgSingleBox.classList.remove('amount-due-affix', 'amount-paid-affix', 'amount-neutral-affix');
         btnSingle.classList.remove('payment-disabled-btn');
         btnSingle.disabled = false;
 
         if(!pago && valorPendente > 0) {
             pgSingle.classList.add('amount-due-input');
-            pgSingleBox.classList.add('amount-due-affix');
+            if(pgSingleBox) pgSingleBox.classList.add('amount-due-affix');
             pgSingle.value = formatMoeda(valorPendente);
             pgSingle.dataset.esperado = valorPendente;
             pgSingle.readOnly = false;
             btnSingle.innerHTML = '<span class="payment-btn-emoji">💲</span><span>Registrar Pagamento do Mês</span>';
         } else if (pago) {
             pgSingle.classList.add('amount-paid-input');
-            pgSingleBox.classList.add('amount-paid-affix');
+            if(pgSingleBox) pgSingleBox.classList.add('amount-paid-affix');
             pgSingle.value = formatMoeda(valorEsperado);
             pgSingle.dataset.esperado = valorEsperado;
             pgSingle.readOnly = true;
@@ -1214,7 +1215,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             btnSingle.classList.add('payment-disabled-btn');
         } else {
             pgSingle.classList.add('amount-neutral-input');
-            pgSingleBox.classList.add('amount-neutral-affix');
+            if(pgSingleBox) pgSingleBox.classList.add('amount-neutral-affix');
             pgSingle.value = "0,00";
             pgSingle.dataset.esperado = "0";
             pgSingle.readOnly = true;
@@ -1323,19 +1324,19 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let inputValor = document.getElementById('pgDescontoMulti');
         let inputPct = document.getElementById('pgDescontoPctMulti');
         let descValor = parseMoeda(inputValor.value);
-        let descPct = parsePercentual(inputPct.value);
+        let descPct = inputPct ? parsePercentual(inputPct.value) : 0;
 
         if(origem === 'pct') {
             descValor = total > 0 ? (total * descPct / 100) : 0;
             inputValor.value = descValor > 0 ? formatMoeda(descValor) : '';
-            inputPct.value = descPct > 0 ? formatPercentual(descPct) : '';
+            if(inputPct) inputPct.value = descPct > 0 ? formatPercentual(descPct) : '';
         } else {
             if(descValor > total) {
                 descValor = total;
                 inputValor.value = total > 0 ? formatMoeda(total) : '';
             }
             descPct = total > 0 ? (descValor / total) * 100 : 0;
-            inputPct.value = descValor > 0 ? formatPercentual(descPct) : '';
+            if(inputPct) inputPct.value = descValor > 0 ? formatPercentual(descPct) : '';
         }
         return Math.min(descValor, total);
     }

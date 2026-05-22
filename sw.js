@@ -1,4 +1,5 @@
-const CACHE_NAME = 'cooptrans-v1.0.27';
+const CACHE_NAME = 'cooptrans-v1.0.28';
+// Atualiza o app shell mantendo a versão visual v1.0.28.
 const APP_SHELL = [
   './',
   './index.html',
