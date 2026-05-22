@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.34-exceldiscount';
-// Atualiza o app shell para desconto base na importacao/exportacao Excel.
+const CACHE_NAME = 'cooptrans-v1.0.35-mergecontributors';
+// Atualiza o app shell para ferramenta temporaria de mesclar contribuintes.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=1.0.34-exceldiscount',
-  './app.js?v=1.0.34-exceldiscount',
+  './style.css?v=1.0.35-mergecontributors',
+  './app.js?v=1.0.35-mergecontributors',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',

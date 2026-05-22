@@ -13,18 +13,18 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <link rel="icon" href="icons/icon-192.png">
-    <title>Cooptrans v1.0.34</title>
+    <title>Cooptrans v1.0.35</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <!-- Biblioteca Chart.js para Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
-    <link rel="stylesheet" href="style.css?v=1.0.34-exceldiscount">
+    <link rel="stylesheet" href="style.css?v=1.0.35-mergecontributors">
 </head>
 <body>
 
 <div id="splashScreen">
     <img id="splashLogoObj" style="max-height: 100px; object-fit: contain; margin-bottom: 20px; border-radius: 10px; display: none;">
-    <div class="splash-versao" id="splashVersao">v1.0.34</div>
+    <div class="splash-versao" id="splashVersao">v1.0.35</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 40px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -42,7 +42,7 @@
     <div class="modal login-modal">
         <div class="login-title">
             <strong>Cooptrans</strong>
-            <span id="loginAppVersion">v1.0.34</span>
+            <span id="loginAppVersion">v1.0.35</span>
         </div>
         <p class="login-subtitle" id="loginAdminTexto">Informe a senha do administrador para entrar.</p>
         <div class="form-group">
@@ -129,7 +129,7 @@
 <!-- MENU PRINCIPAL -->
 <div class="modal-overlay" id="modalPainelUnificado">
     <div class="modal" style="padding-top: 25px;">
-        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.34</span></h2>
+        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.35</span></h2>
         <button class="btn-outline" onclick="abrirModalCooperativa()">🏢 Dados da Cooperativa</button>
         <button class="btn-outline" onclick="abrirGerenciarContribuintes()">👥 Gerenciar Contribuintes</button>
         <button class="btn-outline" onclick="abrirModalConfigGerais()">⚙️ Configurações Gerais</button>
@@ -276,6 +276,7 @@
             <button class="excel-btn excel-model" onclick="baixarModeloExcel()">📄 <span>Modelo</span><small>planilha</small></button>
             <input type="file" id="fileImportExcel" style="display:none;" accept=".xlsx, .xls" onchange="importarExcel(event)">
         </div>
+        <button id="btnAbrirTransferencia" class="merge-tool-btn" onclick="abrirTransferenciaVeiculo()" style="display:none;">🔀 Mesclar / transferir veículo</button>
 
         <div style="display: flex; gap: 5px; margin-bottom: 15px; flex-shrink: 0; flex-wrap:wrap;">
             <button class="btn-action" id="btnNovoListagem" style="flex: 2; padding: 10px; font-size: 14px; border-radius: 8px; display: flex; justify-content: center; align-items: center; gap: 8px;">
@@ -284,6 +285,34 @@
         </div>
         <div id="conteudoListagem" style="flex: 1; overflow-y: auto; padding-right: 5px;"></div>
         <div class="modal-actions" style="flex-shrink: 0;"><button class="btn-cancel" id="btnVoltarListagem" onclick="fecharModal('modalListagem'); abrirModal('modalPainelUnificado');" style="width: 100%;">Voltar</button></div>
+    </div>
+</div>
+
+<!-- FERRAMENTA TEMPORÁRIA: MESCLAR CONTRIBUINTES -->
+<div class="modal-overlay" id="modalTransferirVeiculo" style="z-index: 2300;">
+    <div class="modal transfer-modal">
+        <div class="modal-title">
+            <span>Mesclar Contribuintes</span>
+            <button class="icon-btn" onclick="fecharModal('modalTransferirVeiculo')">✖</button>
+        </div>
+        <div class="transfer-note">Move um veículo da origem para o destino junto com todo o histórico de pagamentos da origem.</div>
+        <div class="form-group">
+            <label>Contribuinte de origem</label>
+            <select id="transferOrigem" onchange="atualizarTransferenciaVeiculo()"></select>
+        </div>
+        <div class="form-group">
+            <label>Veículo a transferir</label>
+            <select id="transferCarro" onchange="atualizarResumoTransferencia()"></select>
+        </div>
+        <div class="form-group">
+            <label>Contribuinte de destino</label>
+            <select id="transferDestino" onchange="atualizarResumoTransferencia()"></select>
+        </div>
+        <div id="transferResumo" class="transfer-summary"></div>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="fecharModal('modalTransferirVeiculo')">Cancelar</button>
+            <button class="btn-action" onclick="confirmarTransferenciaVeiculo()">Transferir</button>
+        </div>
     </div>
 </div>
 
@@ -662,6 +691,6 @@
         </div>
     </div>
 </div>
-<script src="app.js?v=1.0.34-exceldiscount"></script>
+<script src="app.js?v=1.0.35-mergecontributors"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.34";
+﻿const APP_VERSION = "v1.0.35";
 const SYNC_PULL_INTERVAL_MS = 30000;
 
 try {
@@ -869,6 +869,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         document.getElementById('btnNovoListagem').onclick = () => abrirFormContribuinte(null);
         document.getElementById('btnVoltarListagem').onclick = () => { fecharModal('modalListagem'); abrirModal('modalPainelUnificado'); };
         document.getElementById('boxAcoesExtrasExcel').style.display = 'flex';
+        document.getElementById('btnAbrirTransferencia').style.display = 'block';
         
         let htmlLista = '';
         let contribs = [...db.contribuintes].sort((a,b) => (a.nome || '').localeCompare(b.nome || ''));
@@ -888,7 +889,10 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
     let oldFecharModal = fecharModal;
     fecharModal = function(id) {
-        if(id === 'modalListagem') document.getElementById('boxAcoesExtrasExcel').style.display = 'none';
+        if(id === 'modalListagem') {
+            document.getElementById('boxAcoesExtrasExcel').style.display = 'none';
+            document.getElementById('btnAbrirTransferencia').style.display = 'none';
+        }
         oldFecharModal(id);
     }
 
@@ -900,6 +904,116 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             abrirGerenciarContribuintes();
             renderizarLista();
         }
+    }
+
+    function recalcularTotalContribuinteRegistro(c) {
+        if(!c) return;
+        let somaCarros = (c.carros || []).filter(car => car.ativo).reduce((acc, car) => acc + parseMoeda(car.valor), 0);
+        let desc = parseMoeda(c.desconto || "0");
+        c.valorTotal = formatMoeda(Math.max(0, somaCarros - desc));
+        tocarRegistro(c);
+    }
+
+    function getContribuintesTransferencia() {
+        return [...db.contribuintes].sort((a,b) => (a.nome || '').localeCompare(b.nome || ''));
+    }
+
+    function preencherSelectContribuintesTransferencia(selectId, excluirId = null) {
+        let select = document.getElementById(selectId);
+        let contribs = getContribuintesTransferencia().filter(c => c.id !== excluirId);
+        select.innerHTML = contribs.map(c => `<option value="${escapeHTML(c.id)}">${escapeHTML(c.nome || 'Sem nome')}</option>`).join('');
+    }
+
+    function abrirTransferenciaVeiculo() {
+        if(db.contribuintes.length < 2) return alert("É preciso ter pelo menos dois contribuintes para transferir.");
+        preencherSelectContribuintesTransferencia('transferOrigem');
+        atualizarTransferenciaVeiculo();
+        abrirModal('modalTransferirVeiculo');
+    }
+
+    function atualizarTransferenciaVeiculo() {
+        let origemId = document.getElementById('transferOrigem').value;
+        let origem = db.contribuintes.find(c => c.id === origemId);
+        let selectCarro = document.getElementById('transferCarro');
+        let carros = (origem && origem.carros) ? origem.carros : [];
+
+        if(carros.length === 0) {
+            selectCarro.innerHTML = '<option value="">Nenhum veículo na origem</option>';
+        } else {
+            selectCarro.innerHTML = carros.map((car, idx) => {
+                let label = `${car.placa || 'Sem placa'} - ${car.categoria || 'Sem categoria'}${car.ano ? ' / ' + car.ano : ''}`;
+                return `<option value="${idx}">${escapeHTML(label)}</option>`;
+            }).join('');
+        }
+
+        preencherSelectContribuintesTransferencia('transferDestino', origemId);
+        atualizarResumoTransferencia();
+    }
+
+    function atualizarResumoTransferencia() {
+        let origem = db.contribuintes.find(c => c.id === document.getElementById('transferOrigem').value);
+        let destino = db.contribuintes.find(c => c.id === document.getElementById('transferDestino').value);
+        let carroIdx = parseInt(document.getElementById('transferCarro').value, 10);
+        let carro = origem && origem.carros ? origem.carros[carroIdx] : null;
+        let box = document.getElementById('transferResumo');
+
+        if(!origem || !destino || !carro) {
+            box.innerHTML = "Selecione origem, veículo e destino.";
+            return;
+        }
+
+        let qtdPagamentos = (origem.pagamentos || []).length;
+        let aviso = (origem.carros || []).length > 1
+            ? '<span class="warn">Atenção: o histórico fica no contribuinte. Esta ação moverá todos os pagamentos da origem, mesmo que ela tenha mais veículos.</span>'
+            : '';
+
+        box.innerHTML = `
+            <div><b>Origem:</b> ${escapeHTML(origem.nome || 'Sem nome')}</div>
+            <div><b>Veículo:</b> ${escapeHTML(carro.placa || 'Sem placa')}</div>
+            <div><b>Destino:</b> ${escapeHTML(destino.nome || 'Sem nome')}</div>
+            <div><b>Pagamentos que serão movidos:</b> ${qtdPagamentos}</div>
+            ${aviso}
+        `;
+    }
+
+    function confirmarTransferenciaVeiculo() {
+        let origemId = document.getElementById('transferOrigem').value;
+        let destinoId = document.getElementById('transferDestino').value;
+        let carroIdx = parseInt(document.getElementById('transferCarro').value, 10);
+        let origem = db.contribuintes.find(c => c.id === origemId);
+        let destino = db.contribuintes.find(c => c.id === destinoId);
+
+        if(!origem || !destino || origemId === destinoId) return alert("Selecione contribuintes diferentes.");
+        if(!origem.carros || isNaN(carroIdx) || !origem.carros[carroIdx]) return alert("Selecione um veículo válido.");
+
+        let carro = origem.carros[carroIdx];
+        let qtdPagamentos = (origem.pagamentos || []).length;
+        let avisoExtra = (origem.carros || []).length > 1
+            ? "\n\nAtenção: a origem tem mais de um veículo. Como o histórico fica no contribuinte, TODOS os pagamentos da origem serão movidos."
+            : "";
+
+        if(!confirm(`Transferir o veículo ${carro.placa || 'sem placa'} de ${origem.nome} para ${destino.nome}, junto com ${qtdPagamentos} pagamento(s)?${avisoExtra}`)) return;
+
+        if(!destino.carros) destino.carros = [];
+        if(!destino.pagamentos) destino.pagamentos = [];
+
+        destino.carros.push({ ...carro, id: carro.id || 'car_' + Date.now() });
+        destino.pagamentos.push(...(origem.pagamentos || []).map((pg, idx) => ({
+            ...pg,
+            id: 'pg_mov_' + Date.now() + '_' + idx + '_' + Math.random(),
+            updatedAt: Date.now()
+        })));
+
+        origem.carros.splice(carroIdx, 1);
+        origem.pagamentos = [];
+        recalcularTotalContribuinteRegistro(origem);
+        recalcularTotalContribuinteRegistro(destino);
+
+        salvarBanco();
+        fecharModal('modalTransferirVeiculo');
+        abrirGerenciarContribuintes();
+        renderizarLista();
+        alert("Transferência concluída. Confira os cadastros e, se estiver tudo certo, exclua o cadastro duplicado.");
     }
 
     function abrirFormContribuinte(id, fromAcoes = false) {

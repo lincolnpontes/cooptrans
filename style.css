@@ -146,6 +146,12 @@
         .excel-export { background: var(--theme-base); }
         .excel-import { background: #F57F17; }
         .excel-model { background: #455A64; }
+        .merge-tool-btn { display:none; width:100%; margin:0 0 12px; border:1px dashed #7B1FA2; background:#F3E5F5; color:#4A148C; border-radius:8px; padding:10px 12px; font-weight:900; cursor:pointer; }
+        .transfer-modal { max-width: 460px; }
+        .transfer-note { background:#FFF8E1; border:1px solid #FFE082; color:#5D4037; border-radius:8px; padding:10px; font-size:12px; font-weight:800; line-height:1.35; margin-bottom:12px; }
+        .transfer-summary { background:#f7f7f7; border:1px solid #ddd; border-radius:8px; padding:10px; color:#333; font-size:12px; line-height:1.4; font-weight:700; }
+        .transfer-summary b { color:#111; }
+        .transfer-summary .warn { color:#C62828; display:block; margin-top:6px; }
 
         .contributor-total-box { background:var(--theme-light); padding:10px; border-radius:7px; }
         .contributor-total-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:5px; }
