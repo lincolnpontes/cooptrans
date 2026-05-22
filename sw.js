@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.29-adminprofile';
-// Atualiza o app shell para login de administrador e perfil ativo.
+const CACHE_NAME = 'cooptrans-v1.0.30-headerstatus';
+// Atualiza o app shell para ajustes de cabecalho e status na lista.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=1.0.29-adminprofile',
-  './app.js?v=1.0.29-adminprofile',
+  './style.css?v=1.0.30-headerstatus',
+  './app.js?v=1.0.30-headerstatus',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',

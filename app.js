@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.29";
+﻿const APP_VERSION = "v1.0.30";
 const SYNC_PULL_INTERVAL_MS = 30000;
 
 try {
@@ -822,7 +822,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             let avatarCor = getAvatarColor(c, temAlerta);
 
             let statusPgtoHtml = pendente 
-                ? `<span class="status-badge status-pendente">Falta Pagar R$ ${formatMoeda(valorPendente)}</span>` 
+                ? `<span class="status-badge status-pendente status-payment-split"><span>Falta Pagar</span><strong>R$ ${formatMoeda(valorPendente)}</strong></span>` 
                 : `<span class="status-badge status-ok">Pago / Regular</span>`;
             
             let emojisCarros = '';
@@ -851,10 +851,10 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                         <div class="item-title">${escapeHTML(c.nome)}</div>
                         ${subtitleText}
                     </div>
-                    <div style="flex-shrink: 0; display: flex; align-items: center; justify-content: center; margin-right: 5px;">
-                        ${statusPgtoHtml}
+                    <div class="item-side-info">
+                        ${temAlerta ? `<div class="alert-home-box"><div class="alert-home-text">${alertasHtml}</div></div>` : ''}
+                        <div class="status-home-box">${statusPgtoHtml}</div>
                     </div>
-                    ${temAlerta ? `<div class="alert-home-box"><div class="alert-home-text">${alertasHtml}</div></div>` : ''}
                 </div>
             </li>`;
         });
