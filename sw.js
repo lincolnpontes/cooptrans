@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.31-statusnowrap';
-// Atualiza o app shell para status em duas linhas e alertas sem quebra.
+const CACHE_NAME = 'cooptrans-v1.0.32-statuspolish';
+// Atualiza o app shell para polimento do status e botoes do cabecalho.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=1.0.31-statusnowrap',
-  './app.js?v=1.0.31-statusnowrap',
+  './style.css?v=1.0.32-statuspolish',
+  './app.js?v=1.0.32-statuspolish',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',

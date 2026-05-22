@@ -25,7 +25,7 @@
         .header-month-slot .month-picker-box span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .month-picker-box:active { background: rgba(255,255,255,0.4); }
         
-        .header-actions { flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-left: auto; position: relative; z-index: 2; }
+        .header-actions { flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-left: auto; position: relative; z-index: 2; }
         .header-actions button { width: 36px; height: 36px; background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; margin: 0; display: inline-flex; align-items: center; justify-content: center; line-height: 1; flex-shrink: 0; }
         .profile-switch-btn { width: auto !important; min-width: 120px; height: 34px !important; min-height: 34px; max-width: 132px; padding: 5px 10px !important; border: 1px solid rgba(255,255,255,0.45) !important; border-radius: 999px; background: rgba(255,255,255,0.16) !important; display: inline-flex !important; align-items: center; justify-content: center; gap: 6px; vertical-align: middle; font-size: 15px !important; line-height: 1; }
         .profile-switch-btn span { display:inline-flex; align-items:center; justify-content:center; line-height:1; }
@@ -105,7 +105,7 @@
         .status-home-box { flex-shrink: 0; display:flex; align-items:center; justify-content:center; }
         .status-badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; display: inline-flex; align-items:center; justify-content:center; margin: 0; white-space:nowrap; text-align:center; line-height:1.15; }
         .status-payment-split { flex-direction: column; min-width: 86px; padding: 5px 8px; }
-        .status-payment-split strong { font-size: 12px; line-height: 1.15; text-align:center; }
+        .status-payment-split span, .status-payment-split strong { font-size: 12px; line-height: 1.15; text-align:center; font-weight:900; }
         .status-ok { background: #E8F5E9; color: #2E7D32; border: 1px solid #A5D6A7; }
         .status-pendente { background: #FFEBEE; color: #C62828; border: 1px solid #EF9A9A; }
         
@@ -288,7 +288,7 @@
             .header-month-slot { flex: 0 1 106px; transform: translateX(-3px); }
             .header-month-slot .month-picker-box { padding: 7px 8px; font-size: 12px; gap: 4px; }
             .header-logo-wrap { left: 46%; top: 11px; }
-            .header-actions { gap: 5px; transform: translateX(4px); }
+            .header-actions { gap: 7px; transform: translateX(4px); }
             .header-actions button { width: 32px; height: 32px; font-size: 23px; }
             .profile-switch-btn { min-width: 34px; max-width: 34px; width: 34px !important; height: 32px !important; min-height: 32px; padding: 4px !important; }
             .profile-switch-btn .profile-name { display:none; }

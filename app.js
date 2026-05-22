@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.31";
+﻿const APP_VERSION = "v1.0.32";
 const SYNC_PULL_INTERVAL_MS = 30000;
 
 try {
