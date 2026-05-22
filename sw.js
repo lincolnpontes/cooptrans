@@ -1,5 +1,5 @@
 const CACHE_NAME = 'cooptrans-v1.0.28';
-// Atualiza o app shell mantendo a versão visual v1.0.28.
+// Atualiza o app shell mantendo a versão visual v1.0.28: campos com R$/% e logo mobile menor.
 const APP_SHELL = [
   './',
   './index.html',

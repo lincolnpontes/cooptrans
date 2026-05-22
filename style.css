@@ -149,6 +149,25 @@
         .field-month { width: 100%; justify-content:center; padding: 8px 4px; font-size:13px; background:#fff; color:#333; border-color:#ccc; box-sizing:border-box; margin:0; min-height: 39px; }
         .money-input { text-align:center; font-weight:900; color:var(--theme-base); background:#fff; }
         .money-input.readonly { background:#eef4f1; }
+        .input-affix { width:100%; min-height:39px; position:relative; box-sizing:border-box; border:1px solid #ccc; border-radius:6px; background:#fff; padding:0; overflow:hidden; }
+        .input-affix span { position:absolute; top:50%; transform:translateY(-50%); z-index:2; font-size:13px; font-weight:900; color:#555; pointer-events:none; }
+        .money-affix > span:first-child { left:12px; }
+        .percent-affix > span:last-child { right:12px; }
+        .input-affix input { width:100% !important; border:0 !important; background:transparent !important; box-shadow:none; min-height:37px; box-sizing:border-box; }
+        .money-affix input { padding-left:34px !important; padding-right:10px !important; }
+        .percent-affix input { padding-left:10px !important; padding-right:28px !important; }
+        .money-affix input { text-align:center; }
+        .percent-affix { background:#FFF8E1; border-color:#FFE082; }
+        .percent-affix input { color:#6D4C41; font-weight:900; }
+        .percent-affix span { color:#6D4C41; }
+        .amount-due-affix { color:#C62828; background:#FFEBEE; border-color:#EF9A9A; }
+        .amount-due-affix span, .amount-due-affix input { color:#C62828; }
+        .amount-paid-affix { color:#2E7D32; background:#E8F5E9; border-color:#A5D6A7; }
+        .amount-paid-affix span, .amount-paid-affix input { color:#2E7D32; }
+        .amount-neutral-affix { color:#666; background:#fff; border-color:#ddd; }
+        .amount-neutral-affix span, .amount-neutral-affix input { color:#666; }
+        .total-affix { background:#eef4f1; border-color:#c9ddd3; }
+        .total-affix span, .total-affix input { color:var(--theme-base); }
         .amount-due-input { color:#C62828; background:#FFEBEE; border-color:#EF9A9A; font-weight:900; }
         .amount-paid-input { color:#2E7D32; background:#E8F5E9; border-color:#A5D6A7; font-weight:900; }
         .amount-neutral-input { color:#666; background:#fff; border-color:#ddd; font-weight:900; }
@@ -172,7 +191,6 @@
         .discount-dual-field { min-width:0; }
         .discount-dual-grid { display:grid; grid-template-columns:1fr 0.72fr; gap:6px; }
         .discount-dual-grid input { font-weight:800; }
-        .discount-dual-grid input:last-child { color:#6D4C41; background:#FFF8E1; border-color:#FFE082; }
 
         .history-box { background:#f9f9f9; padding:10px; border-radius:8px; font-size:13px; margin-bottom:10px; border:1px solid #eee; }
         .pending-box { margin-bottom:10px; padding-bottom:10px; border-bottom:1px dashed #ccc; }
@@ -235,6 +253,11 @@
             .item-avatar { width: 36px; height: 36px; }
             .modal { max-width: 520px; }
             .modal-acoes { max-width: 640px; }
+        }
+
+        @media (max-width: 760px) {
+            #headerLogo { height: 26px !important; max-width: 32vw !important; }
+            #splashLogoObj { max-height: 30px !important; max-width: 32vw !important; }
         }
 
         @media (max-width: 520px) {
