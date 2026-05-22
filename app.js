@@ -19,10 +19,12 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     // MÁSCARAS
     function maskCNPJ(el) { let v = el.value.replace(/\D/g, ""); if (v.length > 14) v = v.substring(0, 14); v = v.replace(/^(\d{2})(\d)/, "$1.$2"); v = v.replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3"); v = v.replace(/\.(\d{3})(\d)/, ".$1/$2"); v = v.replace(/(\d{4})(\d)/, "$1-$2"); el.value = v; }
     function maskTelefone(el) { let v = el.value.replace(/\D/g,""); if (v.length > 11) v = v.substring(0, 11); v = v.replace(/^(\d{2})(\d)/g,"($1) $2"); v = v.replace(/(\d{5})(\d{4})$/,"$1-$2"); el.value = v; }
-    function maskMoeda(el) { let v = el.value.replace(/\D/g, ""); if(!v) { el.value = ""; return; } v = (parseFloat(v) / 100).toLocaleString('pt-BR', {minimumFractionDigits: 2}); el.value = v; }
-    function parseMoeda(str) { if(!str) return 0; return parseFloat(String(str).replace(/\./g, "").replace(",", ".")); }
+    function usaPrefixoMoeda(el) { return el && ['pgValorSingle', 'pgDescontoMulti', 'pgValorMulti'].includes(el.id); }
+    function formatMoedaInput(val) { return `R$ ${formatMoeda(val)}`; }
+    function maskMoeda(el) { let v = el.value.replace(/\D/g, ""); if(!v) { el.value = ""; return; } v = (parseFloat(v) / 100).toLocaleString('pt-BR', {minimumFractionDigits: 2}); el.value = usaPrefixoMoeda(el) ? `R$ ${v}` : v; }
+    function parseMoeda(str) { if(!str) return 0; let v = String(str).replace(/\s/g, '').replace(/R\$/gi, ''); if(v.includes(',') && v.includes('.')) v = v.replace(/\./g, '').replace(',', '.'); else if(v.includes(',')) v = v.replace(',', '.'); else if(v.includes('.')) { let partes = v.split('.'); if(partes.length > 2 || partes[partes.length - 1].length === 3) v = v.replace(/\./g, ''); } let n = parseFloat(v.replace(/[^\d.-]/g, '')); return isNaN(n) ? 0 : n; }
     function formatMoeda(val) { return parseFloat(val).toLocaleString('pt-BR', {minimumFractionDigits: 2}); }
-    function maskPercentual(el) { let v = el.value.replace(/[^\d,\.]/g, "").replace(".", ","); let partes = v.split(","); if(partes.length > 2) v = partes[0] + "," + partes.slice(1).join(""); el.value = v; }
+    function maskPercentual(el) { let v = el.value.replace(/[^\d,\.]/g, "").replace(".", ","); let partes = v.split(","); if(partes.length > 2) v = partes[0] + "," + partes.slice(1).join(""); el.value = el && el.id === 'pgDescontoPctMulti' && v ? `${v}%` : v; }
     function parsePercentual(str) { let n = parseFloat(String(str || '').replace(",", ".")); if(isNaN(n)) return 0; return Math.max(0, Math.min(100, n)); }
     function formatPercentual(val) { return parseFloat(val || 0).toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 2}); }
     function formatDataBR(dataStr) { if(!dataStr) return ""; const partes = dataStr.split('-'); if(partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`; return dataStr; }
@@ -172,6 +174,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
     document.addEventListener("DOMContentLoaded", () => { 
         document.title = `Cooptrans ${APP_VERSION}`;
+        document.body.classList.add('value-prefix-mode');
         document.getElementById('splashVersao').innerText = APP_VERSION;
         document.getElementById('menuAppVersion').innerText = APP_VERSION;
         aplicarTema();
@@ -1200,14 +1203,14 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         if(!pago && valorPendente > 0) {
             pgSingle.classList.add('amount-due-input');
             if(pgSingleBox) pgSingleBox.classList.add('amount-due-affix');
-            pgSingle.value = formatMoeda(valorPendente);
+            pgSingle.value = formatMoedaInput(valorPendente);
             pgSingle.dataset.esperado = valorPendente;
             pgSingle.readOnly = false;
             btnSingle.innerHTML = '<span class="payment-btn-emoji">💲</span><span>Registrar Pagamento do Mês</span>';
         } else if (pago) {
             pgSingle.classList.add('amount-paid-input');
             if(pgSingleBox) pgSingleBox.classList.add('amount-paid-affix');
-            pgSingle.value = formatMoeda(valorEsperado);
+            pgSingle.value = formatMoedaInput(valorEsperado);
             pgSingle.dataset.esperado = valorEsperado;
             pgSingle.readOnly = true;
             btnSingle.innerHTML = '<span class="payment-btn-emoji">✅</span><span>Mês já foi Pago</span>';
@@ -1216,7 +1219,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         } else {
             pgSingle.classList.add('amount-neutral-input');
             if(pgSingleBox) pgSingleBox.classList.add('amount-neutral-affix');
-            pgSingle.value = "0,00";
+            pgSingle.value = formatMoedaInput(0);
             pgSingle.dataset.esperado = "0";
             pgSingle.readOnly = true;
             btnSingle.innerHTML = '<span>Sem valor a receber</span>';
@@ -1328,15 +1331,15 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
         if(origem === 'pct') {
             descValor = total > 0 ? (total * descPct / 100) : 0;
-            inputValor.value = descValor > 0 ? formatMoeda(descValor) : '';
-            if(inputPct) inputPct.value = descPct > 0 ? formatPercentual(descPct) : '';
+            inputValor.value = descValor > 0 ? formatMoedaInput(descValor) : '';
+            if(inputPct) inputPct.value = descPct > 0 ? `${formatPercentual(descPct)}%` : '';
         } else {
             if(descValor > total) {
                 descValor = total;
-                inputValor.value = total > 0 ? formatMoeda(total) : '';
+                inputValor.value = total > 0 ? formatMoedaInput(total) : '';
             }
             descPct = total > 0 ? (descValor / total) * 100 : 0;
-            if(inputPct) inputPct.value = descValor > 0 ? formatPercentual(descPct) : '';
+            if(inputPct) inputPct.value = descValor > 0 ? `${formatPercentual(descPct)}%` : '';
         }
         return Math.min(descValor, total);
     }
@@ -1371,12 +1374,12 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let boxAviso = document.getElementById('avisoErroMulti');
 
         if(erro) {
-            iptValor.value = '0,00';
+            iptValor.value = formatMoedaInput(0);
             iptValor.dataset.esperado = 0;
             boxAviso.innerHTML = `<span style="color:#D32F2F; font-size:13px; font-weight:bold;">⚠️ ${erro}</span>`;
             if(mostrarErro) boxAviso.style.display = 'block';
         } else {
-            iptValor.value = formatMoeda(finalVal);
+            iptValor.value = formatMoedaInput(finalVal);
             iptValor.dataset.esperado = finalVal;
             boxAviso.style.display = 'none';
         }
