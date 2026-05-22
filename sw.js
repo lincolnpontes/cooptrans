@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.28-symbolfix';
-// Atualiza o app shell mantendo a versão visual v1.0.28: R$/% dentro dos valores e logo mobile ajustada.
+const CACHE_NAME = 'cooptrans-v1.0.29-adminprofile';
+// Atualiza o app shell para login de administrador e perfil ativo.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=1.0.28-symbolfix',
-  './app.js?v=1.0.28-symbolfix',
+  './style.css?v=1.0.29-adminprofile',
+  './app.js?v=1.0.29-adminprofile',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',

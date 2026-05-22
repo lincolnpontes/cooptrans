@@ -13,18 +13,18 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <link rel="icon" href="icons/icon-192.png">
-    <title>Cooptrans v1.0.28</title>
+    <title>Cooptrans v1.0.29</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <!-- Biblioteca Chart.js para Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
-    <link rel="stylesheet" href="style.css?v=1.0.28-symbolfix">
+    <link rel="stylesheet" href="style.css?v=1.0.29-adminprofile">
 </head>
 <body>
 
 <div id="splashScreen">
     <img id="splashLogoObj" style="max-height: 100px; object-fit: contain; margin-bottom: 20px; border-radius: 10px; display: none;">
-    <div class="splash-versao" id="splashVersao">v1.0.28</div>
+    <div class="splash-versao" id="splashVersao">v1.0.29</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 40px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -35,6 +35,47 @@
 <div id="loadingOverlay">
     <div class="spinner"></div>
     <div id="loadingText">Processando...<br><span style="font-size: 14px; font-weight: normal; margin-top: 10px; display: block;">Aguarde.</span></div>
+</div>
+
+<!-- LOGIN DO ADMINISTRADOR -->
+<div class="modal-overlay login-overlay" id="modalLoginAdmin">
+    <div class="modal login-modal">
+        <div class="login-title">
+            <strong>Cooptrans</strong>
+            <span id="loginAppVersion">v1.0.29</span>
+        </div>
+        <p class="login-subtitle" id="loginAdminTexto">Informe a senha do administrador para entrar.</p>
+        <div class="form-group">
+            <label>Senha do Administrador</label>
+            <input type="password" id="loginAdminSenha" inputmode="numeric" autocomplete="current-password" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+        </div>
+        <div id="loginAdminErro" class="login-error"></div>
+        <div class="modal-actions login-actions">
+            <button id="btnCancelarLoginAdmin" class="btn-cancel" onclick="cancelarTrocaPerfil()" style="display:none;">Voltar</button>
+            <button class="btn-action" onclick="entrarAdmin()">Entrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- PERFIL ATIVO -->
+<div class="modal-overlay" id="modalPerfilAdmin" style="z-index: 2100;">
+    <div class="modal profile-modal">
+        <div class="modal-title">
+            <span>Perfil</span>
+            <button class="icon-btn" onclick="fecharModal('modalPerfilAdmin')">✖</button>
+        </div>
+        <div class="profile-current">
+            <span class="profile-current-icon">👤</span>
+            <div>
+                <small>Perfil conectado</small>
+                <strong id="perfilAtualNome">Administrador</strong>
+            </div>
+        </div>
+        <div class="profile-actions">
+            <button class="btn-action" onclick="trocarPerfilAdmin()">Trocar Perfil</button>
+            <button class="btn-cancel" onclick="sairPerfilAdmin()">Sair do Perfil</button>
+        </div>
+    </div>
 </div>
 
 <div class="app-container">
@@ -52,7 +93,8 @@
         </div>
 
         <div style="flex: 1; text-align: right;" class="header-actions">
-            <button onclick="abrirPainelResultados(true)">📊</button>
+            <button onclick="abrirPainelResultados(true)" title="Painel">📊</button>
+            <button id="btnPerfilAdmin" class="profile-switch-btn" onclick="abrirMenuPerfil()" title="Perfil"><span>👤</span><span id="perfilAdminNome" class="profile-name">Entrar</span></button>
             <button onclick="abrirModal('modalPainelUnificado')">⚙️</button>
         </div>
     </div>
@@ -87,7 +129,7 @@
 <!-- MENU PRINCIPAL -->
 <div class="modal-overlay" id="modalPainelUnificado">
     <div class="modal" style="padding-top: 25px;">
-        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.28</span></h2>
+        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.29</span></h2>
         <button class="btn-outline" onclick="abrirModalCooperativa()">🏢 Dados da Cooperativa</button>
         <button class="btn-outline" onclick="abrirGerenciarContribuintes()">👥 Gerenciar Contribuintes</button>
         <button class="btn-outline" onclick="abrirModalConfigGerais()">⚙️ Configurações Gerais</button>
@@ -620,6 +662,6 @@
         </div>
     </div>
 </div>
-<script src="app.js?v=1.0.28-symbolfix"></script>
+<script src="app.js?v=1.0.29-adminprofile"></script>
 </body>
 </html>

@@ -22,6 +22,8 @@
         .month-picker-box:active { background: rgba(255,255,255,0.4); }
         
         .header-actions button { background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; margin-left: 15px;}
+        .profile-switch-btn { min-height: 32px; max-width: 132px; padding: 5px 9px !important; border: 1px solid rgba(255,255,255,0.45) !important; border-radius: 999px; background: rgba(255,255,255,0.16) !important; display: inline-flex; align-items: center; justify-content: center; gap: 5px; vertical-align: middle; font-size: 15px !important; line-height: 1; }
+        .profile-switch-btn .profile-name { max-width: 82px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 900; }
         
         .area-conteudo { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
         
@@ -50,10 +52,25 @@
         .item-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px; color: white; font-size: 14px; flex-shrink: 0; transition: background-color 0.3s;}
         .item-title { font-weight: bold; font-size: 15px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;}
         .item-subtitle { color: #666; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+        .item-vehicles { color: #555; font-size: 20px; line-height: 1; letter-spacing: 2px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 22px; }
         
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center; z-index: 1000; }
         .modal { background: white; padding: 20px; border-radius: 10px; width: 90%; max-width: 450px; max-height: 90vh; overflow-y: auto; box-shadow: 0 5px 20px rgba(0,0,0,0.3); }
         .modal-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 2px solid var(--theme-base); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
+        .login-overlay { z-index: 9800; background: rgba(0,0,0,0.72); backdrop-filter: blur(2px); }
+        .login-modal { max-width: 360px; padding: 24px; border-radius: 12px; }
+        .login-title { display:flex; align-items:baseline; justify-content:center; gap:8px; color:var(--theme-base); margin-bottom: 10px; }
+        .login-title strong { font-size: 28px; line-height:1; }
+        .login-title span { font-size: 12px; color:#666; font-weight:800; background:var(--theme-light); border:1px solid rgba(0,140,74,0.2); padding:3px 7px; border-radius:999px; }
+        .login-subtitle { color:#555; font-size:14px; line-height:1.35; text-align:center; margin:0 0 14px; font-weight:700; }
+        .login-error { display:none; color:#C62828; background:#FFEBEE; border:1px solid #EF9A9A; border-radius:7px; padding:8px 10px; font-size:12px; font-weight:800; margin-top: -4px; }
+        .login-actions { align-items:stretch; }
+        .profile-modal { max-width: 380px; }
+        .profile-current { display:flex; align-items:center; gap:12px; background:var(--theme-light); border:1px solid rgba(0,140,74,0.18); border-radius:8px; padding:12px; margin-bottom:12px; }
+        .profile-current-icon { width:42px; height:42px; border-radius:50%; background:var(--theme-base); color:white; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
+        .profile-current small { display:block; color:#666; font-size:11px; text-transform:uppercase; font-weight:900; margin-bottom:2px; }
+        .profile-current strong { color:#222; font-size:17px; }
+        .profile-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
         
         .form-group { margin-bottom: 12px; }
         .form-group label { display: block; margin-bottom: 4px; color: #555; font-weight: bold; font-size: 12px; }
@@ -251,6 +268,7 @@
             .item { min-height: 64px; padding: 8px 14px; }
             .item-title { font-size: 16px; }
             .item-avatar { width: 36px; height: 36px; }
+            .item-vehicles { font-size: 24px; min-height: 25px; }
             .modal { max-width: 520px; }
             .modal-acoes { max-width: 640px; }
         }
@@ -267,6 +285,9 @@
             .action-pix-btn { width: 100%; }
             .payment-grid, .single-payment-grid, .payment-grid-action { grid-template-columns: 1fr; }
             .contributor-total-grid, .payment-decision-actions { grid-template-columns: 1fr; }
+            .profile-switch-btn { max-width: 38px; width: 34px; padding: 4px !important; }
+            .profile-switch-btn .profile-name { display:none; }
+            .profile-actions { grid-template-columns: 1fr; }
             .excel-actions { gap: 6px; }
             .excel-btn { min-height: 46px; font-size: 12px; }
             .payment-status-value.pending, .payment-status-value.paid { font-size: 20px; }

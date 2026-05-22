@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.28";
+﻿const APP_VERSION = "v1.0.29";
 const SYNC_PULL_INTERVAL_MS = 30000;
 
 try {
@@ -46,6 +46,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     let syncTimer = null;
     let syncPendente = false;
     let pagamentoMenorPendente = null;
+    let adminLogado = null;
 
     function criarBancoBase() {
         return {
@@ -146,6 +147,89 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     function fecharModal(id) { document.getElementById(id).style.display = 'none'; }
     function marcarMudancaEstrutural() { db.configs.ultimaMudancaLocal = Date.now(); salvarBanco(); }
 
+    function getPerfisAdminDisponiveis() {
+        let perfis = (db.administradores || [])
+            .filter(a => a && a.nome && a.senha)
+            .map(a => ({ id: a.id, nome: a.nome, senha: String(a.senha) }));
+
+        if(perfis.length === 0) {
+            perfis.push({
+                id: 'admin_padrao',
+                nome: 'Administrador',
+                senha: String((db.configs && db.configs.senhaAdmin) || '1999')
+            });
+        }
+        return perfis;
+    }
+
+    function atualizarPerfilAdminUI() {
+        let nome = adminLogado ? adminLogado.nome : 'Entrar';
+        let nomeCurto = nome.length > 14 ? `${nome.substring(0, 13)}…` : nome;
+        let labelHeader = document.getElementById('perfilAdminNome');
+        let labelModal = document.getElementById('perfilAtualNome');
+        if(labelHeader) labelHeader.innerText = nomeCurto;
+        if(labelModal) labelModal.innerText = nome;
+    }
+
+    function abrirLoginAdmin(ehTroca = false) {
+        let modal = document.getElementById('modalLoginAdmin');
+        if(!modal) return;
+        document.getElementById('loginAdminSenha').value = '';
+        document.getElementById('loginAdminErro').style.display = 'none';
+        document.getElementById('loginAdminTexto').innerText = ehTroca ? 'Informe a senha do perfil que deseja usar.' : 'Informe a senha do administrador para entrar.';
+        document.getElementById('btnCancelarLoginAdmin').style.display = (ehTroca && adminLogado) ? 'block' : 'none';
+        modal.style.display = 'flex';
+        setTimeout(() => document.getElementById('loginAdminSenha').focus(), 80);
+    }
+
+    function entrarAdmin() {
+        let senha = document.getElementById('loginAdminSenha').value.trim();
+        let erro = document.getElementById('loginAdminErro');
+        let perfil = getPerfisAdminDisponiveis().find(a => a.senha === senha);
+
+        if(!perfil) {
+            erro.innerText = 'Senha não encontrada em nenhum perfil de administrador.';
+            erro.style.display = 'block';
+            document.getElementById('loginAdminSenha').select();
+            return;
+        }
+
+        adminLogado = { id: perfil.id, nome: perfil.nome };
+        atualizarPerfilAdminUI();
+        erro.style.display = 'none';
+        fecharModal('modalLoginAdmin');
+        fecharModal('modalPerfilAdmin');
+    }
+
+    function abrirMenuPerfil() {
+        if(!adminLogado) {
+            abrirLoginAdmin(false);
+            return;
+        }
+        atualizarPerfilAdminUI();
+        abrirModal('modalPerfilAdmin');
+    }
+
+    function trocarPerfilAdmin() {
+        fecharModal('modalPerfilAdmin');
+        abrirLoginAdmin(true);
+    }
+
+    function sairPerfilAdmin() {
+        adminLogado = null;
+        atualizarPerfilAdminUI();
+        fecharModal('modalPerfilAdmin');
+        abrirLoginAdmin(false);
+    }
+
+    function cancelarTrocaPerfil() {
+        if(adminLogado) {
+            fecharModal('modalLoginAdmin');
+            return;
+        }
+        abrirLoginAdmin(false);
+    }
+
     function aplicarTema() {
         let cor = db.configGerais.corTema || '#008C4A';
         let corSub = db.configGerais.corSubHeader || '#ffffff';
@@ -175,6 +259,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         document.title = `Cooptrans ${APP_VERSION}`;
         document.getElementById('splashVersao').innerText = APP_VERSION;
         document.getElementById('menuAppVersion').innerText = APP_VERSION;
+        document.getElementById('loginAppVersion').innerText = APP_VERSION;
+        atualizarPerfilAdminUI();
         aplicarTema();
         renderizarCabecalhoPrincipal();
         setTimeout(() => {
@@ -188,6 +274,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         configurarBloqueioZoom();
         registrarServiceWorker();
         inicializarSincronizacaoAutomatica();
+        abrirLoginAdmin(false);
     });
 
     function configurarBloqueioZoom() {
@@ -744,7 +831,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 emojisCarros += catObj && catObj.emoji ? catObj.emoji : '🚗';
             });
             let subtitleText = carrosAtivos > 0 
-                ? `<div class="item-subtitle" style="font-size:14px; letter-spacing:1px; margin-top:2px;">${emojisCarros}</div>` 
+                ? `<div class="item-vehicles">${emojisCarros}</div>` 
                 : `<div class="item-subtitle" style="font-size:11px;">Nenhum veículo ativo</div>`;
             
             let alertasHtml = '';
@@ -1722,9 +1809,18 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
     function salvarAdmin() {
         let id = document.getElementById('adminId').value || 'adm_' + Date.now();
-        let novo = { id: id, nome: document.getElementById('adminNome').value, senha: document.getElementById('adminSenha').value, updatedAt: Date.now() };
+        let nome = document.getElementById('adminNome').value.trim();
+        let senha = document.getElementById('adminSenha').value.trim();
+        if(!nome) return alert("Informe o nome do perfil.");
+        if(!senha) return alert("Informe a senha do perfil.");
+
+        let novo = { id: id, nome: nome, senha: senha, updatedAt: Date.now() };
         const idx = db.administradores.findIndex(x => x.id === id);
         if(idx >= 0) db.administradores[idx] = novo; else db.administradores.push(novo);
+        if(adminLogado && adminLogado.id === id) {
+            adminLogado.nome = nome;
+            atualizarPerfilAdminUI();
+        }
         salvarBanco(); fecharModal('modalFormAdmin'); abrirGerenciar('administradores');
     }
 
@@ -1942,6 +2038,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
     function solicitarAcessoAvancado() { fecharModal('modalPainelUnificado'); document.getElementById('senhaAvancada').value = ''; abrirModal('modalSenhaAvancada'); setTimeout(()=>document.getElementById('senhaAvancada').focus(), 100); }
     document.getElementById('senhaAvancada').addEventListener('input', function(e) { if(this.value === db.configs.senhaAdmin) { this.blur(); this.value = ''; fecharModal('modalSenhaAvancada'); document.getElementById('configUrlApp').value = db.configs.url || ''; abrirModal('modalConfigAvancadas'); } });
+    document.getElementById('loginAdminSenha').addEventListener('keydown', function(e) { if(e.key === 'Enter') { e.preventDefault(); entrarAdmin(); } });
     
     async function salvarURL() {
         const inputUrl = document.getElementById('configUrlApp').value.trim();
