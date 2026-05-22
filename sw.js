@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.30-headerstatus';
-// Atualiza o app shell para ajustes de cabecalho e status na lista.
+const CACHE_NAME = 'cooptrans-v1.0.31-statusnowrap';
+// Atualiza o app shell para status em duas linhas e alertas sem quebra.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=1.0.30-headerstatus',
-  './app.js?v=1.0.30-headerstatus',
+  './style.css?v=1.0.31-statusnowrap',
+  './app.js?v=1.0.31-statusnowrap',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',

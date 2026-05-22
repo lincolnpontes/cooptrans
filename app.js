@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.30";
+﻿const APP_VERSION = "v1.0.31";
 const SYNC_PULL_INTERVAL_MS = 30000;
 
 try {
@@ -823,7 +823,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
             let statusPgtoHtml = pendente 
                 ? `<span class="status-badge status-pendente status-payment-split"><span>Falta Pagar</span><strong>R$ ${formatMoeda(valorPendente)}</strong></span>` 
-                : `<span class="status-badge status-ok">Pago / Regular</span>`;
+                : `<span class="status-badge status-ok status-payment-split"><span>Pago</span><strong>Regular</strong></span>`;
             
             let emojisCarros = '';
             (c.carros || []).filter(car=>car.ativo).forEach(car => {
