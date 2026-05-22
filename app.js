@@ -19,12 +19,11 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     // MÁSCARAS
     function maskCNPJ(el) { let v = el.value.replace(/\D/g, ""); if (v.length > 14) v = v.substring(0, 14); v = v.replace(/^(\d{2})(\d)/, "$1.$2"); v = v.replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3"); v = v.replace(/\.(\d{3})(\d)/, ".$1/$2"); v = v.replace(/(\d{4})(\d)/, "$1-$2"); el.value = v; }
     function maskTelefone(el) { let v = el.value.replace(/\D/g,""); if (v.length > 11) v = v.substring(0, 11); v = v.replace(/^(\d{2})(\d)/g,"($1) $2"); v = v.replace(/(\d{5})(\d{4})$/,"$1-$2"); el.value = v; }
-    function usaPrefixoMoeda(el) { return el && ['pgValorSingle', 'pgDescontoMulti', 'pgValorMulti'].includes(el.id); }
-    function formatMoedaInput(val) { return `R$ ${formatMoeda(val)}`; }
-    function maskMoeda(el) { let v = el.value.replace(/\D/g, ""); if(!v) { el.value = ""; return; } v = (parseFloat(v) / 100).toLocaleString('pt-BR', {minimumFractionDigits: 2}); el.value = usaPrefixoMoeda(el) ? `R$ ${v}` : v; }
+    function formatMoedaInput(val) { return formatMoeda(val); }
+    function maskMoeda(el) { let v = el.value.replace(/\D/g, ""); if(!v) { el.value = ""; return; } el.value = (parseFloat(v) / 100).toLocaleString('pt-BR', {minimumFractionDigits: 2}); }
     function parseMoeda(str) { if(!str) return 0; let v = String(str).replace(/\s/g, '').replace(/R\$/gi, ''); if(v.includes(',') && v.includes('.')) v = v.replace(/\./g, '').replace(',', '.'); else if(v.includes(',')) v = v.replace(',', '.'); else if(v.includes('.')) { let partes = v.split('.'); if(partes.length > 2 || partes[partes.length - 1].length === 3) v = v.replace(/\./g, ''); } let n = parseFloat(v.replace(/[^\d.-]/g, '')); return isNaN(n) ? 0 : n; }
     function formatMoeda(val) { return parseFloat(val).toLocaleString('pt-BR', {minimumFractionDigits: 2}); }
-    function maskPercentual(el) { let v = el.value.replace(/[^\d,\.]/g, "").replace(".", ","); let partes = v.split(","); if(partes.length > 2) v = partes[0] + "," + partes.slice(1).join(""); el.value = el && el.id === 'pgDescontoPctMulti' && v ? `${v}%` : v; }
+    function maskPercentual(el) { let v = el.value.replace(/[^\d,\.]/g, "").replace(".", ","); let partes = v.split(","); if(partes.length > 2) v = partes[0] + "," + partes.slice(1).join(""); el.value = v; }
     function parsePercentual(str) { let n = parseFloat(String(str || '').replace(",", ".")); if(isNaN(n)) return 0; return Math.max(0, Math.min(100, n)); }
     function formatPercentual(val) { return parseFloat(val || 0).toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 2}); }
     function formatDataBR(dataStr) { if(!dataStr) return ""; const partes = dataStr.split('-'); if(partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`; return dataStr; }
@@ -174,7 +173,6 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
     document.addEventListener("DOMContentLoaded", () => { 
         document.title = `Cooptrans ${APP_VERSION}`;
-        document.body.classList.add('value-prefix-mode');
         document.getElementById('splashVersao').innerText = APP_VERSION;
         document.getElementById('menuAppVersion').innerText = APP_VERSION;
         aplicarTema();
@@ -2066,7 +2064,22 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         return !!(dados && dados.app_id === "cooptrans" && dados.cooperativa && typeof dados.cooperativa === 'object');
     }
     async function excluirTodoHistorico() { let frase = document.getElementById('inputExcluirTudo').value.trim().toLowerCase(); if(frase === "quero excluir todo o histórico") { if(!confirm("⚠️ TEM CERTEZA?")) return; db.contribuintes.forEach(c => c.pagamentos = []); marcarMudancaEstrutural(); document.getElementById('inputExcluirTudo').value = ''; fecharModal('modalConfigAvancadas'); alert("✅ Limpo!"); renderizarLista(); } else { alert("Frase incorreta."); } }
-    function forcarAtualizacao() { if(confirm("Deseja forçar a atualização do aplicativo?")) { if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(function(registrations) { for(let registration of registrations) registration.update(); }); } window.location.href = window.location.pathname + '?nocache=' + new Date().getTime(); } }
+    async function forcarAtualizacao() {
+        if(!confirm("Deseja forçar a atualização do aplicativo?")) return;
+        try {
+            if('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(registrations.map(registration => registration.unregister()));
+            }
+            if(window.caches) {
+                const keys = await caches.keys();
+                await Promise.all(keys.map(key => caches.delete(key)));
+            }
+        } catch(e) {
+            console.warn("Não foi possível limpar todo o cache automaticamente.", e);
+        }
+        window.location.replace(window.location.pathname + '?nocache=' + Date.now());
+    }
 
 
 

@@ -168,8 +168,6 @@
         .amount-neutral-affix span, .amount-neutral-affix input { color:#666; }
         .total-affix { background:#eef4f1; border-color:#c9ddd3; }
         .total-affix span, .total-affix input { color:var(--theme-base); }
-        .value-prefix-mode .input-affix span { display:none; }
-        .value-prefix-mode .money-affix input, .value-prefix-mode .percent-affix input { padding-left:10px !important; padding-right:10px !important; }
         .amount-due-input { color:#C62828; background:#FFEBEE; border-color:#EF9A9A; font-weight:900; }
         .amount-paid-input { color:#2E7D32; background:#E8F5E9; border-color:#A5D6A7; font-weight:900; }
         .amount-neutral-input { color:#666; background:#fff; border-color:#ddd; font-weight:900; }

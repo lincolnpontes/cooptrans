@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.28';
+const CACHE_NAME = 'cooptrans-v1.0.28-symbolfix';
 // Atualiza o app shell mantendo a versão visual v1.0.28: R$/% dentro dos valores e logo mobile ajustada.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css',
-  './app.js',
+  './style.css?v=1.0.28-symbolfix',
+  './app.js?v=1.0.28-symbolfix',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',
@@ -32,7 +32,7 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: 'no-store' })
       .then((response) => {
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));

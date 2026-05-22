@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Cooptrans">
@@ -10,18 +13,18 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <link rel="icon" href="icons/icon-192.png">
-    <title>Cooptrans v1.0.27</title>
+    <title>Cooptrans v1.0.28</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <!-- Biblioteca Chart.js para Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=1.0.28-symbolfix">
 </head>
 <body>
 
 <div id="splashScreen">
     <img id="splashLogoObj" style="max-height: 100px; object-fit: contain; margin-bottom: 20px; border-radius: 10px; display: none;">
-    <div class="splash-versao" id="splashVersao">v1.0.27</div>
+    <div class="splash-versao" id="splashVersao">v1.0.28</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 40px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -84,7 +87,7 @@
 <!-- MENU PRINCIPAL -->
 <div class="modal-overlay" id="modalPainelUnificado">
     <div class="modal" style="padding-top: 25px;">
-        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.27</span></h2>
+        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.28</span></h2>
         <button class="btn-outline" onclick="abrirModalCooperativa()">🏢 Dados da Cooperativa</button>
         <button class="btn-outline" onclick="abrirGerenciarContribuintes()">👥 Gerenciar Contribuintes</button>
         <button class="btn-outline" onclick="abrirModalConfigGerais()">⚙️ Configurações Gerais</button>
@@ -516,7 +519,10 @@
                     </div>
                     <div>
                         <label>Valor a Receber</label>
-                        <input type="text" id="pgValorSingle" oninput="maskMoeda(this)" class="money-input amount-due-input">
+                        <div id="pgValorSingleBox" class="input-affix money-affix amount-due-affix">
+                            <span>R$</span>
+                            <input type="text" id="pgValorSingle" oninput="maskMoeda(this)" class="money-input amount-due-input">
+                        </div>
                     </div>
                 </div>
                 <button id="btnRegistrarSingle" class="btn-action primary-wide payment-confirm-btn" onclick="registrarPagamentoSingle()"><span class="payment-btn-emoji">💲</span><span>Registrar Pagamento do Mês</span></button>
@@ -544,11 +550,23 @@
                     <div class="discount-dual-field">
                         <label>Desconto Extra</label>
                         <div class="discount-dual-grid">
-                            <input type="text" id="pgDescontoMulti" oninput="maskMoeda(this); calcPgtoMulti(false, 'valor');" placeholder="R$ 0,00">
-                            <input type="text" id="pgDescontoPctMulti" oninput="maskPercentual(this); calcPgtoMulti(false, 'pct');" placeholder="0%">
+                            <div class="input-affix money-affix">
+                                <span>R$</span>
+                                <input type="text" id="pgDescontoMulti" oninput="maskMoeda(this); calcPgtoMulti(false, 'valor');" placeholder="0,00">
+                            </div>
+                            <div class="input-affix percent-affix">
+                                <input type="text" id="pgDescontoPctMulti" oninput="maskPercentual(this); calcPgtoMulti(false, 'pct');" placeholder="0">
+                                <span>%</span>
+                            </div>
                         </div>
                     </div>
-                    <div><label>Total Calculado</label><input type="text" id="pgValorMulti" readonly class="money-input readonly"></div>
+                    <div>
+                        <label>Total Calculado</label>
+                        <div class="input-affix money-affix total-affix">
+                            <span>R$</span>
+                            <input type="text" id="pgValorMulti" readonly class="money-input readonly">
+                        </div>
+                    </div>
                 </div>
                 <div id="avisoErroMulti" class="multi-error"></div>
                 <div class="payment-grid payment-grid-action">
@@ -602,6 +620,6 @@
         </div>
     </div>
 </div>
-<script src="app.js"></script>
+<script src="app.js?v=1.0.28-symbolfix"></script>
 </body>
 </html>
