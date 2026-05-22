@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.32";
+﻿const APP_VERSION = "v1.0.34";
 const SYNC_PULL_INTERVAL_MS = 30000;
 
 try {
@@ -1824,11 +1824,58 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         salvarBanco(); fecharModal('modalFormAdmin'); abrirGerenciar('administradores');
     }
 
-    let colunasExcelMeses = Array.from({ length: 12 }, (_, i) => `${String(i + 1).padStart(2, '0')}-26`);
+    let colunasExcelMeses = Array.from({ length: 6 }, (_, i) => `${String(i + 1).padStart(2, '0')}-26`);
+    const colunasExcelFixas = ["Nome", "Placa", "Ano", "Categoria", "Data Laudo", "Data Seguro", "Data Licença", "Desconto Base (R$)"];
+
+    function colunaValorMesExcel(mes) { return `${mes} (R$)`; }
+    function colunaStatusMesExcel(mes) { return `Status ${mes}`; }
+
+    function montarCabecalhoExcel() {
+        let headers = [...colunasExcelFixas];
+        colunasExcelMeses.forEach(mes => {
+            headers.push(colunaValorMesExcel(mes), "Data Pagamento", colunaStatusMesExcel(mes));
+        });
+        return headers;
+    }
 
     function refMesFromColunaExcel(col) {
-        let partesCol = col.split('-');
-        return `20${partesCol[1]}-${partesCol[0]}`;
+        let match = String(col || '').match(/(\d{2})-(\d{2})/);
+        if(!match) return "";
+        return `20${match[2]}-${match[1]}`;
+    }
+
+    function normalizarHeaderExcel(valor) {
+        return String(valor || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function indexHeaderExcel(headers, nome) {
+        let alvo = normalizarHeaderExcel(nome);
+        return headers.findIndex(h => normalizarHeaderExcel(h) === alvo);
+    }
+
+    function getCellExcel(row, idx) {
+        return idx >= 0 && idx < row.length ? row[idx] : "";
+    }
+
+    function montarMapaMesesImportacao(headers) {
+        return colunasExcelMeses.map(mes => {
+            let valorIdx = headers.findIndex(h => {
+                let txt = normalizarHeaderExcel(h);
+                return txt === normalizarHeaderExcel(colunaValorMesExcel(mes)) || txt === normalizarHeaderExcel(mes);
+            });
+
+            let dataIdx = -1;
+            if(valorIdx >= 0 && normalizarHeaderExcel(headers[valorIdx + 1]).startsWith('data pagamento')) {
+                dataIdx = valorIdx + 1;
+            }
+
+            let statusIdx = indexHeaderExcel(headers, colunaStatusMesExcel(mes));
+            if(statusIdx < 0 && valorIdx >= 0 && normalizarHeaderExcel(headers[valorIdx + 2]).startsWith('status')) {
+                statusIdx = valorIdx + 2;
+            }
+
+            return { mes, ref: refMesFromColunaExcel(mes), valorIdx, dataIdx, statusIdx };
+        }).filter(meta => meta.valorIdx >= 0);
     }
 
     function carExcelKey(car, idx) {
@@ -1843,6 +1890,17 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         return (c.pagamentos || [])
             .filter(p => pagamentoRefereMes(p, mesRef))
             .reduce((acc, p) => acc + (parseFloat(p.valorPago) || 0), 0);
+    }
+
+    function getInfoPagamentoMes(c, mesRef) {
+        let pagamentos = (c.pagamentos || []).filter(p => pagamentoRefereMes(p, mesRef));
+        let valor = pagamentos.reduce((acc, p) => acc + (parseFloat(p.valorPago) || 0), 0);
+        let dataPagamento = pagamentos
+            .map(p => p.dataPagamento || "")
+            .filter(Boolean)
+            .sort()
+            .pop() || "";
+        return { valor: arredondar2(valor), dataPagamento };
     }
 
     function parseValorExcel(raw) {
@@ -1864,6 +1922,68 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     function formatValorExcel(valor) {
         valor = arredondar2(valor);
         return valor > 0 ? valor : '';
+    }
+
+    function parseDataExcel(dRaw) {
+        if(!dRaw) return "";
+        if(dRaw instanceof Date && !isNaN(dRaw)) {
+            return `${dRaw.getFullYear()}-${String(dRaw.getMonth() + 1).padStart(2, '0')}-${String(dRaw.getDate()).padStart(2, '0')}`;
+        }
+        if(typeof dRaw === 'number' && window.XLSX && XLSX.SSF && XLSX.SSF.parse_date_code) {
+            let parsed = XLSX.SSF.parse_date_code(dRaw);
+            if(parsed) return `${parsed.y}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
+        }
+
+        let str = String(dRaw).trim();
+        if(!str) return "";
+        if(/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+        if(str.includes('/')) {
+            let p = str.split('/');
+            if(p.length === 3) return `${p[2].padStart(4, '20')}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+        }
+        return str;
+    }
+
+    function parseDiaPagamentoExcel(raw, mesRef) {
+        if(raw === null || raw === undefined || raw === '') return "";
+        if(raw instanceof Date && !isNaN(raw)) {
+            return `${raw.getFullYear()}-${String(raw.getMonth() + 1).padStart(2, '0')}-${String(raw.getDate()).padStart(2, '0')}`;
+        }
+
+        let dia = null;
+        if(typeof raw === 'number') dia = Math.trunc(raw);
+        else {
+            let str = String(raw).trim();
+            if(!str) return "";
+            if(/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+            if(str.includes('/')) {
+                let p = str.split('/');
+                if(p.length === 3) return `${p[2].padStart(4, '20')}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+                dia = parseInt(p[0], 10);
+            } else {
+                dia = parseInt(str.replace(/\D/g, ''), 10);
+            }
+        }
+
+        let partes = mesRef.split('-');
+        let ultimoDia = new Date(parseInt(partes[0]), parseInt(partes[1]), 0).getDate();
+        if(!dia || dia < 1 || dia > ultimoDia) return "";
+        return `${mesRef}-${String(dia).padStart(2, '0')}`;
+    }
+
+    function getDiaPagamentoExcel(dataStr) {
+        if(!dataStr) return "";
+        let partes = String(dataStr).split('-');
+        if(partes.length === 3) return parseInt(partes[2], 10);
+        return "";
+    }
+
+    function statusExcelPermiteImportar(rawStatus, valorPago) {
+        if(valorPago <= 0) return false;
+        let status = normalizarHeaderExcel(rawStatus);
+        if(!status) return true;
+        if(status.includes('nao') || status.includes('pendente') || status.includes('aberto')) return false;
+        return status.includes('pago') || status.includes('sim') || status.includes('ok') || status.includes('regular') || status.includes('quitado') || status.includes('parcial') || valorPago > 0;
     }
 
     function calcularValoresExcelPorCarro(c, mesRef) {
@@ -1888,26 +2008,57 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         return mapa;
     }
 
+    function montarLinhaExcel(c, car = null, idx = -1) {
+        let linha = [
+            c.nome || "",
+            car ? (car.placa || "") : "",
+            car ? (car.ano || "") : "",
+            car ? (car.categoria || "") : "",
+            car && car.dataLaudo ? formatDataBR(car.dataLaudo) : "",
+            car && car.dataSeguro ? formatDataBR(car.dataSeguro) : "",
+            car && car.dataLicenca ? formatDataBR(car.dataLicenca) : "",
+            formatValorExcel(parseMoeda(c.desconto || "0"))
+        ];
+
+        colunasExcelMeses.forEach(mes => {
+            let mesRef = refMesFromColunaExcel(mes);
+            let info = getInfoPagamentoMes(c, mesRef);
+            let valor = info.valor;
+            if(car) {
+                let mapaMes = calcularValoresExcelPorCarro(c, mesRef);
+                valor = mapaMes.get(carExcelKey(car, idx)) || 0;
+            }
+            linha.push(formatValorExcel(valor), valor > 0 ? getDiaPagamentoExcel(info.dataPagamento) : "", valor > 0 ? "Pago" : "Não Pago");
+        });
+
+        return linha;
+    }
+
+    function aplicarLargurasExcel(ws, headers) {
+        ws['!cols'] = headers.map(h => {
+            if(h === 'Nome') return { wch: 24 };
+            if(['Placa', 'Categoria'].includes(h)) return { wch: 14 };
+            if(h === 'Desconto Base (R$)') return { wch: 18 };
+            if(h.startsWith('Data') || h.startsWith('Status')) return { wch: 16 };
+            return { wch: 12 };
+        });
+    }
+
     function exportarExcel() {
         if(!window.XLSX) return alert("A biblioteca do Excel não foi carregada. Verifique sua conexão com a internet.");
-        let data = [];
+        let headers = montarCabecalhoExcel();
+        let aoa = [headers];
+
         db.contribuintes.forEach(c => {
             if(!c.carros || c.carros.length === 0) {
-                let row = { "Nome": c.nome, "Placa": "", "Ano": "", "Categoria": "", "Data Laudo": "", "Data Seguro": "", "Data Licença": "" };
-                colunasExcelMeses.forEach(col => row[col] = formatValorExcel(somaPagamentosMes(c, refMesFromColunaExcel(col))));
-                data.push(row);
+                aoa.push(montarLinhaExcel(c));
             } else {
-                c.carros.forEach((car, idx) => {
-                    let row = { "Nome": c.nome, "Placa": car.placa, "Ano": car.ano, "Categoria": car.categoria, "Data Laudo": car.dataLaudo ? formatDataBR(car.dataLaudo) : "", "Data Seguro": car.dataSeguro ? formatDataBR(car.dataSeguro) : "", "Data Licença": car.dataLicenca ? formatDataBR(car.dataLicenca) : "" };
-                    colunasExcelMeses.forEach(col => {
-                        let mapaMes = calcularValoresExcelPorCarro(c, refMesFromColunaExcel(col));
-                        row[col] = formatValorExcel(mapaMes.get(carExcelKey(car, idx)) || 0);
-                    });
-                    data.push(row);
-                });
+                c.carros.forEach((car, idx) => aoa.push(montarLinhaExcel(c, car, idx)));
             }
         });
-        let ws = XLSX.utils.json_to_sheet(data);
+
+        let ws = XLSX.utils.aoa_to_sheet(aoa);
+        aplicarLargurasExcel(ws, headers);
         let wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Contribuintes");
         XLSX.writeFile(wb, "Contribuintes_" + getHojeSTR() + ".xlsx");
@@ -1915,17 +2066,21 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
     function baixarModeloExcel() {
         if(!window.XLSX) return alert("A biblioteca do Excel não foi carregada. Verifique sua conexão com a internet.");
+        let headers = montarCabecalhoExcel();
         let rowsModelo = [
-            { "Nome": "João Silva", "Placa": "ABC1D23", "Ano": "2020", "Categoria": "Van", "Data Laudo": "20/04/2026", "Data Seguro": "20/04/2026", "Data Licença": "20/04/2026" },
-            { "Nome": "João Silva", "Placa": "XYZ9A87", "Ano": "2022", "Categoria": "Carro", "Data Laudo": "20/04/2026", "Data Seguro": "20/04/2026", "Data Licença": "20/04/2026" }
+            ["João Silva", "ABC1D23", "2020", "Van", "20/04/2026", "20/04/2026", "20/04/2026", 20],
+            ["João Silva", "XYZ9A87", "2022", "Carro", "20/04/2026", "20/04/2026", "20/04/2026", 20]
         ];
-        rowsModelo.forEach((row, idx) => {
-            colunasExcelMeses.forEach(mes => row[mes] = '');
-            row['02-26'] = idx === 0 ? 100 : 80;
-            row['03-26'] = idx === 0 ? 100 : 80;
+
+        rowsModelo.forEach((linha, idx) => {
+            colunasExcelMeses.forEach(mes => {
+                let valor = (mes === '02-26' || mes === '03-26') ? (idx === 0 ? 100 : 80) : '';
+                linha.push(valor, valor ? 10 : '', valor ? 'Pago' : 'Não Pago');
+            });
         });
-        
-        let ws = XLSX.utils.json_to_sheet(rowsModelo);
+
+        let ws = XLSX.utils.aoa_to_sheet([headers, ...rowsModelo]);
+        aplicarLargurasExcel(ws, headers);
         let wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Modelo");
         XLSX.writeFile(wb, "Modelo_Importacao.xlsx");
@@ -1942,42 +2097,61 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 let data = new Uint8Array(evt.target.result);
                 let workbook = XLSX.read(data, {type: 'array'});
                 let firstSheet = workbook.SheetNames[0];
-                let rows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet]);
-                
+                let matriz = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { header: 1, defval: '' });
+                if(matriz.length < 2) throw new Error("Planilha vazia.");
+
+                let headers = matriz[0].map(h => String(h || '').trim());
+                let idxNome = indexHeaderExcel(headers, "Nome");
+                let idxPlaca = indexHeaderExcel(headers, "Placa");
+                let idxAno = indexHeaderExcel(headers, "Ano");
+                let idxCategoria = indexHeaderExcel(headers, "Categoria");
+                let idxDataLaudo = indexHeaderExcel(headers, "Data Laudo");
+                let idxDataSeguro = indexHeaderExcel(headers, "Data Seguro");
+                let idxDataLicenca = indexHeaderExcel(headers, "Data Licença");
+                let idxDescontoBase = indexHeaderExcel(headers, "Desconto Base (R$)");
+                let mesesImportacao = montarMapaMesesImportacao(headers);
+
+                if(idxNome < 0 || mesesImportacao.length === 0) throw new Error("Cabeçalho incompatível.");
+
                 let agrupado = {};
-                rows.forEach(r => {
-                    let nome = r["Nome"];
+                matriz.slice(1).forEach(row => {
+                    let nome = String(getCellExcel(row, idxNome) || '').trim();
                     if(!nome) return;
-                    if(!agrupado[nome]) agrupado[nome] = { telefones: [], desconto: "0,00", carros: [], pagamentosPorMes: {} };
+                    if(!agrupado[nome]) agrupado[nome] = { telefones: [], desconto: "", carros: [], pagamentosPorMes: {} };
+
+                    let descontoBase = parseValorExcel(getCellExcel(row, idxDescontoBase));
+                    if(descontoBase > 0) agrupado[nome].desconto = formatMoeda(descontoBase);
 
                     let pagamentosLinha = [];
-                    colunasExcelMeses.forEach(col => {
-                        let valorPago = parseValorExcel(r[col]);
-                        if(valorPago > 0) {
-                            let mesAnoRef = refMesFromColunaExcel(col);
-                            pagamentosLinha.push({ ref: mesAnoRef, valor: valorPago });
-                            if(!agrupado[nome].pagamentosPorMes[mesAnoRef]) {
-                                agrupado[nome].pagamentosPorMes[mesAnoRef] = { ref: mesAnoRef, valor: 0, data: `${mesAnoRef}-01` };
+                    mesesImportacao.forEach(meta => {
+                        let valorPago = parseValorExcel(getCellExcel(row, meta.valorIdx));
+                        let status = getCellExcel(row, meta.statusIdx);
+                        if(statusExcelPermiteImportar(status, valorPago)) {
+                            let dataPagamento = parseDiaPagamentoExcel(getCellExcel(row, meta.dataIdx), meta.ref) || `${meta.ref}-01`;
+                            pagamentosLinha.push({ ref: meta.ref, valor: valorPago, data: dataPagamento });
+                            if(!agrupado[nome].pagamentosPorMes[meta.ref]) {
+                                agrupado[nome].pagamentosPorMes[meta.ref] = { ref: meta.ref, valor: 0, data: dataPagamento };
                             }
-                            agrupado[nome].pagamentosPorMes[mesAnoRef].valor = arredondar2(agrupado[nome].pagamentosPorMes[mesAnoRef].valor + valorPago);
+                            agrupado[nome].pagamentosPorMes[meta.ref].valor = arredondar2(agrupado[nome].pagamentosPorMes[meta.ref].valor + valorPago);
+                            if(dataPagamento > agrupado[nome].pagamentosPorMes[meta.ref].data) {
+                                agrupado[nome].pagamentosPorMes[meta.ref].data = dataPagamento;
+                            }
                         }
                     });
                     
-                    if(r["Placa"]) {
-                        let parseData = (dRaw) => {
-                            if(!dRaw) return "";
-                            let str = dRaw.toString();
-                            return str.includes('/') ? str.split('/').reverse().join('-') : str;
-                        };
+                    let placa = String(getCellExcel(row, idxPlaca) || '').trim();
+                    if(placa) {
                         let primeiroPagamentoLinha = pagamentosLinha.length > 0 ? pagamentosLinha[0].ref : null;
 
                         agrupado[nome].carros.push({
                             id: 'car_'+Date.now()+Math.random(),
-                            placa: r["Placa"].toString().toUpperCase(), ano: r["Ano"] ? r["Ano"].toString() : "", 
-                            categoria: r["Categoria"]||"", valor: "0,00",
-                            dataLaudo: parseData(r["Data Laudo"]),
-                            dataSeguro: parseData(r["Data Seguro"]),
-                            dataLicenca: parseData(r["Data Licença"]),
+                            placa: placa.toUpperCase(),
+                            ano: getCellExcel(row, idxAno) ? String(getCellExcel(row, idxAno)) : "", 
+                            categoria: getCellExcel(row, idxCategoria) || "",
+                            valor: "0,00",
+                            dataLaudo: parseDataExcel(getCellExcel(row, idxDataLaudo)),
+                            dataSeguro: parseDataExcel(getCellExcel(row, idxDataSeguro)),
+                            dataLicenca: parseDataExcel(getCellExcel(row, idxDataLicenca)),
                             dataCadastro: primeiroPagamentoLinha ? `${primeiroPagamentoLinha}-01` : getHojeSTR(),
                             ativo: true
                         });
@@ -1995,13 +2169,13 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
                     if(cExistente) {
                         cExistente.carros = d.carros;
+                        if(d.desconto) cExistente.desconto = d.desconto;
                     } else {
-                        cExistente = { id: 'cont_'+Date.now()+Math.random(), nome: nome, telefones: [], desconto: "0,00", carros: d.carros, pagamentos: [] };
+                        cExistente = { id: 'cont_'+Date.now()+Math.random(), nome: nome, telefones: [], desconto: d.desconto || "0,00", carros: d.carros, pagamentos: [] };
                         db.contribuintes.push(cExistente);
                     }
                     if(!cExistente.pagamentos) cExistente.pagamentos = [];
 
-                    // Aplica pagamentos achados
                     Object.values(d.pagamentosPorMes).forEach(pTmp => {
                         let pgExiste = cExistente.pagamentos.some(pg => pagamentoRefereMes(pg, pTmp.ref));
                         if(!pgExiste) {
@@ -2029,6 +2203,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 abrirGerenciarContribuintes();
                 renderizarLista();
             } catch(err) {
+                console.error(err);
                 alert("Ocorreu um erro ao importar. Verifique o formato do arquivo.");
             }
         };

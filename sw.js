@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.32-statuspolish';
-// Atualiza o app shell para polimento do status e botoes do cabecalho.
+const CACHE_NAME = 'cooptrans-v1.0.34-exceldiscount';
+// Atualiza o app shell para desconto base na importacao/exportacao Excel.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=1.0.32-statuspolish',
-  './app.js?v=1.0.32-statuspolish',
+  './style.css?v=1.0.34-exceldiscount',
+  './app.js?v=1.0.34-exceldiscount',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',
