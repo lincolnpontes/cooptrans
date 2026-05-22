@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.26";
+﻿const APP_VERSION = "v1.0.27";
 const SYNC_PULL_INTERVAL_MS = 30000;
 
 try {
@@ -637,17 +637,15 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             let d = new Date(dataStr + "T00:00:00");
             let diffDias = Math.ceil((d - hoje) / (1000 * 60 * 60 * 24));
             let diasAviso = parseInt(confAlertas[confKey].dias) || 7;
-            let placa = escapeHTML(carro.placa);
-            
             if(diffDias < 0) {
                 let diasPassados = Math.abs(diffDias);
                 let labelDias = diasPassados === 1 ? 'dia' : 'dias';
-                alertas.push(`<span class="alert-chip-home alert-expired">🚨${nome} (${placa}): há ${diasPassados} ${labelDias}</span>`);
+                alertas.push(`<span class="alert-chip-home alert-expired">🚨${nome}: há ${diasPassados} ${labelDias}</span>`);
             } else if(diffDias === 0) {
-                alertas.push(`<span class="alert-chip-home alert-warning">⚠️${nome} (${placa}): em 0 dias</span>`);
+                alertas.push(`<span class="alert-chip-home alert-warning">⚠️${nome}: em 0 dias</span>`);
             } else if(diffDias <= diasAviso) {
                 let labelDias = diffDias === 1 ? 'dia' : 'dias';
-                alertas.push(`<span class="alert-chip-home alert-warning">⚠️${nome} (${placa}): em ${diffDias} ${labelDias}</span>`);
+                alertas.push(`<span class="alert-chip-home alert-warning">⚠️${nome}: em ${diffDias} ${labelDias}</span>`);
             }
         };
         
@@ -905,10 +903,10 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             let badge = c.ativo ? '<span class="vehicle-status active">Ativo</span>' : '<span class="vehicle-status archived">Arquivado</span>';
             html += `<div class="list-item-config vehicle-temp-card">
                 <div class="vehicle-temp-main">
-                    <div class="vehicle-temp-head"><span><span style="font-size:16px;">${escapeHTML(emj)}</span> <strong>${escapeHTML(c.placa)}</strong> - ${escapeHTML(c.ano)}</span>${badge}</div>
+                    <div class="vehicle-temp-title"><span style="font-size:16px;">${escapeHTML(emj)}</span> <strong>${escapeHTML(c.placa)}</strong> - ${escapeHTML(c.ano)}</div>
                     <small>${escapeHTML(c.categoria)} | R$ ${escapeHTML(c.valor)}</small>
                 </div>
-                <div><button class="btn-edit-small" onclick="abrirFormCarro(${i})">✏️</button></div>
+                <div class="vehicle-temp-actions">${badge}<button class="btn-edit-small" onclick="abrirFormCarro(${i})">✏️</button></div>
             </div>`;
         });
         box.innerHTML = html;
@@ -1201,13 +1199,13 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             pgSingle.value = formatMoeda(valorPendente);
             pgSingle.dataset.esperado = valorPendente;
             pgSingle.readOnly = false;
-            btnSingle.innerHTML = '💲 Registrar Pagamento do Mês';
+            btnSingle.innerHTML = '<span class="payment-btn-emoji">💲</span><span>Registrar Pagamento do Mês</span>';
         } else if (pago) {
             pgSingle.classList.add('amount-paid-input');
             pgSingle.value = formatMoeda(valorEsperado);
             pgSingle.dataset.esperado = valorEsperado;
             pgSingle.readOnly = true;
-            btnSingle.innerHTML = '✅ Mês já foi Pago';
+            btnSingle.innerHTML = '<span class="payment-btn-emoji">✅</span><span>Mês já foi Pago</span>';
             btnSingle.disabled = true;
             btnSingle.classList.add('payment-disabled-btn');
         } else {
@@ -1215,7 +1213,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             pgSingle.value = "0,00";
             pgSingle.dataset.esperado = "0";
             pgSingle.readOnly = true;
-            btnSingle.innerHTML = 'Sem valor a receber';
+            btnSingle.innerHTML = '<span>Sem valor a receber</span>';
             btnSingle.disabled = true;
             btnSingle.classList.add('payment-disabled-btn');
         }
@@ -1255,11 +1253,22 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let valorPago = parseMoeda(valorPagoStr);
         let dataPgto = document.getElementById('pgDataSingle').value;
         let valorEsperado = parseFloat(document.getElementById('pgValorSingle').dataset.esperado) || calcularValorPendenteMes(c, mesRef);
+        let valorOriginalMes = calcularValorEsperado(c, mesRef);
+        let jaTemParcial = calcularParciaisMes(c, mesRef) > 0;
 
         if(!dataPgto) return alert("Preencha a data do pagamento.");
         if(valorPago <= 0) return alert("Digite um valor válido para receber.");
 
         if(isMesPago(c, mesRef)) return alert("Este mês já consta como pago!");
+
+        if(jaTemParcial) {
+            salvarPagamentoSingle(id, c, mesRef, valorPago, dataPgto, {
+                valorOriginal: valorOriginalMes,
+                parcial: true,
+                tipoPagamento: 'parcial'
+            });
+            return;
+        }
 
         if(valorPago < valorEsperado) {
             pagamentoMenorPendente = { id, mesRef, valorPago, dataPgto, valorEsperado };
@@ -1978,6 +1987,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     }
     async function excluirTodoHistorico() { let frase = document.getElementById('inputExcluirTudo').value.trim().toLowerCase(); if(frase === "quero excluir todo o histórico") { if(!confirm("⚠️ TEM CERTEZA?")) return; db.contribuintes.forEach(c => c.pagamentos = []); marcarMudancaEstrutural(); document.getElementById('inputExcluirTudo').value = ''; fecharModal('modalConfigAvancadas'); alert("✅ Limpo!"); renderizarLista(); } else { alert("Frase incorreta."); } }
     function forcarAtualizacao() { if(confirm("Deseja forçar a atualização do aplicativo?")) { if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(function(registrations) { for(let registration of registrations) registration.update(); }); } window.location.href = window.location.pathname + '?nocache=' + new Date().getTime(); } }
+
 
 
 

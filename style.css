@@ -153,12 +153,16 @@
         .amount-paid-input { color:#2E7D32; background:#E8F5E9; border-color:#A5D6A7; font-weight:900; }
         .amount-neutral-input { color:#666; background:#fff; border-color:#ddd; font-weight:900; }
         .primary-wide { width: 100%; min-height: 42px; border-radius: 8px; font-size: 14px; display: flex; align-items: center; justify-content: center; }
-        .payment-confirm-btn { background:#FBC02D; color:#1b1b1b; border:1px solid #F9A825; font-weight:900; }
-        .payment-confirm-btn:active { background:#F9A825; }
+        .payment-confirm-btn { background:#FFE082; color:#1b1b1b; border:1px solid #FFD54F; font-weight:900; gap:8px; }
+        .payment-confirm-btn:active { background:#FFD54F; }
+        .payment-btn-emoji { font-size:24px; line-height:1; display:inline-flex; align-items:center; }
         .payment-confirm-btn:disabled, .payment-disabled-btn { background:#E8F5E9; color:#2E7D32; border-color:#A5D6A7; cursor:not-allowed; opacity:1; }
+        .receipt-title { margin:0 0 5px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
         .multi-toggle { margin:0 0 10px; display:flex; align-items:center; justify-content:center; gap:10px; text-align: left; }
+        .receipt-toggle { margin:0; justify-content:flex-end; flex-shrink:0; }
         .multi-toggle strong { display:block; font-size:14px; color:#333; }
         .multi-toggle small { display:block; font-size:11px; color:#777; font-weight:700; }
+        .receipt-toggle strong { font-size:12px; white-space:nowrap; }
         .payment-mode-box { display:none; opacity:0; pointer-events:none; transform:translateY(2px); }
         .payment-mode-box.open { display:block; opacity:1; pointer-events:auto; transform:none; animation: paymentModeIn .14s ease; }
         @keyframes paymentModeIn { from { opacity:0; transform:translateY(2px); } to { opacity:1; transform:none; } }
@@ -186,7 +190,7 @@
         .history-tag.discount { background:#E3F2FD; color:#1565C0; border:1px solid #90CAF9; }
         .vehicle-actions { display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
         .vehicle-action-card { width:100%; padding:10px; font-size:14px; text-align:left; border-radius:8px; border:1px solid rgba(0, 140, 74, 0.22); color:#222; background:white; cursor:pointer; }
-        .vehicle-action-head, .vehicle-temp-head { display:flex; align-items:center; justify-content:space-between; gap:8px; line-height:1.2; }
+        .vehicle-action-head, .vehicle-temp-head { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; line-height:1.2; }
         .vehicle-action-head b, .vehicle-temp-head b { color:var(--theme-base); }
         .vehicle-action-meta { margin-top:4px; font-size:12px; color:#666; font-weight:700; }
         .vehicle-alerts { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
@@ -195,6 +199,8 @@
         .vehicle-status.archived { color:#D32F2F; background:#FFEBEE; border:1px solid #EF9A9A; }
         .vehicle-temp-card { align-items:center; }
         .vehicle-temp-main { min-width:0; flex:1; }
+        .vehicle-temp-title { display:flex; align-items:center; gap:6px; line-height:1.2; }
+        .vehicle-temp-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
         .vehicle-temp-main small { color:#666; font-weight:700; }
         .empty-state { color:#999; text-align:center; font-size:13px; padding: 8px; }
 

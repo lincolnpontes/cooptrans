@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <link rel="icon" href="icons/icon-192.png">
-    <title>Cooptrans v1.0.26</title>
+    <title>Cooptrans v1.0.27</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <!-- Biblioteca Chart.js para Gráficos -->
@@ -21,7 +21,7 @@
 
 <div id="splashScreen">
     <img id="splashLogoObj" style="max-height: 100px; object-fit: contain; margin-bottom: 20px; border-radius: 10px; display: none;">
-    <div class="splash-versao" id="splashVersao">v1.0.26</div>
+    <div class="splash-versao" id="splashVersao">v1.0.27</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 40px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -84,7 +84,7 @@
 <!-- MENU PRINCIPAL -->
 <div class="modal-overlay" id="modalPainelUnificado">
     <div class="modal" style="padding-top: 25px;">
-        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.26</span></h2>
+        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.27</span></h2>
         <button class="btn-outline" onclick="abrirModalCooperativa()">🏢 Dados da Cooperativa</button>
         <button class="btn-outline" onclick="abrirGerenciarContribuintes()">👥 Gerenciar Contribuintes</button>
         <button class="btn-outline" onclick="abrirModalConfigGerais()">⚙️ Configurações Gerais</button>
@@ -489,18 +489,15 @@
         <div class="section-title" style="margin-top: 0;">Veículos Vinculados</div>
         <div id="listaCarrosAcoes" class="vehicle-actions"></div>
 
-        <div class="section-title" style="margin-bottom: 5px;">Recebimento</div>
+        <div class="section-title receipt-title">
+            <span>Recebimento</span>
+            <div class="multi-toggle receipt-toggle">
+                <label class="switch"><input type="checkbox" id="switchMultiMes" onchange="toggleMultiMes()"><span class="slider"></span></label>
+                <strong>Receber Múltiplos meses</strong>
+            </div>
+        </div>
         <div class="payment-panel">
             <div id="boxStatusPagamento" class="payment-status" style="display:none;"></div>
-
-            <!-- SWITCH MULTI MONTH -->
-            <div class="multi-toggle">
-                <label class="switch"><input type="checkbox" id="switchMultiMes" onchange="toggleMultiMes()"><span class="slider"></span></label>
-                <div>
-                    <strong>Receber período</strong>
-                    <small>Múltiplos meses de uma vez</small>
-                </div>
-            </div>
 
             <!-- SINGLE MONTH PAYMENT -->
             <div id="boxSingleMes" class="payment-mode-box open">
@@ -522,7 +519,7 @@
                         <input type="text" id="pgValorSingle" oninput="maskMoeda(this)" class="money-input amount-due-input">
                     </div>
                 </div>
-                <button id="btnRegistrarSingle" class="btn-action primary-wide payment-confirm-btn" onclick="registrarPagamentoSingle()">💲 Registrar Pagamento do Mês</button>
+                <button id="btnRegistrarSingle" class="btn-action primary-wide payment-confirm-btn" onclick="registrarPagamentoSingle()"><span class="payment-btn-emoji">💲</span><span>Registrar Pagamento do Mês</span></button>
             </div>
 
             <!-- MULTI MONTH PAYMENT -->
@@ -556,7 +553,7 @@
                 <div id="avisoErroMulti" class="multi-error"></div>
                 <div class="payment-grid payment-grid-action">
                     <div><label>Data do Pagamento</label><input type="date" id="pgDataMulti"></div>
-                    <button class="btn-action primary-wide payment-confirm-btn" onclick="registrarPagamentoMulti()">💲 Confirmar Período</button>
+                    <button class="btn-action primary-wide payment-confirm-btn" onclick="registrarPagamentoMulti()"><span class="payment-btn-emoji">💲</span><span>Confirmar Período</span></button>
                 </div>
             </div>
         </div>
