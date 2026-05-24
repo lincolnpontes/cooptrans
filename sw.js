@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.36-syncusers';
-// Atualiza o app shell para sincronizacao automatica, usuarios e arquivamento.
+const CACHE_NAME = 'cooptrans-v1.0.37-syncdelete';
+// Atualiza o app shell para sincronizacao por data, exclusoes e bloqueio de veiculos.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=1.0.36-syncusers',
-  './app.js?v=1.0.36-syncusers',
+  './style.css?v=1.0.37-syncdelete',
+  './app.js?v=1.0.37-syncdelete',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',

@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.36";
+﻿const APP_VERSION = "v1.0.37";
 const SYNC_PULL_INTERVAL_MS = 30000;
 const COBRANCA_INICIO_MES = "2026-05";
 
@@ -40,6 +40,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     let tempCategorias = [];
     let tempTelefones = [];
     let tempCarros = [];
+    let tempCarrosExcluidos = [];
     let tempPixCoop = [];
     let filtroViewAtual = 'todos'; 
     let chartArrecadacao = null;
@@ -66,8 +67,35 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 }
             },
             configs: { url: "", dadosBaixados: false, ultimaMudancaLocal: 0, ultimaSincronizacao: 0, syncRevision: 0, senhaAdmin: "1999" },
-            _deleted: { contribuintes: {}, pagamentos: {}, pix: {}, categorias: {}, administradores: {} }
+            _deleted: { contribuintes: {}, pagamentos: {}, pix: {}, categorias: {}, administradores: {}, carros: {} }
         };
+    }
+
+    function normalizarTextoId(valor) {
+        return String(valor || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '') || 'item';
+    }
+
+    function garantirIdsInternos(dados) {
+        (dados.contribuintes || []).forEach((c, cIdx) => {
+            if(!c.id) c.id = `cont_${normalizarTextoId(c.nome)}_${cIdx}`;
+            c.carros = Array.isArray(c.carros) ? c.carros : [];
+            c.pagamentos = Array.isArray(c.pagamentos) ? c.pagamentos : [];
+            c.carros.forEach((car, idx) => {
+                if(!car.id) car.id = `car_${normalizarTextoId(c.id)}_${normalizarTextoId(car.placa || car.categoria)}_${idx}`;
+                if(!car.updatedAt) car.updatedAt = Number(c.updatedAt || 0);
+                if(typeof car.ativo === 'undefined') car.ativo = true;
+            });
+            c.pagamentos.forEach((pg, idx) => {
+                if(!pg.id) pg.id = `pg_${normalizarTextoId(c.id)}_${normalizarTextoId(pg.mesAno || pg.labelRef)}_${normalizarTextoId(pg.dataPagamento)}_${normalizarTextoId(pg.valorPago)}_${idx}`;
+                if(!pg.updatedAt) pg.updatedAt = Number(c.updatedAt || 0);
+            });
+        });
+        return dados;
     }
 
     function carregarBanco() {
@@ -106,7 +134,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         dados._deleted.pix = dados._deleted.pix || {};
         dados._deleted.categorias = dados._deleted.categorias || {};
         dados._deleted.administradores = dados._deleted.administradores || {};
-        return dados;
+        dados._deleted.carros = dados._deleted.carros || {};
+        return garantirIdsInternos(dados);
     }
     
     function salvarBanco(opcoes = {}) {
@@ -134,6 +163,83 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         if(registro) registro.updatedAt = Date.now();
         return registro;
     }
+
+    function objetoMaisNovo(a, b) {
+        if(!a) return b || {};
+        if(!b) return a || {};
+        return Number(b.updatedAt || 0) >= Number(a.updatedAt || 0) ? b : a;
+    }
+
+    function mesclarExclusoes(a, b) {
+        const tipos = ['contribuintes', 'pagamentos', 'pix', 'categorias', 'administradores', 'carros'];
+        const result = {};
+        tipos.forEach((tipo) => {
+            result[tipo] = {};
+            const atual = (a && a[tipo]) || {};
+            const novo = (b && b[tipo]) || {};
+            Object.keys(atual).forEach((id) => result[tipo][id] = Number(atual[id] || 0));
+            Object.keys(novo).forEach((id) => result[tipo][id] = Math.max(Number(result[tipo][id] || 0), Number(novo[id] || 0)));
+        });
+        return result;
+    }
+
+    function mesclarListaPorData(atual = [], nova = [], excluidos = {}) {
+        const map = {};
+        atual.concat(nova).forEach((item) => {
+            if(!item) return;
+            const key = item.id || item.nome || item.chave;
+            if(!key) return;
+            map[key] = objetoMaisNovo(map[key], item);
+        });
+        return Object.keys(map)
+            .filter((id) => {
+                const deletadoEm = Number((excluidos || {})[id] || 0);
+                return !deletadoEm || deletadoEm < Number(map[id].updatedAt || 0);
+            })
+            .map((id) => map[id]);
+    }
+
+    function mesclarPagamentosPorData(atual = [], nova = [], excluidos = {}) {
+        return mesclarListaPorData(atual, nova, excluidos);
+    }
+
+    function mesclarContribuintesPorData(atual = [], nova = [], excluidos = {}) {
+        const map = {};
+        atual.forEach((item) => { if(item && item.id) map[item.id] = item; });
+        nova.forEach((item) => {
+            if(!item || !item.id) return;
+            const anterior = map[item.id];
+            const escolhido = { ...objetoMaisNovo(anterior, item) };
+            escolhido.carros = mesclarListaPorData((anterior && anterior.carros) || [], item.carros || [], (excluidos && excluidos.carros) || {});
+            escolhido.pagamentos = mesclarPagamentosPorData((anterior && anterior.pagamentos) || [], item.pagamentos || [], (excluidos && excluidos.pagamentos) || {});
+            map[item.id] = escolhido;
+        });
+        return Object.keys(map)
+            .filter((id) => {
+                const deletadoEm = Number((excluidos && excluidos.contribuintes && excluidos.contribuintes[id]) || 0);
+                return !deletadoEm || deletadoEm < Number(map[id].updatedAt || 0);
+            })
+            .map((id) => map[id]);
+    }
+
+    function mesclarBancosPorData(local, nuvem) {
+        local = normalizarBanco(local);
+        nuvem = normalizarBanco(nuvem);
+        const merged = normalizarBanco({ ...local });
+        merged._deleted = mesclarExclusoes(local._deleted, nuvem._deleted);
+        merged.cooperativa = objetoMaisNovo(local.cooperativa, nuvem.cooperativa);
+        merged.cooperativa.pixList = mesclarListaPorData(local.cooperativa.pixList || [], nuvem.cooperativa.pixList || [], merged._deleted.pix);
+        merged.configGerais = objetoMaisNovo(local.configGerais, nuvem.configGerais);
+        merged.categorias = mesclarListaPorData(local.categorias || [], nuvem.categorias || [], merged._deleted.categorias);
+        merged.administradores = mesclarListaPorData(local.administradores || [], nuvem.administradores || [], merged._deleted.administradores);
+        merged.contribuintes = mesclarContribuintesPorData(local.contribuintes || [], nuvem.contribuintes || [], merged._deleted);
+        merged.configs = { ...(local.configs || {}), ...(nuvem.configs || {}) };
+        merged.configs.url = (local.configs && local.configs.url) || (nuvem.configs && nuvem.configs.url) || '';
+        merged.configs.ultimaMudancaLocal = Math.max(Number(local.configs?.ultimaMudancaLocal || 0), Number(nuvem.configs?.ultimaMudancaLocal || 0));
+        merged.configs.ultimaSincronizacao = Math.max(Number(local.configs?.ultimaSincronizacao || 0), Number(nuvem.configs?.ultimaSincronizacao || 0));
+        merged.configs.syncRevision = Math.max(Number(local.configs?.syncRevision || 0), Number(nuvem.configs?.syncRevision || 0));
+        return normalizarBanco(merged);
+    }
     
     function abrirModal(id) {
         let el = document.getElementById(id);
@@ -152,10 +258,18 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     function aplicarBancoAtualizado(novoBanco, opcoes = {}) {
         if(!validarBancoImportado(novoBanco)) return false;
         let urlSalva = db.configs && db.configs.url;
-        db = normalizarBanco(novoBanco);
+        const ultimaMudancaAntes = Number(db.configs?.ultimaMudancaLocal || 0);
+        const houveMudancaDuranteSync = opcoes.syncStartedAt && ultimaMudancaAntes > opcoes.syncStartedAt;
+        db = mesclarBancosPorData(db, novoBanco);
         if(urlSalva) db.configs.url = urlSalva;
-        db.configs.ultimaSincronizacao = Date.now();
+        db.configs.ultimaSincronizacao = houveMudancaDuranteSync ? Number(db.configs.ultimaSincronizacao || 0) : Date.now();
         localStorage.setItem('cooptrans_v1', JSON.stringify(db));
+
+        if(houveMudancaDuranteSync) {
+            syncPendente = true;
+            clearTimeout(syncTimer);
+            syncTimer = setTimeout(() => sincronizarFundo(false, true), 1500);
+        }
 
         if(opcoes.render !== false) {
             aplicarTema();
@@ -167,7 +281,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 gerarGraficosComparativos();
             }
             if(document.getElementById('modalListagem') && getComputedStyle(document.getElementById('modalListagem')).display !== 'none') {
-                if(document.getElementById('btnAbrirTransferencia').style.display !== 'none') renderGerenciarContribuintesLista();
+                if(document.getElementById('inputBuscaGerenciarContrib').style.display !== 'none') renderGerenciarContribuintesLista();
             }
         }
         return true;
@@ -524,8 +638,18 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             let partes = val.split('-');
             let mesNome = getExtensoMes(partes[1]);
             document.getElementById('lblMesVisivel').innerText = `${mesNome} ${partes[0]}`;
+            atualizarCorMesReferencia(val);
         }
         try { renderizarLista(); } catch(e) { console.error("Erro ao renderizar lista", e); }
+    }
+
+    function atualizarCorMesReferencia(val) {
+        const box = document.querySelector('.header-month-slot .month-picker-box');
+        if(!box || !val) return;
+        const mesAtual = getHojeSTR().substring(0,7);
+        box.classList.remove('month-ref-past', 'month-ref-future');
+        if(val < mesAtual) box.classList.add('month-ref-past');
+        if(val > mesAtual) box.classList.add('month-ref-future');
     }
 
     function calcularValorEsperado(c, mesRef) {
@@ -967,7 +1091,6 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         document.getElementById('btnNovoListagem').onclick = () => abrirFormContribuinte(null);
         document.getElementById('btnVoltarListagem').onclick = () => { fecharModal('modalListagem'); abrirModal('modalPainelUnificado'); };
         document.getElementById('boxAcoesExtrasExcel').style.display = 'none';
-        document.getElementById('btnAbrirTransferencia').style.display = 'block';
         document.getElementById('inputBuscaGerenciarContrib').style.display = 'block';
         document.getElementById('inputBuscaGerenciarContrib').value = '';
         renderGerenciarContribuintesLista();
@@ -987,6 +1110,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 <div style="flex-shrink:0; margin-left:10px;">
                     <button style="background:none; border:none; font-size:20px; cursor:pointer;" onclick="abrirFormContribuinte('${c.id}')">✏️</button>
                     <button class="archive-btn" title="${arquivado ? 'Restaurar' : 'Arquivar'}" onclick="alternarArquivoContribuinte('${c.id}')">${arquivado ? '↩️' : '📦'}</button>
+                    <button class="delete-small-btn" title="Excluir" onclick="excluirContribuinte('${c.id}')">🗑️</button>
                 </div>
             </div>`; 
         });
@@ -997,7 +1121,6 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     fecharModal = function(id) {
         if(id === 'modalListagem') {
             document.getElementById('boxAcoesExtrasExcel').style.display = 'none';
-            document.getElementById('btnAbrirTransferencia').style.display = 'none';
             document.getElementById('inputBuscaGerenciarContrib').style.display = 'none';
         }
         oldFecharModal(id);
@@ -1017,114 +1140,29 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         renderizarLista();
     }
 
+    function excluirContribuinte(id) {
+        let c = db.contribuintes.find(x => x.id === id);
+        if(!c) return;
+        let frase = prompt(`Para excluir ${c.nome || 'este contribuinte'}, digite: quero excluir`);
+        if((frase || '').trim().toLowerCase() !== 'quero excluir') {
+            alert("Exclusão cancelada. A frase digitada não confere.");
+            return;
+        }
+        (c.pagamentos || []).forEach(pg => registrarExclusao('pagamentos', pg.id));
+        (c.carros || []).forEach(car => registrarExclusao('carros', car.id));
+        registrarExclusao('contribuintes', id);
+        db.contribuintes = db.contribuintes.filter(x => x.id !== id);
+        salvarBanco();
+        renderGerenciarContribuintesLista();
+        renderizarLista();
+    }
+
     function recalcularTotalContribuinteRegistro(c) {
         if(!c) return;
         let somaCarros = (c.carros || []).filter(car => car.ativo).reduce((acc, car) => acc + parseMoeda(car.valor), 0);
         let desc = parseMoeda(c.desconto || "0");
         c.valorTotal = formatMoeda(Math.max(0, somaCarros - desc));
         tocarRegistro(c);
-    }
-
-    function getContribuintesTransferencia() {
-        return [...db.contribuintes].sort((a,b) => (a.nome || '').localeCompare(b.nome || ''));
-    }
-
-    function preencherSelectContribuintesTransferencia(selectId, excluirId = null) {
-        let select = document.getElementById(selectId);
-        let contribs = getContribuintesTransferencia().filter(c => c.id !== excluirId);
-        select.innerHTML = contribs.map(c => `<option value="${escapeHTML(c.id)}">${escapeHTML(c.nome || 'Sem nome')}</option>`).join('');
-    }
-
-    function abrirTransferenciaVeiculo() {
-        if(db.contribuintes.length < 2) return alert("É preciso ter pelo menos dois contribuintes para transferir.");
-        preencherSelectContribuintesTransferencia('transferOrigem');
-        atualizarTransferenciaVeiculo();
-        abrirModal('modalTransferirVeiculo');
-    }
-
-    function atualizarTransferenciaVeiculo() {
-        let origemId = document.getElementById('transferOrigem').value;
-        let origem = db.contribuintes.find(c => c.id === origemId);
-        let selectCarro = document.getElementById('transferCarro');
-        let carros = (origem && origem.carros) ? origem.carros : [];
-
-        if(carros.length === 0) {
-            selectCarro.innerHTML = '<option value="">Nenhum veículo na origem</option>';
-        } else {
-            selectCarro.innerHTML = carros.map((car, idx) => {
-                let label = `${car.placa || 'Sem placa'} - ${car.categoria || 'Sem categoria'}${car.ano ? ' / ' + car.ano : ''}`;
-                return `<option value="${idx}">${escapeHTML(label)}</option>`;
-            }).join('');
-        }
-
-        preencherSelectContribuintesTransferencia('transferDestino', origemId);
-        atualizarResumoTransferencia();
-    }
-
-    function atualizarResumoTransferencia() {
-        let origem = db.contribuintes.find(c => c.id === document.getElementById('transferOrigem').value);
-        let destino = db.contribuintes.find(c => c.id === document.getElementById('transferDestino').value);
-        let carroIdx = parseInt(document.getElementById('transferCarro').value, 10);
-        let carro = origem && origem.carros ? origem.carros[carroIdx] : null;
-        let box = document.getElementById('transferResumo');
-
-        if(!origem || !destino || !carro) {
-            box.innerHTML = "Selecione origem, veículo e destino.";
-            return;
-        }
-
-        let qtdPagamentos = (origem.pagamentos || []).length;
-        let aviso = (origem.carros || []).length > 1
-            ? '<span class="warn">Atenção: o histórico fica no contribuinte. Esta ação moverá todos os pagamentos da origem, mesmo que ela tenha mais veículos.</span>'
-            : '';
-
-        box.innerHTML = `
-            <div><b>Origem:</b> ${escapeHTML(origem.nome || 'Sem nome')}</div>
-            <div><b>Veículo:</b> ${escapeHTML(carro.placa || 'Sem placa')}</div>
-            <div><b>Destino:</b> ${escapeHTML(destino.nome || 'Sem nome')}</div>
-            <div><b>Pagamentos que serão movidos:</b> ${qtdPagamentos}</div>
-            ${aviso}
-        `;
-    }
-
-    function confirmarTransferenciaVeiculo() {
-        let origemId = document.getElementById('transferOrigem').value;
-        let destinoId = document.getElementById('transferDestino').value;
-        let carroIdx = parseInt(document.getElementById('transferCarro').value, 10);
-        let origem = db.contribuintes.find(c => c.id === origemId);
-        let destino = db.contribuintes.find(c => c.id === destinoId);
-
-        if(!origem || !destino || origemId === destinoId) return alert("Selecione contribuintes diferentes.");
-        if(!origem.carros || isNaN(carroIdx) || !origem.carros[carroIdx]) return alert("Selecione um veículo válido.");
-
-        let carro = origem.carros[carroIdx];
-        let qtdPagamentos = (origem.pagamentos || []).length;
-        let avisoExtra = (origem.carros || []).length > 1
-            ? "\n\nAtenção: a origem tem mais de um veículo. Como o histórico fica no contribuinte, TODOS os pagamentos da origem serão movidos."
-            : "";
-
-        if(!confirm(`Transferir o veículo ${carro.placa || 'sem placa'} de ${origem.nome} para ${destino.nome}, junto com ${qtdPagamentos} pagamento(s)?${avisoExtra}`)) return;
-
-        if(!destino.carros) destino.carros = [];
-        if(!destino.pagamentos) destino.pagamentos = [];
-
-        destino.carros.push({ ...carro, id: carro.id || 'car_' + Date.now() });
-        destino.pagamentos.push(...(origem.pagamentos || []).map((pg, idx) => ({
-            ...pg,
-            id: 'pg_mov_' + Date.now() + '_' + idx + '_' + Math.random(),
-            updatedAt: Date.now()
-        })));
-
-        origem.carros.splice(carroIdx, 1);
-        origem.pagamentos = [];
-        recalcularTotalContribuinteRegistro(origem);
-        recalcularTotalContribuinteRegistro(destino);
-
-        salvarBanco();
-        fecharModal('modalTransferirVeiculo');
-        abrirGerenciarContribuintes();
-        renderizarLista();
-        alert("Transferência concluída. Confira os cadastros e, se estiver tudo certo, exclua o cadastro duplicado.");
     }
 
     function abrirFormContribuinte(id, fromAcoes = false) {
@@ -1134,6 +1172,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         document.getElementById('contFromAcoes').value = fromAcoes ? 'true' : 'false';
         tempTelefones = [];
         tempCarros = [];
+        tempCarrosExcluidos = [];
         
         if(id) {
             let c = db.contribuintes.find(x => x.id === id);
@@ -1180,6 +1219,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         if(!nome) return alert("Digite o nome.");
         
         let id = document.getElementById('contId').value || 'cont_' + Date.now();
+        const anterior = db.contribuintes.find(x=>x.id===id);
+        tempCarrosExcluidos.forEach(carId => registrarExclusao('carros', carId));
         let novo = {
             id: id,
             nome: nome,
@@ -1187,7 +1228,9 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             desconto: document.getElementById('contDesconto').value,
             valorTotal: document.getElementById('contValor').value,
             carros: tempCarros,
-            pagamentos: db.contribuintes.find(x=>x.id===id)?.pagamentos || [],
+            pagamentos: anterior?.pagamentos || [],
+            arquivado: anterior?.arquivado || false,
+            ativo: anterior ? anterior.ativo !== false : true,
             updatedAt: Date.now()
         };
         
@@ -1213,7 +1256,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         tempCarros.forEach((c, i) => {
             let catObj = db.categorias.find(x => x.nome === c.categoria);
             let emj = catObj && catObj.emoji ? catObj.emoji : '🚗';
-            let badge = c.ativo ? '<span class="vehicle-status active">Ativo</span>' : '<span class="vehicle-status archived">Arquivado</span>';
+            let badge = c.ativo ? '<span class="vehicle-status active">Ativo</span>' : '<span class="vehicle-status archived">Bloqueado</span>';
             html += `<div class="list-item-config vehicle-temp-card">
                 <div class="vehicle-temp-main">
                     <div class="vehicle-temp-title"><span style="font-size:16px;">${escapeHTML(emj)}</span> <strong>${escapeHTML(c.placa)}</strong> - ${escapeHTML(c.ano)}</div>
@@ -1230,6 +1273,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let contId = document.getElementById('acoesContId').value;
         let c = db.contribuintes.find(x => x.id === contId);
         tempCarros = c.carros ? JSON.parse(JSON.stringify(c.carros)) : [];
+        tempCarrosExcluidos = [];
         abrirFormCarro(carIdx);
     }
 
@@ -1251,6 +1295,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             document.getElementById('carCadastro').value = c.dataCadastro || getHojeSTR();
             document.getElementById('carArquivado').checked = !c.ativo;
             document.getElementById('carMotivo').value = c.motivoArquivamento || '';
+            let btnExcluirCarro = document.getElementById('btnExcluirCarro');
+            if(btnExcluirCarro) btnExcluirCarro.style.display = 'inline-flex';
         } else {
             document.getElementById('carroEditId').value = '';
             document.getElementById('carPlaca').value = '';
@@ -1263,6 +1309,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             document.getElementById('carCadastro').value = getHojeSTR();
             document.getElementById('carArquivado').checked = false;
             document.getElementById('carMotivo').value = '';
+            let btnExcluirCarro = document.getElementById('btnExcluirCarro');
+            if(btnExcluirCarro) btnExcluirCarro.style.display = 'none';
         }
         toggleMotivoArquivamento();
         verificarDatasCarroUI();
@@ -1333,7 +1381,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let isArq = document.getElementById('carArquivado').checked;
         let motivo = document.getElementById('carMotivo').value.trim();
         
-        if(isArq && !motivo) return alert("Por favor, informe o motivo do arquivamento.");
+        if(isArq && !motivo) return alert("Por favor, informe o motivo do bloqueio.");
 
         let novoCar = {
             id: (idx !== '' && tempCarros[idx].id) ? tempCarros[idx].id : 'car_'+Date.now(),
@@ -1346,7 +1394,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             dataLicenca: document.getElementById('carLicenca').value,
             dataCadastro: document.getElementById('carCadastro').value,
             ativo: !isArq,
-            motivoArquivamento: isArq ? motivo : ''
+            motivoArquivamento: isArq ? motivo : '',
+            updatedAt: Date.now()
         };
 
         if(idx !== '') tempCarros[idx] = novoCar;
@@ -1480,7 +1529,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 let catObj = db.categorias.find(x => x.nome === car.categoria);
                 let emj = catObj && catObj.emoji ? catObj.emoji : '🚗';
                 let alertas = checarAlertasCarro(car);
-                let status = car.ativo ? '<span class="vehicle-status active">Ativo</span>' : '<span class="vehicle-status archived">Arquivado</span>';
+                let status = car.ativo ? '<span class="vehicle-status active">Ativo</span>' : '<span class="vehicle-status archived">Bloqueado</span>';
                 boxCarros.innerHTML += `<button class="vehicle-action-card" onclick="abrirCarroFromAcoes(${idx})">
                     <div class="vehicle-action-head">
                         <span><b>${escapeHTML(emj)} ${escapeHTML(car.placa)}</b> ${escapeHTML(car.ano || '')}</span>
@@ -2034,7 +2083,6 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             document.getElementById('btnNovoListagem').onclick = () => abrirFormAdmin(null);
             document.getElementById('btnVoltarListagem').onclick = () => { fecharModal('modalListagem'); abrirModal('modalPainelUnificado'); };
             document.getElementById('boxAcoesExtrasExcel').style.display = 'none';
-            document.getElementById('btnAbrirTransferencia').style.display = 'none';
             document.getElementById('inputBuscaGerenciarContrib').style.display = 'none';
             let htmlLista = '';
             db.administradores.forEach((a) => {
@@ -2049,6 +2097,36 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             });
             document.getElementById('conteudoListagem').innerHTML = htmlLista;
             abrirModal('modalListagem');
+        }
+    }
+
+    function solicitarExclusaoCarroTemp() {
+        let idx = document.getElementById('carroEditId').value;
+        if(idx === '' || !tempCarros[idx]) return;
+        let car = tempCarros[idx];
+        let frase = prompt(`Para excluir o veículo ${car.placa || ''}, digite: quero excluir`);
+        if((frase || '').trim().toLowerCase() !== 'quero excluir') {
+            alert("Exclusão cancelada. A frase digitada não confere.");
+            return;
+        }
+
+        let isFromAcoes = document.getElementById('modalAcoesContribuinte').style.display === 'flex';
+        if(isFromAcoes && car.id) registrarExclusao('carros', car.id);
+        if(!isFromAcoes && car.id) tempCarrosExcluidos.push(car.id);
+        tempCarros.splice(parseInt(idx, 10), 1);
+        fecharModal('modalFormCarro');
+
+        if(isFromAcoes) {
+            let contId = document.getElementById('acoesContId').value;
+            let c = db.contribuintes.find(x => x.id === contId);
+            if(!c) return;
+            c.carros = tempCarros;
+            recalcularTotalContribuinteRegistro(c);
+            salvarBanco();
+            abrirAcoesContribuinte(contId);
+            renderizarLista();
+        } else {
+            renderListaCarros();
         }
     }
 
@@ -2547,6 +2625,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
         syncPendente = false;
         isSyncingFundo = true;
+        const syncStartedAt = Date.now();
         let indicador = document.getElementById('syncIndicador');
         indicador.style.opacity = '1';
 
@@ -2561,7 +2640,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             let retorno = await res.json().catch(() => null);
             if(retorno && retorno.ok) {
                 if(retorno.dados && validarBancoImportado(retorno.dados)) {
-                    aplicarBancoAtualizado(retorno.dados);
+                    aplicarBancoAtualizado(retorno.dados, { syncStartedAt });
                 } else {
                     db.configs.syncRevision = retorno.revision || db.configs.syncRevision || 0;
                     db.configs.ultimaSincronizacao = Date.now();
@@ -2604,7 +2683,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             if(!silencioso) alert("Não foi possível puxar os dados da nuvem.");
         }
     }
-    async function forcarEnvioNuvemCompleto() { if(!db.configs.url) return alert("Configure a URL!"); document.getElementById('loadingOverlay').style.display = 'flex'; try { let res = await fetch(db.configs.url, { method: 'POST', redirect: "follow", headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'salvar_banco', dados: db }) }); if(!res.ok) throw new Error("Erro"); alert("✅ Backup salvo!"); } catch(e) { alert("❌ Falha."); } finally { document.getElementById('loadingOverlay').style.display = 'none'; } }
+    async function forcarEnvioNuvemCompleto() { if(!db.configs.url) return alert("Configure a URL!"); document.getElementById('loadingOverlay').style.display = 'flex'; try { let syncStartedAt = Date.now(); let res = await fetch(db.configs.url, { method: 'POST', redirect: "follow", headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'salvar_banco', dados: db }) }); if(!res.ok) throw new Error("Erro"); let retorno = await res.json().catch(() => null); if(retorno && retorno.dados && validarBancoImportado(retorno.dados)) aplicarBancoAtualizado(retorno.dados, { syncStartedAt }); alert("✅ Backup salvo!"); } catch(e) { alert("❌ Falha."); } finally { document.getElementById('loadingOverlay').style.display = 'none'; } }
     
     function exportarDadosBackup() { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db)); const downloadAnchorNode = document.createElement('a'); downloadAnchorNode.setAttribute("href", dataStr); downloadAnchorNode.setAttribute("download", "cooptrans_bkp_" + getHojeSTR() + ".json"); document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove(); }
     function importarDadosBackup(event) {
@@ -2634,7 +2713,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     function validarBancoImportado(dados) {
         return !!(dados && dados.app_id === "cooptrans" && dados.cooperativa && typeof dados.cooperativa === 'object');
     }
-    async function excluirTodoHistorico() { let frase = document.getElementById('inputExcluirTudo').value.trim().toLowerCase(); if(frase === "quero excluir todo o histórico") { if(!confirm("⚠️ TEM CERTEZA?")) return; db.contribuintes.forEach(c => c.pagamentos = []); marcarMudancaEstrutural(); document.getElementById('inputExcluirTudo').value = ''; fecharModal('modalConfigAvancadas'); alert("✅ Limpo!"); renderizarLista(); } else { alert("Frase incorreta."); } }
+    async function excluirTodoHistorico() { let frase = document.getElementById('inputExcluirTudo').value.trim().toLowerCase(); if(frase === "quero excluir todo o histórico") { if(!confirm("⚠️ TEM CERTEZA?")) return; db.contribuintes.forEach(c => { (c.pagamentos || []).forEach(pg => registrarExclusao('pagamentos', pg.id)); c.pagamentos = []; tocarRegistro(c); }); marcarMudancaEstrutural(); document.getElementById('inputExcluirTudo').value = ''; fecharModal('modalConfigAvancadas'); alert("✅ Limpo!"); renderizarLista(); } else { alert("Frase incorreta."); } }
     async function forcarAtualizacao() {
         if(!confirm("Deseja forçar a atualização do aplicativo?")) return;
         try {
