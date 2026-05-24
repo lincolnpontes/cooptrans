@@ -13,18 +13,18 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <link rel="icon" href="icons/icon-192.png">
-    <title>Cooptrans v1.0.35</title>
+    <title>Cooptrans v1.0.36</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <!-- Biblioteca Chart.js para Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
-    <link rel="stylesheet" href="style.css?v=1.0.35-mergecontributors">
+    <link rel="stylesheet" href="style.css?v=1.0.36-syncusers">
 </head>
 <body>
 
 <div id="splashScreen">
     <img id="splashLogoObj" style="max-height: 100px; object-fit: contain; margin-bottom: 20px; border-radius: 10px; display: none;">
-    <div class="splash-versao" id="splashVersao">v1.0.35</div>
+    <div class="splash-versao" id="splashVersao">v1.0.36</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 40px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -42,7 +42,7 @@
     <div class="modal login-modal">
         <div class="login-title">
             <strong>Cooptrans</strong>
-            <span id="loginAppVersion">v1.0.35</span>
+            <span id="loginAppVersion">v1.0.36</span>
         </div>
         <p class="login-subtitle" id="loginAdminTexto">Informe a senha do administrador para entrar.</p>
         <div class="form-group">
@@ -129,11 +129,11 @@
 <!-- MENU PRINCIPAL -->
 <div class="modal-overlay" id="modalPainelUnificado">
     <div class="modal" style="padding-top: 25px;">
-        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.35</span></h2>
-        <button class="btn-outline" onclick="abrirModalCooperativa()">🏢 Dados da Cooperativa</button>
+        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.36</span></h2>
+        <button class="btn-outline" onclick="abrirCooperativaComPermissao()">🏢 Dados da Cooperativa</button>
         <button class="btn-outline" onclick="abrirGerenciarContribuintes()">👥 Gerenciar Contribuintes</button>
-        <button class="btn-outline" onclick="abrirModalConfigGerais()">⚙️ Configurações Gerais</button>
-        <button class="btn-outline" onclick="abrirGerenciar('administradores')">🛡️ Gerenciar Administradores</button>
+        <button class="btn-outline" onclick="abrirConfigGeraisComPermissao()">⚙️ Configurações Gerais</button>
+        <button class="btn-outline" onclick="abrirUsuariosComPermissao()">👤 Gerenciar Usuários</button>
         <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
         <h3 style="font-size: 16px; color: #d32f2f; margin-top: 15px; margin-bottom: 10px;">Avançado</h3>
         <button class="btn-danger" style="width: 100%; margin-bottom: 10px;" onclick="solicitarAcessoAvancado()">⚠️ Configurações Avançadas</button>
@@ -165,6 +165,7 @@
             <div class="dash-card">
                 <div class="title">Veículos Ativos</div>
                 <div class="value" id="dashTotalCarros">0</div>
+                <div class="sub-value" id="dashTotalCarrosTipo">0 grandes | 0 pequenos</div>
             </div>
             <div class="dash-card full" style="background:#E3F2FD; border-color:#1565C0;">
                 <div class="title" style="color:#0D47A1;">Total Esperado (Mês)</div>
@@ -277,6 +278,7 @@
             <input type="file" id="fileImportExcel" style="display:none;" accept=".xlsx, .xls" onchange="importarExcel(event)">
         </div>
         <button id="btnAbrirTransferencia" class="merge-tool-btn" onclick="abrirTransferenciaVeiculo()" style="display:none;">🔀 Mesclar / transferir veículo</button>
+        <input type="text" id="inputBuscaGerenciarContrib" class="manage-search-input" placeholder="Buscar contribuinte..." oninput="renderGerenciarContribuintesLista()" style="display:none;">
 
         <div style="display: flex; gap: 5px; margin-bottom: 15px; flex-shrink: 0; flex-wrap:wrap;">
             <button class="btn-action" id="btnNovoListagem" style="flex: 2; padding: 10px; font-size: 14px; border-radius: 8px; display: flex; justify-content: center; align-items: center; gap: 8px;">
@@ -431,13 +433,34 @@
     </div>
 </div>
 
-<!-- FORM ADMINISTRADOR -->
+<!-- CONFIRMAR EXCLUSÃO DE CATEGORIA -->
+<div class="modal-overlay" id="modalExcluirCategoria" style="z-index: 2400;">
+    <div class="modal">
+        <div class="modal-title">
+            <span>Apagar Categoria</span>
+            <button class="icon-btn" onclick="fecharModal('modalExcluirCategoria')">✖</button>
+        </div>
+        <div class="transfer-note">Para apagar a categoria <b id="nomeCategoriaExcluir"></b>, digite a frase exata e informe a senha do painel avançado.</div>
+        <input type="hidden" id="idxCategoriaExcluir">
+        <div class="form-group"><label>Frase de confirmação</label><input type="text" id="fraseExcluirCategoria" placeholder="eu quero apagar essa categoria"></div>
+        <div class="form-group"><label>Senha do painel avançado</label><input type="password" id="senhaExcluirCategoria" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')"></div>
+        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalExcluirCategoria')">Cancelar</button><button class="btn-danger" onclick="confirmarExclusaoCategoria()">Apagar</button></div>
+    </div>
+</div>
+
+<!-- FORM USUÁRIO -->
 <div class="modal-overlay" id="modalFormAdmin">
     <div class="modal">
-        <div class="modal-title">Administrador</div>
+        <div class="modal-title">Usuário</div>
         <input type="hidden" id="adminId">
-        <div class="form-group"><label>Nome do Perfil:</label><input type="text" id="adminNome"></div>
-        <div class="form-group"><label>Senha do Perfil:</label><input type="password" id="adminSenha" placeholder="Senha numérica" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')"></div>
+        <div class="form-group"><label>Nome do Usuário:</label><input type="text" id="adminNome"></div>
+        <div class="form-group"><label>Senha do Usuário:</label><input type="password" id="adminSenha" placeholder="Senha numérica" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')"></div>
+        <label class="permission-check"><input type="checkbox" id="adminIsAdmin" onchange="togglePermissoesUsuario()"> Administrador</label>
+        <div id="boxPermissoesUsuario" class="permissions-box">
+            <label class="permission-check"><input type="checkbox" id="permCooperativa"> Acesso aos dados da cooperativa</label>
+            <label class="permission-check"><input type="checkbox" id="permConfigGerais"> Acesso às configurações gerais</label>
+            <label class="permission-check"><input type="checkbox" id="permUsuarios"> Acesso a gerenciar usuários</label>
+        </div>
         <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalFormAdmin'); abrirGerenciar('administradores');">Cancelar</button><button class="btn-action" onclick="salvarAdmin()">Salvar</button></div>
     </div>
 </div>
@@ -691,6 +714,6 @@
         </div>
     </div>
 </div>
-<script src="app.js?v=1.0.35-mergecontributors"></script>
+<script src="app.js?v=1.0.36-syncusers"></script>
 </body>
 </html>

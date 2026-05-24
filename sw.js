@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.35-mergecontributors';
-// Atualiza o app shell para ferramenta temporaria de mesclar contribuintes.
+const CACHE_NAME = 'cooptrans-v1.0.36-syncusers';
+// Atualiza o app shell para sincronizacao automatica, usuarios e arquivamento.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=1.0.35-mergecontributors',
-  './app.js?v=1.0.35-mergecontributors',
+  './style.css?v=1.0.36-syncusers',
+  './app.js?v=1.0.36-syncusers',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',

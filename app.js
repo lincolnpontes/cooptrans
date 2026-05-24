@@ -1,5 +1,6 @@
-﻿const APP_VERSION = "v1.0.35";
+﻿const APP_VERSION = "v1.0.36";
 const SYNC_PULL_INTERVAL_MS = 30000;
+const COBRANCA_INICIO_MES = "2026-05";
 
 try {
             let s = localStorage.getItem('cooptrans_v1');
@@ -65,7 +66,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 }
             },
             configs: { url: "", dadosBaixados: false, ultimaMudancaLocal: 0, ultimaSincronizacao: 0, syncRevision: 0, senhaAdmin: "1999" },
-            _deleted: { contribuintes: {}, pagamentos: {}, pix: {}, categorias: {} }
+            _deleted: { contribuintes: {}, pagamentos: {}, pix: {}, categorias: {}, administradores: {} }
         };
     }
 
@@ -104,6 +105,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         dados._deleted.pagamentos = dados._deleted.pagamentos || {};
         dados._deleted.pix = dados._deleted.pix || {};
         dados._deleted.categorias = dados._deleted.categorias || {};
+        dados._deleted.administradores = dados._deleted.administradores || {};
         return dados;
     }
     
@@ -147,16 +149,66 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     function fecharModal(id) { document.getElementById(id).style.display = 'none'; }
     function marcarMudancaEstrutural() { db.configs.ultimaMudancaLocal = Date.now(); salvarBanco(); }
 
+    function aplicarBancoAtualizado(novoBanco, opcoes = {}) {
+        if(!validarBancoImportado(novoBanco)) return false;
+        let urlSalva = db.configs && db.configs.url;
+        db = normalizarBanco(novoBanco);
+        if(urlSalva) db.configs.url = urlSalva;
+        db.configs.ultimaSincronizacao = Date.now();
+        localStorage.setItem('cooptrans_v1', JSON.stringify(db));
+
+        if(opcoes.render !== false) {
+            aplicarTema();
+            renderizarCabecalhoPrincipal();
+            atualizarPerfilAdminUI();
+            try { atualizarTextoMesGeral(); } catch(e) {}
+            if(document.getElementById('modalPainelResultados') && getComputedStyle(document.getElementById('modalPainelResultados')).display !== 'none') {
+                renderizarResumoMes();
+                gerarGraficosComparativos();
+            }
+            if(document.getElementById('modalListagem') && getComputedStyle(document.getElementById('modalListagem')).display !== 'none') {
+                if(document.getElementById('btnAbrirTransferencia').style.display !== 'none') renderGerenciarContribuintesLista();
+            }
+        }
+        return true;
+    }
+
+    function estaArquivadoContribuinte(c) {
+        return !!(c && (c.arquivado || c.ativo === false));
+    }
+
+    function getPermissoesUsuario(usuario) {
+        return { cooperativa: false, configGerais: false, usuarios: false, ...(usuario && usuario.permissoes ? usuario.permissoes : {}) };
+    }
+
+    function usuarioTemPermissao(chave) {
+        if(!adminLogado) return false;
+        if(adminLogado.isAdmin) return true;
+        return !!(adminLogado.permissoes && adminLogado.permissoes[chave]);
+    }
+
+    function negarPermissao() {
+        alert("Este usuário não tem acesso a essa área.");
+    }
+
     function getPerfisAdminDisponiveis() {
         let perfis = (db.administradores || [])
             .filter(a => a && a.nome && a.senha)
-            .map(a => ({ id: a.id, nome: a.nome, senha: String(a.senha) }));
+            .map(a => ({
+                id: a.id,
+                nome: a.nome,
+                senha: String(a.senha),
+                isAdmin: a.isAdmin !== false,
+                permissoes: getPermissoesUsuario(a)
+            }));
 
         if(perfis.length === 0) {
             perfis.push({
                 id: 'admin_padrao',
                 nome: 'Administrador',
-                senha: String((db.configs && db.configs.senhaAdmin) || '1999')
+                senha: String((db.configs && db.configs.senhaAdmin) || '1999'),
+                isAdmin: true,
+                permissoes: { cooperativa: true, configGerais: true, usuarios: true }
             });
         }
         return perfis;
@@ -194,7 +246,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             return;
         }
 
-        adminLogado = { id: perfil.id, nome: perfil.nome };
+        adminLogado = { id: perfil.id, nome: perfil.nome, isAdmin: perfil.isAdmin !== false, permissoes: getPermissoesUsuario(perfil) };
         atualizarPerfilAdminUI();
         erro.style.display = 'none';
         fecharModal('modalLoginAdmin');
@@ -228,6 +280,21 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             return;
         }
         abrirLoginAdmin(false);
+    }
+
+    function abrirCooperativaComPermissao() {
+        if(!usuarioTemPermissao('cooperativa')) return negarPermissao();
+        abrirModalCooperativa();
+    }
+
+    function abrirConfigGeraisComPermissao() {
+        if(!usuarioTemPermissao('configGerais')) return negarPermissao();
+        abrirModalConfigGerais();
+    }
+
+    function abrirUsuariosComPermissao() {
+        if(!usuarioTemPermissao('usuarios')) return negarPermissao();
+        abrirGerenciar('administradores');
     }
 
     function aplicarTema() {
@@ -295,9 +362,18 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
     function inicializarSincronizacaoAutomatica() {
         if(!db.configs.url) return;
-        setTimeout(() => puxarDadosNuvem(true), 2500);
-        setInterval(() => puxarDadosNuvem(true), SYNC_PULL_INTERVAL_MS);
-        window.addEventListener('focus', () => puxarDadosNuvem(true));
+        setTimeout(() => sincronizacaoAutomatica(), 2500);
+        setInterval(() => sincronizacaoAutomatica(), SYNC_PULL_INTERVAL_MS);
+        window.addEventListener('focus', () => sincronizacaoAutomatica());
+    }
+
+    function sincronizacaoAutomatica() {
+        if(!db.configs.url || isSyncingFundo) return;
+        if(syncPendente || (db.configs.ultimaMudancaLocal || 0) > (db.configs.ultimaSincronizacao || 0)) {
+            sincronizarFundo(false, true);
+        } else {
+            puxarDadosNuvem(true);
+        }
     }
 
     // ATALHO ENTER E ESC E NAVEGACAO LISTA
@@ -453,10 +529,12 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     }
 
     function calcularValorEsperado(c, mesRef) {
+        if(!mesRef || mesRef < COBRANCA_INICIO_MES || estaArquivadoContribuinte(c)) return 0;
         let soma = 0;
         (c.carros || []).forEach(car => {
             if(!car.ativo) return;
             let cadMonth = car.dataCadastro ? car.dataCadastro.substring(0,7) : '2000-01'; 
+            if(cadMonth < COBRANCA_INICIO_MES) cadMonth = COBRANCA_INICIO_MES;
             if(mesRef >= cadMonth) {
                 soma += parseMoeda(car.valor);
             }
@@ -519,19 +597,32 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         
         let totalContribAtivos = 0;
         let totalCarrosAtivos = 0;
+        let totalCarrosGrandes = 0;
+        let totalCarrosPequenos = 0;
         let recebidoVal = 0;
         let recebidoQtd = 0;
         let pendenteVal = 0;
         let pendenteQtd = 0;
 
         db.contribuintes.forEach(c => {
+            if(estaArquivadoContribuinte(c)) return;
             let valEsp = calcularValorEsperado(c, mesRef);
             let valPen = calcularValorPendenteMes(c, mesRef);
-            let carrosDeste = (c.carros || []).filter(car => car.ativo && car.dataCadastro.substring(0,7) <= mesRef).length;
+            let carrosAtivosMes = (c.carros || []).filter(car => {
+                if(!car.ativo) return false;
+                let cadMonth = car.dataCadastro ? car.dataCadastro.substring(0,7) : COBRANCA_INICIO_MES;
+                if(cadMonth < COBRANCA_INICIO_MES) cadMonth = COBRANCA_INICIO_MES;
+                return cadMonth <= mesRef;
+            });
+            let carrosDeste = carrosAtivosMes.length;
             
             if(valEsp > 0 || carrosDeste > 0) {
                 totalContribAtivos++;
                 totalCarrosAtivos += carrosDeste;
+                carrosAtivosMes.forEach(car => {
+                    if(normalizarHeaderExcel(car.categoria).includes('grande')) totalCarrosGrandes++;
+                    else totalCarrosPequenos++;
+                });
 
                 if(isMesPago(c, mesRef)) {
                     recebidoVal += valEsp;
@@ -547,6 +638,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
         document.getElementById('dashTotalContrib').innerText = totalContribAtivos;
         document.getElementById('dashTotalCarros').innerText = totalCarrosAtivos;
+        document.getElementById('dashTotalCarrosTipo').innerText = `${totalCarrosGrandes} grandes | ${totalCarrosPequenos} pequenos`;
         document.getElementById('dashTotalEsperado').innerText = `R$ ${formatMoeda(totalEsperadoMes)}`;
         
         document.getElementById('dashRecebidoVal').innerText = `R$ ${formatMoeda(recebidoVal)}`;
@@ -582,6 +674,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             let penVal = 0, penQtd = 0;
             
             db.contribuintes.forEach(c => {
+                if(estaArquivadoContribuinte(c)) return;
                 let valEsp = calcularValorEsperado(c, m);
                 if(valEsp > 0) {
                     if(isMesPago(c, m)) {
@@ -772,7 +865,11 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let owesPast = false;
         let earliestCar = null;
         (c.carros || []).forEach(car => {
-            if(car.ativo) { if(!earliestCar || car.dataCadastro < earliestCar) earliestCar = car.dataCadastro; }
+            if(car.ativo) {
+                let dataBase = car.dataCadastro || `${COBRANCA_INICIO_MES}-01`;
+                if(dataBase.substring(0,7) < COBRANCA_INICIO_MES) dataBase = `${COBRANCA_INICIO_MES}-01`;
+                if(!earliestCar || dataBase < earliestCar) earliestCar = dataBase;
+            }
         });
         if(earliestCar) {
             let startMes = earliestCar.substring(0,7);
@@ -788,7 +885,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             }
         }
         if(owesPast) return '#D32F2F'; // Vermelho
-        if(temAlerta) return '#E65100'; // Laranja
+        if(temAlerta) return '#F9A825'; // Laranja claro
         return 'var(--theme-base)'; // Verde
     }
 
@@ -802,6 +899,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let lastLetra = '';
 
         contribs.forEach(c => {
+            if(estaArquivadoContribuinte(c)) return;
             let carrosAtivos = (c.carros || []).filter(car=>car.ativo).length;
             if (carrosAtivos === 0) return; // Nao mostra se nao tem carro ativo
 
@@ -868,23 +966,31 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         document.getElementById('tituloListagem').innerText = "Gerenciar Contribuintes";
         document.getElementById('btnNovoListagem').onclick = () => abrirFormContribuinte(null);
         document.getElementById('btnVoltarListagem').onclick = () => { fecharModal('modalListagem'); abrirModal('modalPainelUnificado'); };
-        document.getElementById('boxAcoesExtrasExcel').style.display = 'flex';
+        document.getElementById('boxAcoesExtrasExcel').style.display = 'none';
         document.getElementById('btnAbrirTransferencia').style.display = 'block';
-        
+        document.getElementById('inputBuscaGerenciarContrib').style.display = 'block';
+        document.getElementById('inputBuscaGerenciarContrib').value = '';
+        renderGerenciarContribuintesLista();
+        abrirModal('modalListagem');
+    }
+
+    function renderGerenciarContribuintesLista() {
+        let busca = (document.getElementById('inputBuscaGerenciarContrib')?.value || '').toLowerCase();
         let htmlLista = '';
         let contribs = [...db.contribuintes].sort((a,b) => (a.nome || '').localeCompare(b.nome || ''));
         contribs.forEach((c) => { 
+            if(busca && !(c.nome || '').toLowerCase().includes(busca)) return;
             let carrosQtd = (c.carros || []).length;
+            let arquivado = estaArquivadoContribuinte(c);
             htmlLista += `<div style="padding:10px; border-bottom:1px solid #ddd; display:flex; justify-content:space-between; align-items:center;">
-                <div style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><strong>${escapeHTML(c.nome || 'Sem Nome')}</strong><br><small style="color:#666;">${carrosQtd} Veículo(s) | Total Base: R$ ${escapeHTML(c.valorTotal || '0,00')}</small></div>
+                <div style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><strong>${escapeHTML(c.nome || 'Sem Nome')}</strong><br><small style="color:#666;">${carrosQtd} Veículo(s) | Total Base: R$ ${escapeHTML(c.valorTotal || '0,00')}</small>${arquivado ? '<br><span class="archived-badge">Arquivado</span>' : ''}</div>
                 <div style="flex-shrink:0; margin-left:10px;">
                     <button style="background:none; border:none; font-size:20px; cursor:pointer;" onclick="abrirFormContribuinte('${c.id}')">✏️</button>
-                    <button style="background:none; border:none; font-size:20px; cursor:pointer; color:#d32f2f;" onclick="excluirContribuinte('${c.id}')">🗑️</button>
+                    <button class="archive-btn" title="${arquivado ? 'Restaurar' : 'Arquivar'}" onclick="alternarArquivoContribuinte('${c.id}')">${arquivado ? '↩️' : '📦'}</button>
                 </div>
             </div>`; 
         });
-        document.getElementById('conteudoListagem').innerHTML = htmlLista;
-        abrirModal('modalListagem');
+        document.getElementById('conteudoListagem').innerHTML = htmlLista || '<div style="padding:20px; text-align:center; color:#999;">Nenhum contribuinte encontrado.</div>';
     }
 
     let oldFecharModal = fecharModal;
@@ -892,18 +998,23 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         if(id === 'modalListagem') {
             document.getElementById('boxAcoesExtrasExcel').style.display = 'none';
             document.getElementById('btnAbrirTransferencia').style.display = 'none';
+            document.getElementById('inputBuscaGerenciarContrib').style.display = 'none';
         }
         oldFecharModal(id);
     }
 
-    function excluirContribuinte(id) {
-        if(confirm("Deseja realmente excluir este contribuinte e todo o seu histórico?")) {
-            registrarExclusao('contribuintes', id);
-            db.contribuintes = db.contribuintes.filter(x => x.id !== id);
-            salvarBanco();
-            abrirGerenciarContribuintes();
-            renderizarLista();
-        }
+    function alternarArquivoContribuinte(id) {
+        let c = db.contribuintes.find(x => x.id === id);
+        if(!c) return;
+        let arquivar = !estaArquivadoContribuinte(c);
+        let msg = arquivar ? `Arquivar ${c.nome}? Ele deixará de aparecer na tela inicial.` : `Restaurar ${c.nome}?`;
+        if(!confirm(msg)) return;
+        c.arquivado = arquivar;
+        c.ativo = !arquivar;
+        c.updatedAt = Date.now();
+        salvarBanco();
+        renderGerenciarContribuintesLista();
+        renderizarLista();
     }
 
     function recalcularTotalContribuinteRegistro(c) {
@@ -1874,7 +1985,30 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         document.getElementById('btnCancelarEditCat').style.display = "none";
     }
 
-    function removerCategoria(idx) { let cat = tempCategorias[idx]; registrarExclusao('categorias', cat?.id || cat?.nome); tempCategorias.splice(idx, 1); renderListasCategorias(); }
+    function removerCategoria(idx) {
+        let cat = tempCategorias[idx];
+        if(!cat) return;
+        document.getElementById('idxCategoriaExcluir').value = idx;
+        document.getElementById('nomeCategoriaExcluir').innerText = cat.nome || 'sem nome';
+        document.getElementById('fraseExcluirCategoria').value = '';
+        document.getElementById('senhaExcluirCategoria').value = '';
+        abrirModal('modalExcluirCategoria');
+        setTimeout(() => document.getElementById('fraseExcluirCategoria').focus(), 80);
+    }
+
+    function confirmarExclusaoCategoria() {
+        let frase = document.getElementById('fraseExcluirCategoria').value.trim().toLowerCase();
+        let senha = document.getElementById('senhaExcluirCategoria').value.trim();
+        let idx = parseInt(document.getElementById('idxCategoriaExcluir').value, 10);
+        if(frase !== 'eu quero apagar essa categoria') return alert("Digite a frase exata para confirmar.");
+        if(senha !== String(db.configs.senhaAdmin || '1999')) return alert("Senha do painel avançado incorreta.");
+        let cat = tempCategorias[idx];
+        if(!cat) return fecharModal('modalExcluirCategoria');
+        registrarExclusao('categorias', cat?.id || cat?.nome);
+        tempCategorias.splice(idx, 1);
+        fecharModal('modalExcluirCategoria');
+        renderListasCategorias();
+    }
 
     function salvarConfigGerais() {
         db.configGerais.corTema = document.getElementById('confCorTema').value;
@@ -1896,14 +2030,30 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     function abrirGerenciar(tipo) {
         if(tipo === 'administradores') {
             fecharModal('modalPainelUnificado');
-            document.getElementById('tituloListagem').innerText = "Administradores";
+            document.getElementById('tituloListagem').innerText = "Usuários";
             document.getElementById('btnNovoListagem').onclick = () => abrirFormAdmin(null);
             document.getElementById('btnVoltarListagem').onclick = () => { fecharModal('modalListagem'); abrirModal('modalPainelUnificado'); };
+            document.getElementById('boxAcoesExtrasExcel').style.display = 'none';
+            document.getElementById('btnAbrirTransferencia').style.display = 'none';
+            document.getElementById('inputBuscaGerenciarContrib').style.display = 'none';
             let htmlLista = '';
-            db.administradores.forEach((a) => { htmlLista += `<div style="padding:10px; border-bottom:1px solid #ddd; display:flex; justify-content:space-between; align-items:center;"><div><strong>${escapeHTML(a.nome)}</strong></div><div><button style="background:none; border:none; font-size:20px; cursor:pointer;" onclick="abrirFormAdmin('${a.id}')">✏️</button></div></div>`; });
+            db.administradores.forEach((a) => {
+                let tipoUsuario = a.isAdmin === false ? 'Usuário' : 'Administrador';
+                htmlLista += `<div style="padding:10px; border-bottom:1px solid #ddd; display:flex; justify-content:space-between; align-items:center;">
+                    <div><strong>${escapeHTML(a.nome)}</strong><br><small style="color:#666;">${tipoUsuario}</small></div>
+                    <div>
+                        <button style="background:none; border:none; font-size:20px; cursor:pointer;" onclick="abrirFormAdmin('${a.id}')">✏️</button>
+                        <button style="background:none; border:none; font-size:20px; cursor:pointer; color:#d32f2f;" onclick="excluirUsuario('${a.id}')">🗑️</button>
+                    </div>
+                </div>`;
+            });
             document.getElementById('conteudoListagem').innerHTML = htmlLista;
             abrirModal('modalListagem');
         }
+    }
+
+    function togglePermissoesUsuario() {
+        document.getElementById('boxPermissoesUsuario').style.display = document.getElementById('adminIsAdmin').checked ? 'none' : 'flex';
     }
 
     function abrirFormAdmin(id) {
@@ -1913,11 +2063,21 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             document.getElementById('adminId').value = a.id;
             document.getElementById('adminNome').value = a.nome;
             document.getElementById('adminSenha').value = a.senha;
+            document.getElementById('adminIsAdmin').checked = a.isAdmin !== false;
+            let perms = getPermissoesUsuario(a);
+            document.getElementById('permCooperativa').checked = !!perms.cooperativa;
+            document.getElementById('permConfigGerais').checked = !!perms.configGerais;
+            document.getElementById('permUsuarios').checked = !!perms.usuarios;
         } else {
             document.getElementById('adminId').value = '';
             document.getElementById('adminNome').value = '';
             document.getElementById('adminSenha').value = '';
+            document.getElementById('adminIsAdmin').checked = db.administradores.length === 0;
+            document.getElementById('permCooperativa').checked = false;
+            document.getElementById('permConfigGerais').checked = false;
+            document.getElementById('permUsuarios').checked = false;
         }
+        togglePermissoesUsuario();
         abrirModal('modalFormAdmin');
     }
 
@@ -1928,14 +2088,39 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         if(!nome) return alert("Informe o nome do perfil.");
         if(!senha) return alert("Informe a senha do perfil.");
 
-        let novo = { id: id, nome: nome, senha: senha, updatedAt: Date.now() };
+        let isAdmin = document.getElementById('adminIsAdmin').checked;
+        let novo = {
+            id: id,
+            nome: nome,
+            senha: senha,
+            isAdmin: isAdmin,
+            permissoes: {
+                cooperativa: isAdmin || document.getElementById('permCooperativa').checked,
+                configGerais: isAdmin || document.getElementById('permConfigGerais').checked,
+                usuarios: isAdmin || document.getElementById('permUsuarios').checked
+            },
+            updatedAt: Date.now()
+        };
         const idx = db.administradores.findIndex(x => x.id === id);
         if(idx >= 0) db.administradores[idx] = novo; else db.administradores.push(novo);
         if(adminLogado && adminLogado.id === id) {
             adminLogado.nome = nome;
+            adminLogado.isAdmin = novo.isAdmin;
+            adminLogado.permissoes = novo.permissoes;
             atualizarPerfilAdminUI();
         }
         salvarBanco(); fecharModal('modalFormAdmin'); abrirGerenciar('administradores');
+    }
+
+    function excluirUsuario(id) {
+        let user = db.administradores.find(a => a.id === id);
+        if(!user) return;
+        if(adminLogado && adminLogado.id === id) return alert("Você não pode excluir o usuário que está em uso agora.");
+        if(!confirm(`Excluir o usuário ${user.nome}?`)) return;
+        registrarExclusao('administradores', id);
+        db.administradores = db.administradores.filter(a => a.id !== id);
+        salvarBanco();
+        abrirGerenciar('administradores');
     }
 
     let colunasExcelMeses = Array.from({ length: 6 }, (_, i) => `${String(i + 1).padStart(2, '0')}-26`);
@@ -2375,9 +2560,13 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             if(!res.ok) throw new Error("Falha ao salvar na nuvem");
             let retorno = await res.json().catch(() => null);
             if(retorno && retorno.ok) {
-                db.configs.syncRevision = retorno.revision || db.configs.syncRevision || 0;
-                db.configs.ultimaSincronizacao = Date.now();
-                localStorage.setItem('cooptrans_v1', JSON.stringify(db));
+                if(retorno.dados && validarBancoImportado(retorno.dados)) {
+                    aplicarBancoAtualizado(retorno.dados);
+                } else {
+                    db.configs.syncRevision = retorno.revision || db.configs.syncRevision || 0;
+                    db.configs.ultimaSincronizacao = Date.now();
+                    localStorage.setItem('cooptrans_v1', JSON.stringify(db));
+                }
             }
         } catch(e) {
             syncPendente = true;
@@ -2392,8 +2581,11 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     }
 
     async function puxarDadosNuvem(silencioso = true) {
-        if(!db.configs.url || isSyncingFundo || syncPendente) return;
-        if((db.configs.ultimaMudancaLocal || 0) > (db.configs.ultimaSincronizacao || 0)) return;
+        if(!db.configs.url || isSyncingFundo) return;
+        if(syncPendente || (db.configs.ultimaMudancaLocal || 0) > (db.configs.ultimaSincronizacao || 0)) {
+            sincronizarFundo(false, true);
+            return;
+        }
 
         try {
             let fetchUrl = db.configs.url + (db.configs.url.includes('?') ? '&' : '?') + 'nocache=' + Date.now();
@@ -2407,14 +2599,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             let revisaoLocal = parseInt(db.configs.syncRevision || 0);
             if(revisaoNuvem <= revisaoLocal) return;
 
-            let urlSalva = db.configs.url;
-            db = nuvemDB;
-            db.configs.url = urlSalva;
-            db.configs.ultimaSincronizacao = Date.now();
-            salvarBanco({ sincronizar: false, marcarLocal: false });
-            aplicarTema();
-            renderizarCabecalhoPrincipal();
-            atualizarTextoMesGeral();
+            aplicarBancoAtualizado(nuvemDB);
         } catch(e) {
             if(!silencioso) alert("Não foi possível puxar os dados da nuvem.");
         }
