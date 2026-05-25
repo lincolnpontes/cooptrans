@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.38";
+﻿const APP_VERSION = "v1.0.39";
 const SYNC_PULL_INTERVAL_MS = 30000;
 const COBRANCA_INICIO_MES = "2026-05";
 
@@ -109,7 +109,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                     laudo: { ativo: true, dias: 7 },
                     seguro: { ativo: true, dias: 7 },
                     licenca: { ativo: true, dias: 7 }
-                }
+                },
+                cadastroAtualizadoReset: { dia: "31", mes: "07", ultimoResetAno: "" }
             },
             configs: { url: "", dadosBaixados: false, ultimaMudancaLocal: 0, ultimaSincronizacao: 0, syncRevision: 0, senhaAdmin: "1999", clientId: getClientIdLocal() },
             _deleted: { contribuintes: {}, pagamentos: {}, pix: {}, categorias: {}, administradores: {}, carros: {} }
@@ -134,6 +135,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 if(!car.id) car.id = `car_${normalizarTextoId(c.id)}_${normalizarTextoId(car.placa || car.categoria)}_${idx}`;
                 if(!car.updatedAt) car.updatedAt = Number(c.updatedAt || 0);
                 if(typeof car.ativo === 'undefined') car.ativo = true;
+                if(typeof car.cadastroAtualizado === 'undefined') car.cadastroAtualizado = false;
             });
             c.pagamentos.forEach((pg, idx) => {
                 if(!pg.id) pg.id = `pg_${normalizarTextoId(c.id)}_${normalizarTextoId(pg.mesAno || pg.labelRef)}_${normalizarTextoId(pg.dataPagamento)}_${normalizarTextoId(pg.valorPago)}_${idx}`;
@@ -166,11 +168,16 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         dados.auditoria = Array.isArray(dados.auditoria) ? dados.auditoria : [];
 
         const alertas = (dados.configGerais && dados.configGerais.alertas) || {};
+        const cadastroAtualizadoReset = (dados.configGerais && dados.configGerais.cadastroAtualizadoReset) || {};
         dados.configGerais = { ...base.configGerais, ...(dados.configGerais || {}) };
         dados.configGerais.alertas = {
             laudo: { ...base.configGerais.alertas.laudo, ...(alertas.laudo || {}) },
             seguro: { ...base.configGerais.alertas.seguro, ...(alertas.seguro || {}) },
             licenca: { ...base.configGerais.alertas.licenca, ...(alertas.licenca || {}) }
+        };
+        dados.configGerais.cadastroAtualizadoReset = {
+            ...base.configGerais.cadastroAtualizadoReset,
+            ...cadastroAtualizadoReset
         };
 
         dados.configs = { ...base.configs, ...(dados.configs || {}) };
@@ -651,6 +658,53 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         }
     }
 
+    function getConfigResetCadastroAtualizado() {
+        const base = criarBancoBase().configGerais.cadastroAtualizadoReset;
+        const cfg = (db.configGerais && db.configGerais.cadastroAtualizadoReset) || {};
+        return {
+            ...base,
+            ...cfg,
+            dia: String(cfg.dia || base.dia).padStart(2, '0'),
+            mes: String(cfg.mes || base.mes).padStart(2, '0')
+        };
+    }
+
+    function normalizarDiaMesResetCadastro(diaValor, mesValor) {
+        const dia = Math.min(31, Math.max(1, parseInt(diaValor, 10) || 31));
+        const mes = Math.min(12, Math.max(1, parseInt(mesValor, 10) || 7));
+        return {
+            dia: String(dia).padStart(2, '0'),
+            mes: String(mes).padStart(2, '0')
+        };
+    }
+
+    function aplicarResetCadastroAtualizadoSeNecessario() {
+        const cfg = getConfigResetCadastroAtualizado();
+        const hoje = getHojeSTR();
+        const ano = hoje.substring(0, 4);
+        const dataReset = `${ano}-${cfg.mes}-${cfg.dia}`;
+        if(hoje < dataReset || String(cfg.ultimoResetAno || '') === ano) return;
+
+        let alterouVeiculo = false;
+        (db.contribuintes || []).forEach(c => {
+            let alterouContribuinte = false;
+            (c.carros || []).forEach(car => {
+                if(car.cadastroAtualizado) {
+                    car.cadastroAtualizado = false;
+                    tocarRegistro(car);
+                    alterouVeiculo = true;
+                    alterouContribuinte = true;
+                }
+            });
+            if(alterouContribuinte) tocarRegistro(c);
+        });
+
+        db.configGerais.cadastroAtualizadoReset = { ...cfg, ultimoResetAno: ano };
+        tocarRegistro(db.configGerais);
+        if(alterouVeiculo) registrarAuditoria('Cadastro atualizado zerado', `Reset anual em ${cfg.dia}/${cfg.mes}/${ano}`);
+        salvarBanco();
+    }
+
     document.addEventListener("DOMContentLoaded", () => { 
         document.title = `Cooptrans ${APP_VERSION}`;
         document.getElementById('splashVersao').innerText = APP_VERSION;
@@ -659,6 +713,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         atualizarPerfilAdminUI();
         aplicarTema();
         renderizarCabecalhoPrincipal();
+        aplicarResetCadastroAtualizadoSeNecessario();
         setTimeout(() => {
             document.getElementById('splashScreen').style.opacity = '0';
             setTimeout(()=>{document.getElementById('splashScreen').style.display = 'none';}, 500); 
@@ -1269,7 +1324,9 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             let emojisCarros = '';
             (c.carros || []).filter(car=>car.ativo).forEach(car => {
                 let catObj = db.categorias.find(x => x.nome === car.categoria);
-                emojisCarros += catObj && catObj.emoji ? catObj.emoji : '🚗';
+                let emojiCarro = catObj && catObj.emoji ? catObj.emoji : '🚗';
+                let tickAtualizado = car.cadastroAtualizado ? '<span class="vehicle-updated-tick">✅</span>' : '';
+                emojisCarros += `<span class="vehicle-emoji-wrap">${escapeHTML(emojiCarro)}${tickAtualizado}</span>`;
             });
             let subtitleText = carrosAtivos > 0 
                 ? `<div class="item-vehicles">${emojisCarros}</div>` 
@@ -1534,6 +1591,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             document.getElementById('carSeguro').value = c.dataSeguro || '';
             document.getElementById('carLicenca').value = c.dataLicenca || '';
             document.getElementById('carCadastro').value = c.dataCadastro || getHojeSTR();
+            document.getElementById('carCadastroAtualizado').checked = !!c.cadastroAtualizado;
             document.getElementById('carArquivado').checked = !c.ativo;
             document.getElementById('carMotivo').value = c.motivoArquivamento || '';
             let btnExcluirCarro = document.getElementById('btnExcluirCarro');
@@ -1548,6 +1606,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             document.getElementById('carSeguro').value = '';
             document.getElementById('carLicenca').value = '';
             document.getElementById('carCadastro').value = getHojeSTR();
+            document.getElementById('carCadastroAtualizado').checked = false;
             document.getElementById('carArquivado').checked = false;
             document.getElementById('carMotivo').value = '';
             let btnExcluirCarro = document.getElementById('btnExcluirCarro');
@@ -1655,6 +1714,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             dataSeguro: document.getElementById('carSeguro').value,
             dataLicenca: document.getElementById('carLicenca').value,
             dataCadastro: document.getElementById('carCadastro').value,
+            cadastroAtualizado: document.getElementById('carCadastroAtualizado').checked,
             ativo: !isArq,
             motivoArquivamento: isArq ? motivo : ''
         };
@@ -2241,6 +2301,10 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         document.getElementById('confDiasLicenca').value = confAlertas.licenca.dias;
         toggleConfAlerta('Licenca');
 
+        let resetCadastro = getConfigResetCadastroAtualizado();
+        document.getElementById('confResetCadastroDia').value = parseInt(resetCadastro.dia, 10);
+        document.getElementById('confResetCadastroMes').value = parseInt(resetCadastro.mes, 10);
+
         tempCategorias = db.categorias ? JSON.parse(JSON.stringify(db.categorias)) : [];
         renderListasCategorias();
         cancelarEditCategoria();
@@ -2339,9 +2403,17 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             seguro: { ativo: document.getElementById('confAlertaSeguro').checked, dias: document.getElementById('confDiasSeguro').value || 7 },
             licenca: { ativo: document.getElementById('confAlertaLicenca').checked, dias: document.getElementById('confDiasLicenca').value || 7 }
         };
+        const resetCadastro = normalizarDiaMesResetCadastro(
+            document.getElementById('confResetCadastroDia').value,
+            document.getElementById('confResetCadastroMes').value
+        );
+        db.configGerais.cadastroAtualizadoReset = {
+            ...getConfigResetCadastroAtualizado(),
+            ...resetCadastro
+        };
         db.categorias = tempCategorias;
         tocarRegistro(db.configGerais);
-        registrarAuditoria('Configurações gerais alteradas', 'Tema, alertas ou categorias');
+        registrarAuditoria('Configurações gerais alteradas', 'Tema, alertas, categorias ou reset de cadastro atualizado');
         salvarBanco();
         aplicarTema();
         fecharModal('modalConfigGerais');

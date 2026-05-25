@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.38-syncaudit';
-// Atualiza o app shell para sincronizacao por revisao do servidor e auditoria.
+const CACHE_NAME = 'cooptrans-v1.0.39-cadupdate';
+// Atualiza o app shell para cadastro atualizado por veiculo.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=1.0.38-syncaudit',
-  './app.js?v=1.0.38-syncaudit',
+  './style.css?v=1.0.39-cadupdate',
+  './app.js?v=1.0.39-cadupdate',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',

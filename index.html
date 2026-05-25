@@ -13,18 +13,18 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <link rel="icon" href="icons/icon-192.png">
-    <title>Cooptrans v1.0.38</title>
+    <title>Cooptrans v1.0.39</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <!-- Biblioteca Chart.js para Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
-    <link rel="stylesheet" href="style.css?v=1.0.38-syncaudit">
+    <link rel="stylesheet" href="style.css?v=1.0.39-cadupdate">
 </head>
 <body>
 
 <div id="splashScreen">
     <img id="splashLogoObj" style="max-height: 100px; object-fit: contain; margin-bottom: 20px; border-radius: 10px; display: none;">
-    <div class="splash-versao" id="splashVersao">v1.0.38</div>
+    <div class="splash-versao" id="splashVersao">v1.0.39</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 40px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -42,7 +42,7 @@
     <div class="modal login-modal">
         <div class="login-title">
             <strong>Cooptrans</strong>
-            <span id="loginAppVersion">v1.0.38</span>
+            <span id="loginAppVersion">v1.0.39</span>
         </div>
         <p class="login-subtitle" id="loginAdminTexto">Informe a senha do administrador para entrar.</p>
         <div class="form-group">
@@ -129,7 +129,7 @@
 <!-- MENU PRINCIPAL -->
 <div class="modal-overlay" id="modalPainelUnificado">
     <div class="modal" style="padding-top: 25px;">
-        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.38</span></h2>
+        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.39</span></h2>
         <button class="btn-outline" onclick="abrirCooperativaComPermissao()">🏢 Dados da Cooperativa</button>
         <button class="btn-outline" onclick="abrirGerenciarContribuintes()">👥 Gerenciar Contribuintes</button>
         <button class="btn-outline" onclick="abrirConfigGeraisComPermissao()">⚙️ Configurações Gerais</button>
@@ -393,6 +393,21 @@
             </div>
         </div>
 
+        <div class="section-title">Atualização de Cadastro</div>
+        <div class="form-group annual-reset-box">
+            <label>Data anual para zerar “Cadastro atualizado”:</label>
+            <div class="annual-reset-inputs">
+                <div>
+                    <span>Dia</span>
+                    <input type="number" id="confResetCadastroDia" min="1" max="31" inputmode="numeric">
+                </div>
+                <div>
+                    <span>Mês</span>
+                    <input type="number" id="confResetCadastroMes" min="1" max="12" inputmode="numeric">
+                </div>
+            </div>
+        </div>
+
         <div class="section-title">Categorias de Veículos e Valores</div>
         <input type="hidden" id="editIdxCat" value="">
         
@@ -536,9 +551,15 @@
             </div>
         </div>
 
-        <div class="form-group" style="display:flex; align-items:center; background:#ffebee; padding:10px; border-radius:5px; margin-bottom: 5px; margin-top:15px;">
-            <label class="switch"><input type="checkbox" id="carArquivado" onchange="toggleMotivoArquivamento()"><span class="slider"></span></label>
-            <span style="font-weight:bold; font-size:12px; color:#D32F2F;">Bloquear Veículo</span>
+        <div class="form-group vehicle-flags-row">
+            <div class="vehicle-flag-control vehicle-flag-updated">
+                <label class="switch"><input type="checkbox" id="carCadastroAtualizado"><span class="slider"></span></label>
+                <span>Cadastro atualizado</span>
+            </div>
+            <div class="vehicle-flag-control vehicle-flag-blocked">
+                <label class="switch"><input type="checkbox" id="carArquivado" onchange="toggleMotivoArquivamento()"><span class="slider"></span></label>
+                <span>Bloquear Veículo</span>
+            </div>
         </div>
         <div class="form-group" id="boxMotivoArqv" style="display:none;">
             <label>Motivo do Bloqueio:</label>
@@ -557,7 +578,7 @@
 <div class="modal-overlay" id="modalAcoesContribuinte">
     <div class="modal modal-acoes">
         <div class="modal-title modal-title-acoes">
-            <div>
+            <div class="acoes-title-text">
                 <span id="tituloAcoesContribuinte">Nome do Contribuinte</span>
                 <small id="lblMesAcoes"></small>
             </div>
@@ -706,6 +727,6 @@
         </div>
     </div>
 </div>
-<script src="app.js?v=1.0.38-syncaudit"></script>
+<script src="app.js?v=1.0.39-cadupdate"></script>
 </body>
 </html>
