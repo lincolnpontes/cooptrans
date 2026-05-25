@@ -384,15 +384,33 @@
 
         @media print {
             @page { margin: 8mm; }
-            html, body { height:auto !important; min-height:0 !important; overflow:visible !important; background:#fff; display:block; }
-            body * { visibility:hidden !important; }
-            .app-container, .area-conteudo, .scroll-area, .modal-overlay { position:static !important; display:block !important; height:auto !important; max-height:none !important; min-height:0 !important; overflow:visible !important; box-shadow:none !important; background:#fff !important; }
-            #modalRelatorioManual, #modalRelatorioManual .manual-report-modal { position:static !important; display:block !important; width:100% !important; max-width:none !important; height:auto !important; max-height:none !important; overflow:visible !important; box-shadow:none !important; background:#fff !important; padding:0 !important; }
-            #modalRelatorioManual .modal-title, #modalRelatorioManual .manual-report-controls, #modalRelatorioManual .manual-report-actions { display:none !important; }
-            #printRelatorioManual, #printRelatorioManual * { visibility:visible !important; }
-            #printRelatorioManual { position:static !important; left:auto; top:auto; width:100%; height:auto !important; max-height:none !important; overflow:visible !important; border:none; padding:0; }
-            .manual-report-sheet { font-size:11px; }
-            .manual-report-table th, .manual-report-table td { border-color:#333; height:24px; padding:3px; }
-            .manual-report-table tr { break-inside:avoid; page-break-inside:avoid; }
+            body.printing-manual-report { height:auto !important; min-height:0 !important; overflow:visible !important; background:#fff !important; display:block !important; }
+            body.printing-manual-report > :not(#modalRelatorioManual) { display:none !important; }
+            body.printing-manual-report #modalRelatorioManual,
+            body.printing-manual-report #modalRelatorioManual .manual-report-modal,
+            body.printing-manual-report #printRelatorioManual {
+                position:static !important;
+                display:block !important;
+                width:100% !important;
+                max-width:none !important;
+                height:auto !important;
+                max-height:none !important;
+                min-height:0 !important;
+                overflow:visible !important;
+                box-shadow:none !important;
+                background:#fff !important;
+                border:0 !important;
+                border-radius:0 !important;
+                padding:0 !important;
+                margin:0 !important;
+            }
+            body.printing-manual-report #modalRelatorioManual .modal-title,
+            body.printing-manual-report #modalRelatorioManual .manual-report-controls,
+            body.printing-manual-report #modalRelatorioManual .manual-report-actions { display:none !important; }
+            body.printing-manual-report .manual-report-sheet { font-size:11px; }
+            body.printing-manual-report .manual-report-table thead { display:table-header-group; }
+            body.printing-manual-report .manual-report-table th,
+            body.printing-manual-report .manual-report-table td { border-color:#333; height:24px; padding:3px; }
+            body.printing-manual-report .manual-report-table tr { break-inside:avoid; page-break-inside:avoid; }
         }
 

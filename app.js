@@ -1522,9 +1522,76 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         `;
     }
 
+    function getEstilosImpressaoRelatorioManual() {
+        return `<style>
+            @page { size: A4 portrait; margin: 8mm; }
+            * { box-sizing: border-box; }
+            html, body { margin: 0; padding: 0; background: #fff; color: #111; font-family: Arial, sans-serif; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .manual-report-sheet { width: 100%; color: #111; }
+            .manual-report-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-end; margin-bottom: 8px; }
+            .manual-report-head h3 { margin: 0; font-size: 16px; line-height: 1.1; text-transform: uppercase; }
+            .manual-report-head span { color: #333; font-size: 11px; font-weight: 800; white-space: nowrap; }
+            .manual-report-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10.5px; page-break-inside: auto; }
+            .manual-report-table thead { display: table-header-group; }
+            .manual-report-table tfoot { display: table-footer-group; }
+            .manual-report-table tr { break-inside: avoid; page-break-inside: avoid; }
+            .manual-report-table th, .manual-report-table td { border: 1px solid #333; padding: 3px 2px; height: 22px; vertical-align: middle; }
+            .manual-report-table th { background: #eee; text-align: center; font-weight: 800; }
+            .manual-report-table .name-col { width: 52%; text-align: left; }
+            .manual-report-table .due-col { width: 26px; text-align: center; color: #111; font-weight: 900; }
+            .manual-report-table .pg-col { width: 24px; text-align: center; color: #111; }
+            .manual-report-table .value-col { width: 54px; text-align: center; color: #111; font-weight: 900; }
+            .manual-report-table .manual-row-name { font-weight: 700; white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.12; }
+            .manual-report-table .manual-pg-cell { background: #fff; }
+        </style>`;
+    }
+
+    function montarDocumentoImpressaoRelatorioManual(conteudo) {
+        return `<!doctype html>
+            <html lang="pt-BR">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Lista de Acompanhamento</title>
+                ${getEstilosImpressaoRelatorioManual()}
+            </head>
+            <body>${conteudo}</body>
+            </html>`;
+    }
+
+    function imprimirRelatorioManualNoApp() {
+        document.body.classList.add('printing-manual-report');
+        const limparModoImpressao = () => {
+            document.body.classList.remove('printing-manual-report');
+            window.removeEventListener('afterprint', limparModoImpressao);
+        };
+        window.addEventListener('afterprint', limparModoImpressao);
+        setTimeout(() => {
+            window.print();
+            setTimeout(limparModoImpressao, 1000);
+        }, 50);
+    }
+
     function imprimirRelatorioManual() {
         gerarRelatorioManual();
-        window.print();
+        const area = document.getElementById('printRelatorioManual');
+        const conteudo = area ? area.innerHTML : '';
+        if(!conteudo.trim()) return alert("Não há lista para imprimir.");
+
+        const janela = window.open('', '_blank');
+        if(!janela) {
+            imprimirRelatorioManualNoApp();
+            return;
+        }
+
+        janela.document.open();
+        janela.document.write(montarDocumentoImpressaoRelatorioManual(conteudo));
+        janela.document.close();
+        setTimeout(() => {
+            janela.focus();
+            janela.print();
+        }, 500);
     }
 
     function abrirGerenciarContribuintes() {

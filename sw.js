@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.42-relatorio';
-// Ajusta colunas e paginacao da impressao do relatorio manual.
+const CACHE_NAME = 'cooptrans-v1.0.42-printfix';
+// Corrige impressao em branco da lista de acompanhamento manual.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=1.0.42-relatorio',
-  './app.js?v=1.0.42-relatorio',
+  './style.css?v=1.0.42-printfix',
+  './app.js?v=1.0.42-printfix',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',
