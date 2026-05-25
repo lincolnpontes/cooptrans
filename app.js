@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.40";
+﻿const APP_VERSION = "v1.0.41";
 const SYNC_PULL_INTERVAL_MS = 30000;
 const COBRANCA_INICIO_MES = "2026-05";
 const AUDITORIA_RETENCAO_DIAS = 15;
@@ -1248,10 +1248,12 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         filtroViewAtual = view;
         document.getElementById('chipTodos').classList.remove('active');
         document.getElementById('chipPendentes').classList.remove('active');
+        document.getElementById('chipPagamentosVencidos').classList.remove('active');
         document.getElementById('chipVencimentos').classList.remove('active');
         
         if(view === 'todos') document.getElementById('chipTodos').classList.add('active');
-        if(view === 'pendentes') document.getElementById('chipPendentes').classList.add('active');
+        if(view === 'aVencer' || view === 'pendentes') document.getElementById('chipPendentes').classList.add('active');
+        if(view === 'vencidos') document.getElementById('chipPagamentosVencidos').classList.add('active');
         if(view === 'vencimentos') document.getElementById('chipVencimentos').classList.add('active');
         renderizarLista();
     }
@@ -1325,15 +1327,15 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         const pago = isMesPago(c, mesRef);
         const labelDia = getLabelDiaVencimento(c, mesRef);
         if(valorEsperado <= 0) {
-            return { tipo: 'neutral', html: `<span>Sem valor</span><strong>${labelDia}</strong>`, valorPendente, pago };
+            return { tipo: 'neutral', html: `<span>Sem valor</span> <strong>${labelDia}</strong>`, valorPendente, pago };
         }
         if(pago) {
-            return { tipo: 'ok', html: `<span>Pago</span><strong>${labelDia}</strong>`, valorPendente: 0, pago: true };
+            return { tipo: 'ok', html: `<span>Pago</span> <strong>${labelDia}</strong>`, valorPendente: 0, pago: true };
         }
         if(!isDataVencida(c, mesRef)) {
-            return { tipo: 'warning', html: `<span>Vence</span><strong>${labelDia}</strong>`, valorPendente, pago: false };
+            return { tipo: 'warning', html: `<span>Vence</span> <strong>${labelDia}</strong>`, valorPendente, pago: false };
         }
-        return { tipo: 'pendente', html: `<span>Falta R$ ${formatMoeda(valorPendente)}</span><strong>${labelDia}</strong>`, valorPendente, pago: false };
+        return { tipo: 'pendente', html: `<span>Falta R$ ${formatMoeda(valorPendente)}</span> <strong>${labelDia}</strong>`, valorPendente, pago: false };
     }
 
     function getAvatarColor(c, temAlerta) {
@@ -1383,12 +1385,15 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             let valorPendente = calcularValorPendenteMes(c, mesRef);
             let statusMes = getStatusPagamentoMes(c, mesRef);
             let pendente = valorPendente > 0;
+            let pagamentoVencido = pendente && isDataVencida(c, mesRef);
+            let pagamentoAVencer = pendente && !pagamentoVencido;
 
             let alertasArr = [];
             (c.carros || []).forEach(car => { alertasArr = alertasArr.concat(checarAlertasCarro(car)); });
             let temAlerta = alertasArr.length > 0;
 
-            if(filtroViewAtual === 'pendentes' && !pendente) return;
+            if((filtroViewAtual === 'aVencer' || filtroViewAtual === 'pendentes') && !pagamentoAVencer) return;
+            if(filtroViewAtual === 'vencidos' && !pagamentoVencido) return;
             if(filtroViewAtual === 'vencimentos' && !temAlerta) return;
 
             let avatarCor = getAvatarColor(c, temAlerta);
@@ -1483,13 +1488,16 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             .filter(c => !estaArquivadoContribuinte(c) && (c.carros || []).some(car => car.ativo))
             .sort((a,b) => (a.nome || '').localeCompare(b.nome || ''));
         const cabecalhoMeses = meses.map(m => `<th class="pg-col">${escapeHTML(formatMesManual(m))}</th>`).join('');
-        const linhas = contribs.map(c => `
+        const linhas = contribs.map(c => {
+            const valorAPagar = calcularValorEsperado(c, ini);
+            return `
             <tr>
-                <td class="manual-row-name">${escapeHTML(c.nome || 'Sem nome')}</td>
+                <td class="manual-row-name">${escapeHTML(c.nome || 'Sem nome')}<span class="manual-row-value">R$ ${formatMoeda(valorAPagar)}</span></td>
                 <td class="due-col">${String(getDiaVencimento(c)).padStart(2, '0')}</td>
                 ${meses.map(() => '<td class="manual-pg-cell"></td>').join('')}
             </tr>
-        `).join('');
+        `;
+        }).join('');
 
         const colspanVazio = meses.length + 2;
         document.getElementById('printRelatorioManual').innerHTML = `
