@@ -13,18 +13,18 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <link rel="icon" href="icons/icon-192.png">
-    <title>Cooptrans v1.0.37</title>
+    <title>Cooptrans v1.0.38</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <!-- Biblioteca Chart.js para Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
-    <link rel="stylesheet" href="style.css?v=1.0.37-syncdelete">
+    <link rel="stylesheet" href="style.css?v=1.0.38-syncaudit">
 </head>
 <body>
 
 <div id="splashScreen">
     <img id="splashLogoObj" style="max-height: 100px; object-fit: contain; margin-bottom: 20px; border-radius: 10px; display: none;">
-    <div class="splash-versao" id="splashVersao">v1.0.37</div>
+    <div class="splash-versao" id="splashVersao">v1.0.38</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 40px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -42,7 +42,7 @@
     <div class="modal login-modal">
         <div class="login-title">
             <strong>Cooptrans</strong>
-            <span id="loginAppVersion">v1.0.37</span>
+            <span id="loginAppVersion">v1.0.38</span>
         </div>
         <p class="login-subtitle" id="loginAdminTexto">Informe a senha do administrador para entrar.</p>
         <div class="form-group">
@@ -129,15 +129,31 @@
 <!-- MENU PRINCIPAL -->
 <div class="modal-overlay" id="modalPainelUnificado">
     <div class="modal" style="padding-top: 25px;">
-        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.37</span></h2>
+        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.38</span></h2>
         <button class="btn-outline" onclick="abrirCooperativaComPermissao()">🏢 Dados da Cooperativa</button>
         <button class="btn-outline" onclick="abrirGerenciarContribuintes()">👥 Gerenciar Contribuintes</button>
         <button class="btn-outline" onclick="abrirConfigGeraisComPermissao()">⚙️ Configurações Gerais</button>
         <button class="btn-outline" onclick="abrirUsuariosComPermissao()">👤 Gerenciar Usuários</button>
+        <button class="btn-outline" onclick="abrirAuditoriaComPermissao()">📋 Auditoria</button>
         <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
         <h3 style="font-size: 16px; color: #d32f2f; margin-top: 15px; margin-bottom: 10px;">Avançado</h3>
         <button class="btn-danger" style="width: 100%; margin-bottom: 10px;" onclick="solicitarAcessoAvancado()">⚠️ Configurações Avançadas</button>
         <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalPainelUnificado')">Fechar</button></div>
+    </div>
+</div>
+
+<!-- AUDITORIA -->
+<div class="modal-overlay" id="modalAuditoria">
+    <div class="modal audit-modal">
+        <div class="modal-title">
+            <span>Auditoria</span>
+            <button class="icon-btn" onclick="fecharModal('modalAuditoria'); abrirModal('modalPainelUnificado');">✖</button>
+        </div>
+        <input type="text" id="buscaAuditoria" class="manage-search-input" placeholder="Buscar mudança, usuário..." oninput="renderAuditoria()" style="display:block;">
+        <div id="listaAuditoria" class="audit-list"></div>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="fecharModal('modalAuditoria'); abrirModal('modalPainelUnificado');">Voltar</button>
+        </div>
     </div>
 </div>
 
@@ -515,7 +531,8 @@
             </div>
             <div class="form-group" style="flex:1;">
                 <label style="color:var(--theme-base);">Data Cadastro:</label>
-                <input type="date" id="carCadastro" style="border: 1px solid var(--theme-base);">
+                <input type="date" id="carCadastro" onchange="verificarDatasCarroUI()" style="border: 1px solid var(--theme-base);">
+                <div id="avisoCarCadastro" style="font-size:11px; color:#D32F2F; font-weight:bold; margin-top:4px; display:none;"></div>
             </div>
         </div>
 
@@ -529,7 +546,7 @@
         </div>
 
         <div class="modal-actions">
-            <button class="btn-danger" id="btnExcluirCarro" onclick="solicitarExclusaoCarroTemp()" style="display:none;">Excluir Veículo</button>
+            <button class="btn-danger vehicle-delete-btn" id="btnExcluirCarro" onclick="solicitarExclusaoCarroTemp()" style="display:none;">Excluir Veículo</button>
             <button class="btn-cancel" onclick="fecharModal('modalFormCarro')">Cancelar</button>
             <button class="btn-action" onclick="salvarCarroTemp()">Confirmar</button>
         </div>
@@ -544,7 +561,10 @@
                 <span id="tituloAcoesContribuinte">Nome do Contribuinte</span>
                 <small id="lblMesAcoes"></small>
             </div>
-            <button class="icon-btn" title="Editar contribuinte" onclick="abrirFormContribuinte(document.getElementById('acoesContId').value, true);">✏️</button>
+            <div class="acoes-title-actions">
+                <button class="icon-btn" title="Editar contribuinte" onclick="abrirFormContribuinte(document.getElementById('acoesContId').value, true);">✏️</button>
+                <button class="icon-btn" title="Fechar" onclick="fecharModal('modalAcoesContribuinte')">✖</button>
+            </div>
         </div>
         <input type="hidden" id="acoesContId">
 
@@ -686,6 +706,6 @@
         </div>
     </div>
 </div>
-<script src="app.js?v=1.0.37-syncdelete"></script>
+<script src="app.js?v=1.0.38-syncaudit"></script>
 </body>
 </html>

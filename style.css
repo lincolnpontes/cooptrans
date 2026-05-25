@@ -136,7 +136,7 @@
         .dash-card { background: #f9f9f9; border: 1px solid #ddd; padding: 15px; border-radius: 8px; text-align: center; }
         .dash-card .title { font-size: 11px; color: #666; text-transform: uppercase; font-weight: bold; margin-bottom: 8px; }
         .dash-card .value { font-size: 20px; font-weight: bold; color: var(--theme-base); }
-        .dash-card .sub-value { font-size: 12px; color: #888; margin-top: 4px; }
+        .dash-card .sub-value { font-size: 13px; color: #777; margin-top: 5px; font-weight: 900; }
         .dash-card.red .value { color: #D32F2F; }
         .dash-card.full { grid-column: span 2; }
 
@@ -173,6 +173,17 @@
         .modal-title-acoes > div { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
         .modal-title-acoes span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .modal-title-acoes small { font-size: 12px; color: #666; font-weight: 700; }
+        .acoes-title-actions { display:flex; align-items:center; gap:8px; margin-left:12px; flex-shrink:0; }
+        .vehicle-delete-btn { display:inline-flex; align-items:center; justify-content:center; text-align:center; line-height:1.2; }
+        .audit-modal { max-width: 640px; height: 82vh; display:flex; flex-direction:column; }
+        .audit-list { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px; }
+        .audit-row { border:1px solid #e0e0e0; border-radius:8px; padding:10px; display:flex; justify-content:space-between; gap:12px; background:#fff; }
+        .audit-main { min-width:0; display:flex; flex-direction:column; gap:4px; }
+        .audit-main strong { color:#222; font-size:14px; }
+        .audit-main span { color:#555; font-size:12px; font-weight:700; overflow:hidden; text-overflow:ellipsis; }
+        .audit-meta { flex-shrink:0; text-align:right; display:flex; flex-direction:column; gap:2px; color:#666; font-size:11px; font-weight:800; }
+        .audit-meta b { color:var(--theme-base); font-size:12px; }
+        .audit-meta em { color:#E65100; font-style:normal; }
         .acoes-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; margin-bottom: 10px; align-items: stretch; }
         .acoes-whatsapp { display: flex; min-width: 0; }
         .action-pix-btn { flex: none; min-width: 124px; border-radius: 8px; padding: 8px 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }

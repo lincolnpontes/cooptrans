@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.37";
+﻿const APP_VERSION = "v1.0.38";
 const SYNC_PULL_INTERVAL_MS = 30000;
 const COBRANCA_INICIO_MES = "2026-05";
 
@@ -33,6 +33,50 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     function getPastMonthStr() { let d = new Date(); d.setMonth(d.getMonth() - 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
     function getExtensoMes(mesNum) { const m = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]; return m[parseInt(mesNum)-1] || ""; }
     function getAbrevMes(mesNum) { const m = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]; return m[parseInt(mesNum)-1] || ""; }
+    function gerarIdLocal(prefixo = 'id') {
+        if(window.crypto && crypto.randomUUID) return `${prefixo}_${crypto.randomUUID()}`;
+        return `${prefixo}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    }
+    function getClientIdLocal() {
+        let id = localStorage.getItem('cooptrans_client_id');
+        if(!id) {
+            id = gerarIdLocal('client');
+            localStorage.setItem('cooptrans_client_id', id);
+        }
+        return id;
+    }
+    function getUsuarioAuditoria() {
+        return adminLogado && adminLogado.nome ? adminLogado.nome : 'Sistema';
+    }
+    function isDataISOValida(valor) {
+        if(!valor) return true;
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(String(valor))) return false;
+        const [ano, mes, dia] = String(valor).split('-').map(Number);
+        if(ano < 2000 || ano > 2100 || mes < 1 || mes > 12 || dia < 1 || dia > 31) return false;
+        const d = new Date(`${valor}T00:00:00`);
+        return d.getFullYear() === ano && d.getMonth() + 1 === mes && d.getDate() === dia;
+    }
+    function validarDataCampo(id, nome, obrigatoria = false) {
+        const el = document.getElementById(id);
+        const valor = el ? el.value : '';
+        if(!valor && !obrigatoria) return true;
+        if(!valor && obrigatoria) {
+            alert(`Informe a data de ${nome}.`);
+            if(el) el.focus();
+            return false;
+        }
+        if(!isDataISOValida(valor)) {
+            alert(`A data de ${nome} está inválida. Use uma data real entre 2000 e 2100.`);
+            if(el) el.focus();
+            return false;
+        }
+        return true;
+    }
+    function getMesCadastroCobranca(car) {
+        if(!car || !car.dataCadastro || !isDataISOValida(car.dataCadastro)) return COBRANCA_INICIO_MES;
+        let cadMonth = car.dataCadastro.substring(0, 7);
+        return cadMonth < COBRANCA_INICIO_MES ? COBRANCA_INICIO_MES : cadMonth;
+    }
 
     // DADOS BASE E TEMA
     let db = carregarBanco(); 
@@ -57,6 +101,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             categorias: [], 
             contribuintes: [], 
             administradores: [],
+            auditoria: [],
             configGerais: { 
                 corTema: "#008C4A",
                 corSubHeader: "#ffffff",
@@ -66,7 +111,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                     licenca: { ativo: true, dias: 7 }
                 }
             },
-            configs: { url: "", dadosBaixados: false, ultimaMudancaLocal: 0, ultimaSincronizacao: 0, syncRevision: 0, senhaAdmin: "1999" },
+            configs: { url: "", dadosBaixados: false, ultimaMudancaLocal: 0, ultimaSincronizacao: 0, syncRevision: 0, senhaAdmin: "1999", clientId: getClientIdLocal() },
             _deleted: { contribuintes: {}, pagamentos: {}, pix: {}, categorias: {}, administradores: {}, carros: {} }
         };
     }
@@ -118,6 +163,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         dados.categorias = Array.isArray(dados.categorias) ? dados.categorias : [];
         dados.contribuintes = Array.isArray(dados.contribuintes) ? dados.contribuintes : [];
         dados.administradores = Array.isArray(dados.administradores) ? dados.administradores : [];
+        dados.auditoria = Array.isArray(dados.auditoria) ? dados.auditoria : [];
 
         const alertas = (dados.configGerais && dados.configGerais.alertas) || {};
         dados.configGerais = { ...base.configGerais, ...(dados.configGerais || {}) };
@@ -128,6 +174,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         };
 
         dados.configs = { ...base.configs, ...(dados.configs || {}) };
+        dados.configs.clientId = dados.configs.clientId || getClientIdLocal();
         dados._deleted = { ...base._deleted, ...(dados._deleted || {}) };
         dados._deleted.contribuintes = dados._deleted.contribuintes || {};
         dados._deleted.pagamentos = dados._deleted.pagamentos || {};
@@ -140,6 +187,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     
     function salvarBanco(opcoes = {}) {
         db.configs = { ...criarBancoBase().configs, ...(db.configs || {}) };
+        db.configs.clientId = db.configs.clientId || getClientIdLocal();
         if(opcoes.marcarLocal !== false) db.configs.ultimaMudancaLocal = Date.now();
         localStorage.setItem('cooptrans_v1', JSON.stringify(db));
         if(opcoes.sincronizar !== false) agendarSincronizacao();
@@ -156,18 +204,87 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         if(!id) return;
         db._deleted = db._deleted || criarBancoBase()._deleted;
         db._deleted[tipo] = db._deleted[tipo] || {};
-        db._deleted[tipo][id] = Date.now();
+        const agora = Date.now();
+        db._deleted[tipo][id] = {
+            id,
+            tipo,
+            deletedAt: agora,
+            _clientDirty: true,
+            _clientChangedAt: agora,
+            _clientId: getClientIdLocal(),
+            usuario: getUsuarioAuditoria()
+        };
+    }
+
+    function marcarRegistroPendente(registro) {
+        if(!registro) return registro;
+        const agora = Date.now();
+        registro.updatedAt = agora;
+        registro._clientDirty = true;
+        registro._clientChangedAt = agora;
+        registro._clientId = getClientIdLocal();
+        registro._clientUser = getUsuarioAuditoria();
+        return registro;
     }
 
     function tocarRegistro(registro) {
-        if(registro) registro.updatedAt = Date.now();
-        return registro;
+        return marcarRegistroPendente(registro);
+    }
+
+    function registrarAuditoria(acao, detalhes = '') {
+        db.auditoria = Array.isArray(db.auditoria) ? db.auditoria : [];
+        const agora = Date.now();
+        db.auditoria.push({
+            id: gerarIdLocal('audit'),
+            acao,
+            detalhes,
+            usuario: getUsuarioAuditoria(),
+            clientId: getClientIdLocal(),
+            createdAt: agora,
+            _clientDirty: true,
+            _clientChangedAt: agora
+        });
+        if(db.auditoria.length > 500) db.auditoria = db.auditoria.slice(-500);
     }
 
     function objetoMaisNovo(a, b) {
         if(!a) return b || {};
         if(!b) return a || {};
-        return Number(b.updatedAt || 0) >= Number(a.updatedAt || 0) ? b : a;
+        if(a._clientDirty && !b._clientDirty) return a;
+        if(!a._clientDirty && b._clientDirty) return b;
+        const seqA = Number(a._serverSeq || 0);
+        const seqB = Number(b._serverSeq || 0);
+        if(seqA !== seqB) return seqB > seqA ? b : a;
+        return Number(b.updatedAt || b._clientChangedAt || 0) >= Number(a.updatedAt || a._clientChangedAt || 0) ? b : a;
+    }
+
+    function tombstoneSeq(valor) {
+        if(!valor) return 0;
+        return typeof valor === 'object' ? Number(valor._serverSeq || 0) : 0;
+    }
+
+    function tombstoneTempo(valor) {
+        if(!valor) return 0;
+        return typeof valor === 'object' ? Number(valor.deletedAt || valor._clientChangedAt || 0) : Number(valor || 0);
+    }
+
+    function isPendenteDepois(registro, syncStartedAt) {
+        if(!registro || !registro._clientDirty) return false;
+        return Number(registro._clientChangedAt || registro.updatedAt || 0) > Number(syncStartedAt || 0);
+    }
+
+    function tombstonePendenteDepois(valor, syncStartedAt) {
+        return !!(valor && typeof valor === 'object' && valor._clientDirty && Number(valor._clientChangedAt || valor.deletedAt || 0) > Number(syncStartedAt || 0));
+    }
+
+    function temMudancaLocalPendente() {
+        if(db.cooperativa && db.cooperativa._clientDirty) return true;
+        if(db.configGerais && db.configGerais._clientDirty) return true;
+        if((db.categorias || []).some(item => item && item._clientDirty)) return true;
+        if((db.administradores || []).some(item => item && item._clientDirty)) return true;
+        if((db.auditoria || []).some(item => item && item._clientDirty)) return true;
+        if((db.contribuintes || []).some(c => c && (c._clientDirty || (c.carros || []).some(car => car && car._clientDirty) || (c.pagamentos || []).some(pg => pg && pg._clientDirty)))) return true;
+        return Object.values(db._deleted || {}).some(grupo => Object.values(grupo || {}).some(tomb => tomb && typeof tomb === 'object' && tomb._clientDirty));
     }
 
     function mesclarExclusoes(a, b) {
@@ -177,8 +294,11 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             result[tipo] = {};
             const atual = (a && a[tipo]) || {};
             const novo = (b && b[tipo]) || {};
-            Object.keys(atual).forEach((id) => result[tipo][id] = Number(atual[id] || 0));
-            Object.keys(novo).forEach((id) => result[tipo][id] = Math.max(Number(result[tipo][id] || 0), Number(novo[id] || 0)));
+            Object.keys(atual).forEach((id) => result[tipo][id] = atual[id]);
+            Object.keys(novo).forEach((id) => {
+                const existente = result[tipo][id];
+                result[tipo][id] = tombstoneSeq(novo[id]) > tombstoneSeq(existente) || tombstoneTempo(novo[id]) > tombstoneTempo(existente) ? novo[id] : existente;
+            });
         });
         return result;
     }
@@ -193,8 +313,12 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         });
         return Object.keys(map)
             .filter((id) => {
-                const deletadoEm = Number((excluidos || {})[id] || 0);
-                return !deletadoEm || deletadoEm < Number(map[id].updatedAt || 0);
+                const tomb = (excluidos || {})[id];
+                if(!tomb) return true;
+                const seqDel = tombstoneSeq(tomb);
+                const seqReg = Number(map[id]._serverSeq || 0);
+                if(seqDel || seqReg) return seqDel < seqReg;
+                return tombstoneTempo(tomb) < Number(map[id].updatedAt || 0);
             })
             .map((id) => map[id]);
     }
@@ -216,8 +340,12 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         });
         return Object.keys(map)
             .filter((id) => {
-                const deletadoEm = Number((excluidos && excluidos.contribuintes && excluidos.contribuintes[id]) || 0);
-                return !deletadoEm || deletadoEm < Number(map[id].updatedAt || 0);
+                const tomb = excluidos && excluidos.contribuintes && excluidos.contribuintes[id];
+                if(!tomb) return true;
+                const seqDel = tombstoneSeq(tomb);
+                const seqReg = Number(map[id]._serverSeq || 0);
+                if(seqDel || seqReg) return seqDel < seqReg;
+                return tombstoneTempo(tomb) < Number(map[id].updatedAt || 0);
             })
             .map((id) => map[id]);
     }
@@ -240,6 +368,47 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         merged.configs.syncRevision = Math.max(Number(local.configs?.syncRevision || 0), Number(nuvem.configs?.syncRevision || 0));
         return normalizarBanco(merged);
     }
+
+    function reaplicarMudancasLocaisRecentes(baseServidor, local, syncStartedAt) {
+        const server = normalizarBanco(baseServidor);
+        local = normalizarBanco(local);
+        server._deleted = mesclarExclusoes(server._deleted, local._deleted);
+        Object.keys(local._deleted || {}).forEach((tipo) => {
+            Object.keys(local._deleted[tipo] || {}).forEach((id) => {
+                const tomb = local._deleted[tipo][id];
+                if(tombstonePendenteDepois(tomb, syncStartedAt)) {
+                    server._deleted[tipo] = server._deleted[tipo] || {};
+                    server._deleted[tipo][id] = tomb;
+                }
+            });
+        });
+
+        if(isPendenteDepois(local.cooperativa, syncStartedAt)) server.cooperativa = local.cooperativa;
+        if(isPendenteDepois(local.configGerais, syncStartedAt)) server.configGerais = local.configGerais;
+        server.categorias = mesclarListaPorData(server.categorias, local.categorias.filter(c => isPendenteDepois(c, syncStartedAt)), server._deleted.categorias);
+        server.administradores = mesclarListaPorData(server.administradores, local.administradores.filter(a => isPendenteDepois(a, syncStartedAt)), server._deleted.administradores);
+        server.auditoria = mesclarListaPorData(server.auditoria || [], (local.auditoria || []).filter(a => isPendenteDepois(a, syncStartedAt)), {});
+
+        const contribMap = {};
+        server.contribuintes.forEach(c => { if(c && c.id) contribMap[c.id] = c; });
+        local.contribuintes.forEach(cLocal => {
+            if(!cLocal || !cLocal.id) return;
+            let cServer = contribMap[cLocal.id] || { ...cLocal, carros: [], pagamentos: [] };
+            if(isPendenteDepois(cLocal, syncStartedAt)) cServer = { ...cServer, ...cLocal };
+            cServer.carros = mesclarListaPorData(cServer.carros || [], (cLocal.carros || []).filter(car => isPendenteDepois(car, syncStartedAt)), server._deleted.carros);
+            cServer.pagamentos = mesclarPagamentosPorData(cServer.pagamentos || [], (cLocal.pagamentos || []).filter(pg => isPendenteDepois(pg, syncStartedAt)), server._deleted.pagamentos);
+            contribMap[cLocal.id] = cServer;
+        });
+        server.contribuintes = Object.values(contribMap).filter(c => {
+            const tomb = server._deleted.contribuintes && server._deleted.contribuintes[c.id];
+            if(!tomb) return true;
+            if(tombstonePendenteDepois(tomb, syncStartedAt)) return false;
+            const seqDel = tombstoneSeq(tomb);
+            const seqReg = Number(c._serverSeq || 0);
+            return seqDel < seqReg;
+        });
+        return normalizarBanco(server);
+    }
     
     function abrirModal(id) {
         let el = document.getElementById(id);
@@ -260,7 +429,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let urlSalva = db.configs && db.configs.url;
         const ultimaMudancaAntes = Number(db.configs?.ultimaMudancaLocal || 0);
         const houveMudancaDuranteSync = opcoes.syncStartedAt && ultimaMudancaAntes > opcoes.syncStartedAt;
-        db = mesclarBancosPorData(db, novoBanco);
+        db = houveMudancaDuranteSync ? reaplicarMudancasLocaisRecentes(novoBanco, db, opcoes.syncStartedAt) : normalizarBanco(novoBanco);
         if(urlSalva) db.configs.url = urlSalva;
         db.configs.ultimaSincronizacao = houveMudancaDuranteSync ? Number(db.configs.ultimaSincronizacao || 0) : Date.now();
         localStorage.setItem('cooptrans_v1', JSON.stringify(db));
@@ -282,6 +451,9 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             }
             if(document.getElementById('modalListagem') && getComputedStyle(document.getElementById('modalListagem')).display !== 'none') {
                 if(document.getElementById('inputBuscaGerenciarContrib').style.display !== 'none') renderGerenciarContribuintesLista();
+            }
+            if(document.getElementById('modalAuditoria') && getComputedStyle(document.getElementById('modalAuditoria')).display !== 'none') {
+                renderAuditoria();
             }
         }
         return true;
@@ -411,6 +583,49 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         abrirGerenciar('administradores');
     }
 
+    function abrirAuditoriaComPermissao() {
+        if(!adminLogado || (!adminLogado.isAdmin && !usuarioTemPermissao('usuarios'))) return negarPermissao();
+        fecharModal('modalPainelUnificado');
+        renderAuditoria();
+        abrirModal('modalAuditoria');
+    }
+
+    function formatarDataHoraAuditoria(item) {
+        const valor = Number(item._serverUpdatedAt || item.createdAt || item._clientChangedAt || 0);
+        if(!valor) return '-';
+        return new Date(valor).toLocaleString('pt-BR');
+    }
+
+    function renderAuditoria() {
+        const box = document.getElementById('listaAuditoria');
+        if(!box) return;
+        const busca = (document.getElementById('buscaAuditoria')?.value || '').toLowerCase();
+        const itens = [...(db.auditoria || [])]
+            .filter(item => {
+                const texto = `${item.acao || ''} ${item.detalhes || ''} ${item.usuario || ''}`.toLowerCase();
+                return !busca || texto.includes(busca);
+            })
+            .sort((a,b) => Number(b._serverSeq || b.createdAt || 0) - Number(a._serverSeq || a.createdAt || 0))
+            .slice(0, 200);
+        if(itens.length === 0) {
+            box.innerHTML = '<div class="empty-state">Nenhuma mudança registrada.</div>';
+            return;
+        }
+        box.innerHTML = itens.map(item => `
+            <div class="audit-row">
+                <div class="audit-main">
+                    <strong>${escapeHTML(item.acao || 'Mudança')}</strong>
+                    <span>${escapeHTML(item.detalhes || '')}</span>
+                </div>
+                <div class="audit-meta">
+                    <b>${escapeHTML(item.usuario || 'Sistema')}</b>
+                    <span>${formatarDataHoraAuditoria(item)}</span>
+                    ${item._clientDirty ? '<em>Pendente de sincronização</em>' : `<small>Rev. ${escapeHTML(item._serverSeq || '-')}</small>`}
+                </div>
+            </div>
+        `).join('');
+    }
+
     function aplicarTema() {
         let cor = db.configGerais.corTema || '#008C4A';
         let corSub = db.configGerais.corSubHeader || '#ffffff';
@@ -483,7 +698,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
     function sincronizacaoAutomatica() {
         if(!db.configs.url || isSyncingFundo) return;
-        if(syncPendente || (db.configs.ultimaMudancaLocal || 0) > (db.configs.ultimaSincronizacao || 0)) {
+        if(syncPendente || temMudancaLocalPendente()) {
             sincronizarFundo(false, true);
         } else {
             puxarDadosNuvem(true);
@@ -657,8 +872,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let soma = 0;
         (c.carros || []).forEach(car => {
             if(!car.ativo) return;
-            let cadMonth = car.dataCadastro ? car.dataCadastro.substring(0,7) : '2000-01'; 
-            if(cadMonth < COBRANCA_INICIO_MES) cadMonth = COBRANCA_INICIO_MES;
+            let cadMonth = getMesCadastroCobranca(car);
             if(mesRef >= cadMonth) {
                 soma += parseMoeda(car.valor);
             }
@@ -734,8 +948,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             let valPen = calcularValorPendenteMes(c, mesRef);
             let carrosAtivosMes = (c.carros || []).filter(car => {
                 if(!car.ativo) return false;
-                let cadMonth = car.dataCadastro ? car.dataCadastro.substring(0,7) : COBRANCA_INICIO_MES;
-                if(cadMonth < COBRANCA_INICIO_MES) cadMonth = COBRANCA_INICIO_MES;
+                let cadMonth = getMesCadastroCobranca(car);
                 return cadMonth <= mesRef;
             });
             let carrosDeste = carrosAtivosMes.length;
@@ -939,6 +1152,10 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         
         let checkData = (dataStr, nome, confKey, genero) => {
             if(!dataStr || !confAlertas[confKey] || !confAlertas[confKey].ativo) return;
+            if(!isDataISOValida(dataStr)) {
+                alertas.push(`<span class="alert-chip-home alert-expired">🚨${nome}: data inválida</span>`);
+                return;
+            }
             let d = new Date(dataStr + "T00:00:00");
             let diffDias = Math.ceil((d - hoje) / (1000 * 60 * 60 * 24));
             let diasAviso = parseInt(confAlertas[confKey].dias) || 7;
@@ -957,6 +1174,9 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         checkData(carro.dataLaudo, "Laudo", "laudo", "o");
         checkData(carro.dataSeguro, "Seguro", "seguro", "o");
         checkData(carro.dataLicenca, "Licença", "licenca", "a");
+        if(carro.dataCadastro && !isDataISOValida(carro.dataCadastro)) {
+            alertas.push(`<span class="alert-chip-home alert-expired">🚨Cadastro: data inválida</span>`);
+        }
         return alertas;
     }
 
@@ -990,8 +1210,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let earliestCar = null;
         (c.carros || []).forEach(car => {
             if(car.ativo) {
-                let dataBase = car.dataCadastro || `${COBRANCA_INICIO_MES}-01`;
-                if(dataBase.substring(0,7) < COBRANCA_INICIO_MES) dataBase = `${COBRANCA_INICIO_MES}-01`;
+                let dataBase = `${getMesCadastroCobranca(car)}-01`;
                 if(!earliestCar || dataBase < earliestCar) earliestCar = dataBase;
             }
         });
@@ -1134,7 +1353,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         if(!confirm(msg)) return;
         c.arquivado = arquivar;
         c.ativo = !arquivar;
-        c.updatedAt = Date.now();
+        tocarRegistro(c);
+        registrarAuditoria(arquivar ? 'Contribuinte arquivado' : 'Contribuinte restaurado', c.nome || id);
         salvarBanco();
         renderGerenciarContribuintesLista();
         renderizarLista();
@@ -1152,6 +1372,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         (c.carros || []).forEach(car => registrarExclusao('carros', car.id));
         registrarExclusao('contribuintes', id);
         db.contribuintes = db.contribuintes.filter(x => x.id !== id);
+        registrarAuditoria('Contribuinte excluído', c.nome || id);
         salvarBanco();
         renderGerenciarContribuintesLista();
         renderizarLista();
@@ -1206,6 +1427,24 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         document.getElementById('contValor').value = formatMoeda(Math.max(0, somaCarros - desc));
     }
 
+    function validarDatasCarrosTemp() {
+        const campos = [
+            ['dataLaudo', 'Laudo'],
+            ['dataSeguro', 'Seguro'],
+            ['dataLicenca', 'Licença'],
+            ['dataCadastro', 'Cadastro']
+        ];
+        for(let car of tempCarros) {
+            for(let [chave, label] of campos) {
+                if(car[chave] && !isDataISOValida(car[chave])) {
+                    alert(`O veículo ${car.placa || 'sem placa'} está com Data ${label} inválida. Corrija antes de salvar.`);
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     function renderListaTelefones() {
         const box = document.getElementById('listaTelefones');
         if(tempTelefones.length === 0) { box.innerHTML = '<div style="color:#999; font-size:12px; text-align:center;">Nenhum telefone.</div>'; return; }
@@ -1217,6 +1456,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     function salvarContribuinte() {
         let nome = document.getElementById('contNome').value.trim();
         if(!nome) return alert("Digite o nome.");
+        if(!validarDatasCarrosTemp()) return;
         
         let id = document.getElementById('contId').value || 'cont_' + Date.now();
         const anterior = db.contribuintes.find(x=>x.id===id);
@@ -1231,11 +1471,12 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             pagamentos: anterior?.pagamentos || [],
             arquivado: anterior?.arquivado || false,
             ativo: anterior ? anterior.ativo !== false : true,
-            updatedAt: Date.now()
         };
+        tocarRegistro(novo);
         
         const idx = db.contribuintes.findIndex(x => x.id === id);
         if(idx >= 0) db.contribuintes[idx] = novo; else db.contribuintes.push(novo);
+        registrarAuditoria(idx >= 0 ? 'Contribuinte alterado' : 'Contribuinte cadastrado', nome);
         
         salvarBanco();
         
@@ -1331,6 +1572,12 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 inputEl.style.color = 'inherit';
                 return;
             }
+            if(!isDataISOValida(val)) {
+                avisoBox.innerHTML = `${nome}: data inválida`;
+                avisoBox.style.display = 'block';
+                inputEl.style.color = '#D32F2F';
+                return;
+            }
             let d = new Date(val + "T00:00:00");
             let diffDias = Math.ceil((d - hoje) / (1000 * 60 * 60 * 24));
             let diasAviso = parseInt(confAlertas[confKey].dias) || 7;
@@ -1358,6 +1605,17 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         check('carLaudo', 'avisoCarLaudo', 'Laudo', 'laudo', 'o');
         check('carSeguro', 'avisoCarSeguro', 'Seguro', 'seguro', 'o');
         check('carLicenca', 'avisoCarLicenca', 'Licença', 'licenca', 'a');
+        let cadastroVal = document.getElementById('carCadastro').value;
+        let avisoCadastro = document.getElementById('avisoCarCadastro');
+        let inputCadastro = document.getElementById('carCadastro');
+        if(cadastroVal && !isDataISOValida(cadastroVal)) {
+            avisoCadastro.innerHTML = 'Cadastro: data inválida';
+            avisoCadastro.style.display = 'block';
+            inputCadastro.style.color = '#D32F2F';
+        } else {
+            avisoCadastro.style.display = 'none';
+            inputCadastro.style.color = 'inherit';
+        }
     }
 
     function toggleMotivoArquivamento() {
@@ -1382,6 +1640,10 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let motivo = document.getElementById('carMotivo').value.trim();
         
         if(isArq && !motivo) return alert("Por favor, informe o motivo do bloqueio.");
+        if(!validarDataCampo('carLaudo', 'Laudo')) return;
+        if(!validarDataCampo('carSeguro', 'Seguro')) return;
+        if(!validarDataCampo('carLicenca', 'Licença')) return;
+        if(!validarDataCampo('carCadastro', 'Cadastro', true)) return;
 
         let novoCar = {
             id: (idx !== '' && tempCarros[idx].id) ? tempCarros[idx].id : 'car_'+Date.now(),
@@ -1394,9 +1656,9 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             dataLicenca: document.getElementById('carLicenca').value,
             dataCadastro: document.getElementById('carCadastro').value,
             ativo: !isArq,
-            motivoArquivamento: isArq ? motivo : '',
-            updatedAt: Date.now()
+            motivoArquivamento: isArq ? motivo : ''
         };
+        tocarRegistro(novoCar);
 
         if(idx !== '') tempCarros[idx] = novoCar;
         else tempCarros.push(novoCar);
@@ -1411,6 +1673,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             let desc = parseMoeda(c.desconto || "0");
             c.valorTotal = formatMoeda(Math.max(0, somaCarros - desc));
             tocarRegistro(c);
+            registrarAuditoria(idx !== '' ? 'Veículo alterado' : 'Veículo cadastrado', `${c.nome || ''} - ${placa}`);
 
             salvarBanco();
             abrirAcoesContribuinte(contId); 
@@ -1603,10 +1866,11 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             descontoConcedido: opcoes.descontoConcedido || 0,
             parcial: opcoes.parcial || false,
             tipoPagamento: opcoes.tipoPagamento || 'total',
-            dataPagamento: dataPgto,
-            updatedAt: Date.now()
+            dataPagamento: dataPgto
         });
+        marcarRegistroPendente(c.pagamentos[c.pagamentos.length - 1]);
         tocarRegistro(c);
+        registrarAuditoria('Pagamento registrado', `${c.nome || id} - ${buildLabelRef([mesRef])} - R$ ${formatMoeda(valorPago)}`);
         salvarBanco();
         abrirAcoesContribuinte(id);
         renderizarLista();
@@ -1624,7 +1888,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let valorOriginalMes = calcularValorEsperado(c, mesRef);
         let jaTemParcial = calcularParciaisMes(c, mesRef) > 0;
 
-        if(!dataPgto) return alert("Preencha a data do pagamento.");
+        if(!validarDataCampo('pgDataSingle', 'Pagamento', true)) return;
         if(valorPago <= 0) return alert("Digite um valor válido para receber.");
 
         if(isMesPago(c, mesRef)) return alert("Este mês já consta como pago!");
@@ -1767,7 +2031,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let dataPgto = document.getElementById('pgDataMulti').value;
         let esperadoFinal = parseFloat(document.getElementById('pgValorMulti').dataset.esperado) || 0;
         
-        if(!ini || !dataPgto) return alert("Preencha o mês de início e a data de pagamento.");
+        if(!ini) return alert("Preencha o mês de início.");
+        if(!validarDataCampo('pgDataMulti', 'Pagamento', true)) return;
         if(esperadoFinal <= 0) return alert("Não há valor pendente ou válido para este período.");
 
         let meses = getMesesRange(ini, fim);
@@ -1783,10 +2048,11 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             mesesRef: meses,
             labelRef: buildLabelRef(meses),
             valorPago: esperadoFinal,
-            dataPagamento: dataPgto,
-            updatedAt: Date.now()
+            dataPagamento: dataPgto
         });
+        marcarRegistroPendente(c.pagamentos[c.pagamentos.length - 1]);
         tocarRegistro(c);
+        registrarAuditoria('Pagamento por período registrado', `${c.nome || id} - ${buildLabelRef(meses)} - R$ ${formatMoeda(esperadoFinal)}`);
         
         salvarBanco();
         abrirAcoesContribuinte(id); 
@@ -1799,6 +2065,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         registrarExclusao('pagamentos', pgId);
         c.pagamentos = c.pagamentos.filter(p => p.id !== pgId);
         tocarRegistro(c);
+        registrarAuditoria('Pagamento excluído', c.nome || contId);
         salvarBanco();
         abrirAcoesContribuinte(contId);
         renderizarLista();
@@ -1808,7 +2075,10 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let pending = [];
         let earliestCar = null;
         (c.carros || []).forEach(car => {
-            if(car.ativo) { if(!earliestCar || car.dataCadastro < earliestCar) earliestCar = car.dataCadastro; }
+            if(car.ativo) {
+                let dataBase = `${getMesCadastroCobranca(car)}-01`;
+                if(!earliestCar || dataBase < earliestCar) earliestCar = dataBase;
+            }
         });
         if(!earliestCar) return pending;
 
@@ -1926,7 +2196,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let ben = document.getElementById('novoPixBenCoop').value.trim();
         if(tipo === 'E-mail') { chv = chv.toLowerCase(); if(!chv.includes('@') || !chv.includes('.')) return alert('E-mail inválido.'); }
         if(chv && ben) {
-            tempPixCoop.push({ id: 'pix_' + Date.now(), tipo: tipo, chave: chv, beneficiario: ben, principal: tempPixCoop.length === 0, updatedAt: Date.now() });
+            tempPixCoop.push(marcarRegistroPendente({ id: 'pix_' + Date.now(), tipo: tipo, chave: chv, beneficiario: ben, principal: tempPixCoop.length === 0 }));
             document.getElementById('novoPixInputCoop').value = ''; 
             document.getElementById('novoPixBenCoop').value = ''; 
             renderListaPixCoop(); 
@@ -1934,8 +2204,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             alert('Preencha a chave e o nome do beneficiário.');
         }
     }
-    function removerPixCoop(idx) { if(tempPixCoop[idx]?.id) registrarExclusao('pix', tempPixCoop[idx].id); tempPixCoop.splice(idx, 1); if(tempPixCoop.length > 0 && !tempPixCoop.some(p => p.principal)) tempPixCoop[0].principal = true; renderListaPixCoop(); }
-    function setPixPrincipal(idx) { tempPixCoop.forEach((p, i) => { p.principal = (i === idx); p.updatedAt = Date.now(); }); }
+    function removerPixCoop(idx) { if(tempPixCoop[idx]?.id) registrarExclusao('pix', tempPixCoop[idx].id); tempPixCoop.splice(idx, 1); if(tempPixCoop.length > 0 && !tempPixCoop.some(p => p.principal)) marcarRegistroPendente(tempPixCoop[0]).principal = true; renderListaPixCoop(); }
+    function setPixPrincipal(idx) { tempPixCoop.forEach((p, i) => { p.principal = (i === idx); marcarRegistroPendente(p); }); }
 
     function salvarCooperativa() {
         db.cooperativa.logo = document.getElementById('coopLogoBase64').value;
@@ -1943,7 +2213,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         db.cooperativa.fantasia = document.getElementById('coopFantasia').value;
         db.cooperativa.cnpj = document.getElementById('coopCNPJ').value;
         db.cooperativa.pixList = tempPixCoop;
-        db.cooperativa.updatedAt = Date.now();
+        tocarRegistro(db.cooperativa);
+        registrarAuditoria('Dados da cooperativa alterados', db.cooperativa.fantasia || db.cooperativa.razao || 'Cooperativa');
         salvarBanco();
         renderizarCabecalhoPrincipal();
         fecharModal('modalFormCooperativa');
@@ -1996,9 +2267,9 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let editIdx = document.getElementById('editIdxCat').value;
         if(n && v) {
             if(editIdx !== "") { 
-                tempCategorias[editIdx] = { ...tempCategorias[editIdx], emoji: e, nome: n, valor: v, updatedAt: Date.now() }; 
+                tempCategorias[editIdx] = marcarRegistroPendente({ ...tempCategorias[editIdx], emoji: e, nome: n, valor: v }); 
             } else { 
-                tempCategorias.push({ id: 'cat_' + Date.now(), emoji: e, nome: n, valor: v, updatedAt: Date.now() }); 
+                tempCategorias.push(marcarRegistroPendente({ id: 'cat_' + Date.now(), emoji: e, nome: n, valor: v })); 
             }
             cancelarEditCategoria();
             renderListasCategorias();
@@ -2055,6 +2326,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         if(!cat) return fecharModal('modalExcluirCategoria');
         registrarExclusao('categorias', cat?.id || cat?.nome);
         tempCategorias.splice(idx, 1);
+        registrarAuditoria('Categoria excluída', cat.nome || '');
         fecharModal('modalExcluirCategoria');
         renderListasCategorias();
     }
@@ -2068,7 +2340,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             licenca: { ativo: document.getElementById('confAlertaLicenca').checked, dias: document.getElementById('confDiasLicenca').value || 7 }
         };
         db.categorias = tempCategorias;
-        db.configGerais.updatedAt = Date.now();
+        tocarRegistro(db.configGerais);
+        registrarAuditoria('Configurações gerais alteradas', 'Tema, alertas ou categorias');
         salvarBanco();
         aplicarTema();
         fecharModal('modalConfigGerais');
@@ -2122,6 +2395,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             if(!c) return;
             c.carros = tempCarros;
             recalcularTotalContribuinteRegistro(c);
+            registrarAuditoria('Veículo excluído', `${c.nome || ''} - ${car.placa || ''}`);
             salvarBanco();
             abrirAcoesContribuinte(contId);
             renderizarLista();
@@ -2176,9 +2450,9 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 cooperativa: isAdmin || document.getElementById('permCooperativa').checked,
                 configGerais: isAdmin || document.getElementById('permConfigGerais').checked,
                 usuarios: isAdmin || document.getElementById('permUsuarios').checked
-            },
-            updatedAt: Date.now()
+            }
         };
+        tocarRegistro(novo);
         const idx = db.administradores.findIndex(x => x.id === id);
         if(idx >= 0) db.administradores[idx] = novo; else db.administradores.push(novo);
         if(adminLogado && adminLogado.id === id) {
@@ -2187,6 +2461,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             adminLogado.permissoes = novo.permissoes;
             atualizarPerfilAdminUI();
         }
+        registrarAuditoria(idx >= 0 ? 'Usuário alterado' : 'Usuário cadastrado', nome);
         salvarBanco(); fecharModal('modalFormAdmin'); abrirGerenciar('administradores');
     }
 
@@ -2197,6 +2472,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         if(!confirm(`Excluir o usuário ${user.nome}?`)) return;
         registrarExclusao('administradores', id);
         db.administradores = db.administradores.filter(a => a.id !== id);
+        registrarAuditoria('Usuário excluído', user.nome || id);
         salvarBanco();
         abrirGerenciar('administradores');
     }
@@ -2370,7 +2646,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
         let carrosAtivos = (c.carros || [])
             .map((car, idx) => ({ car, idx }))
-            .filter(item => item.car.ativo && (!item.car.dataCadastro || item.car.dataCadastro.substring(0, 7) <= mesRef));
+            .filter(item => item.car.ativo && getMesCadastroCobranca(item.car) <= mesRef);
         let totalBase = carrosAtivos.reduce((acc, item) => acc + parseMoeda(item.car.valor), 0);
         if(carrosAtivos.length === 0 || totalBase <= 0) return mapa;
 
@@ -2542,6 +2818,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                     d.carros.forEach(car => {
                         let cat = db.categorias.find(x => x.nome === car.categoria);
                         if(cat && cat.valor) car.valor = cat.valor;
+                        marcarRegistroPendente(car);
                     });
 
                     if(cExistente) {
@@ -2558,7 +2835,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                         if(!pgExiste) {
                             let valEsperado = calcularValorEsperado(cExistente, pTmp.ref);
                             let valorPago = arredondar2(pTmp.valor);
-                            cExistente.pagamentos.push({
+                            cExistente.pagamentos.push(marcarRegistroPendente({
                                 id: 'pg_' + Date.now() + Math.random(),
                                 mesAno: pTmp.ref,
                                 mesesRef: [pTmp.ref],
@@ -2567,14 +2844,14 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                                 valorOriginal: valEsperado > 0 ? valEsperado : valorPago,
                                 parcial: valEsperado > 0 && valorPago < valEsperado,
                                 tipoPagamento: valEsperado > 0 && valorPago < valEsperado ? 'parcial' : 'total',
-                                dataPagamento: pTmp.data,
-                                updatedAt: Date.now()
-                            });
+                                dataPagamento: pTmp.data
+                            }));
                         }
                     });
                     tocarRegistro(cExistente);
                 });
                 
+                registrarAuditoria('Importação de planilha concluída', `${Object.keys(agrupado).length} contribuinte(s) importado(s)`);
                 salvarBanco();
                 alert("Importação concluída com sucesso!");
                 abrirGerenciarContribuintes();
@@ -2661,7 +2938,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
     async function puxarDadosNuvem(silencioso = true) {
         if(!db.configs.url || isSyncingFundo) return;
-        if(syncPendente || (db.configs.ultimaMudancaLocal || 0) > (db.configs.ultimaSincronizacao || 0)) {
+        if(syncPendente || temMudancaLocalPendente()) {
             sincronizarFundo(false, true);
             return;
         }
@@ -2713,7 +2990,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     function validarBancoImportado(dados) {
         return !!(dados && dados.app_id === "cooptrans" && dados.cooperativa && typeof dados.cooperativa === 'object');
     }
-    async function excluirTodoHistorico() { let frase = document.getElementById('inputExcluirTudo').value.trim().toLowerCase(); if(frase === "quero excluir todo o histórico") { if(!confirm("⚠️ TEM CERTEZA?")) return; db.contribuintes.forEach(c => { (c.pagamentos || []).forEach(pg => registrarExclusao('pagamentos', pg.id)); c.pagamentos = []; tocarRegistro(c); }); marcarMudancaEstrutural(); document.getElementById('inputExcluirTudo').value = ''; fecharModal('modalConfigAvancadas'); alert("✅ Limpo!"); renderizarLista(); } else { alert("Frase incorreta."); } }
+    async function excluirTodoHistorico() { let frase = document.getElementById('inputExcluirTudo').value.trim().toLowerCase(); if(frase === "quero excluir todo o histórico") { if(!confirm("⚠️ TEM CERTEZA?")) return; db.contribuintes.forEach(c => { (c.pagamentos || []).forEach(pg => registrarExclusao('pagamentos', pg.id)); c.pagamentos = []; tocarRegistro(c); }); registrarAuditoria('Histórico de pagamentos apagado', 'Todos os lançamentos foram removidos'); marcarMudancaEstrutural(); document.getElementById('inputExcluirTudo').value = ''; fecharModal('modalConfigAvancadas'); alert("✅ Limpo!"); renderizarLista(); } else { alert("Frase incorreta."); } }
     async function forcarAtualizacao() {
         if(!confirm("Deseja forçar a atualização do aplicativo?")) return;
         try {
