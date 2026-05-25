@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.41";
+﻿const APP_VERSION = "v1.0.42";
 const SYNC_PULL_INTERVAL_MS = 30000;
 const COBRANCA_INICIO_MES = "2026-05";
 const AUDITORIA_RETENCAO_DIAS = 15;
@@ -1492,14 +1492,15 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             const valorAPagar = calcularValorEsperado(c, ini);
             return `
             <tr>
-                <td class="manual-row-name">${escapeHTML(c.nome || 'Sem nome')}<span class="manual-row-value">R$ ${formatMoeda(valorAPagar)}</span></td>
+                <td class="manual-row-name">${escapeHTML(c.nome || 'Sem nome')}</td>
                 <td class="due-col">${String(getDiaVencimento(c)).padStart(2, '0')}</td>
                 ${meses.map(() => '<td class="manual-pg-cell"></td>').join('')}
+                <td class="value-col">R$ ${formatMoeda(valorAPagar)}</td>
             </tr>
         `;
         }).join('');
 
-        const colspanVazio = meses.length + 2;
+        const colspanVazio = meses.length + 3;
         document.getElementById('printRelatorioManual').innerHTML = `
             <div class="manual-report-sheet">
                 <div class="manual-report-head">
@@ -1512,6 +1513,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                             <th class="name-col">Nome</th>
                             <th class="due-col">Dia</th>
                             ${cabecalhoMeses}
+                            <th class="value-col">Valor</th>
                         </tr>
                     </thead>
                     <tbody>${linhas || `<tr><td colspan="${colspanVazio}">Nenhum contribuinte ativo.</td></tr>`}</tbody>

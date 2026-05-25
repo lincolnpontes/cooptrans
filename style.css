@@ -50,7 +50,7 @@
         .chip.a-vencer.active { background:#FBC02D; color:#111; border-color:#F9A825; }
         .chip.vencido, .chip.pendente { background-color: #FFEBEE; color: #D32F2F; border-color: #EF9A9A; }
         .chip.vencido.active, .chip.pendente.active { background-color: #D32F2F; color: white; border-color: #D32F2F; }
-        .filter-report-btn { margin-left:auto; width:40px; height:40px; border-radius:50%; border:1px solid rgba(0,140,74,0.25); background:var(--theme-light); color:var(--theme-base); font-size:24px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto; }
+        .filter-report-btn { margin-left:auto; width:46px; height:46px; border-radius:50%; border:1px solid rgba(0,140,74,0.25); background:var(--theme-light); color:var(--theme-base); font-size:30px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto; line-height:1; }
         
         #inputBuscaNome { display: none; padding: 6px 12px; border-radius: 20px; border: 1px solid #ccc; font-size: 14px; outline: none; transition: 0.3s; width: 150px; }
 
@@ -332,11 +332,11 @@
         .manual-report-table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:12px; }
         .manual-report-table th, .manual-report-table td { border:1px solid #777; padding:5px 4px; height:26px; }
         .manual-report-table th { background:#eee; text-align:center; font-size:11px; }
-        .manual-report-table .name-col { width:36%; text-align:left; }
-        .manual-report-table .due-col { width:44px; text-align:center; color:#111; font-weight:900; }
-        .manual-report-table .pg-col { width:36px; text-align:center; color:#111; }
-        .manual-report-table .manual-row-name { font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .manual-report-table .manual-row-value { display:block; margin-top:2px; color:#111; font-size:11px; font-weight:900; }
+        .manual-report-table .name-col { width:52%; text-align:left; }
+        .manual-report-table .due-col { width:30px; text-align:center; color:#111; font-weight:900; }
+        .manual-report-table .pg-col { width:28px; text-align:center; color:#111; }
+        .manual-report-table .value-col { width:58px; text-align:center; color:#111; font-weight:900; }
+        .manual-report-table .manual-row-name { font-weight:700; white-space:normal; overflow:visible; text-overflow:clip; line-height:1.15; }
         .manual-report-table .manual-pg-cell { background:#fff; }
 
         @media (min-width: 760px) {
@@ -368,7 +368,7 @@
             .status-payment-split { min-width: 78px; padding: 5px 6px; }
             .alert-home-box { max-width: calc(100% - 84px); }
             .alert-chip-home { font-size: 10px; padding: 4px 6px; }
-            .filter-report-btn { width:36px; height:36px; font-size:22px; }
+            .filter-report-btn { width:40px; height:40px; font-size:26px; }
             .manual-report-controls { grid-template-columns:1fr; }
             .vehicle-flags-row { gap:8px; }
             .vehicle-flag-control span { font-size:11px; }
@@ -384,13 +384,15 @@
 
         @media print {
             @page { margin: 8mm; }
-            body { background:#fff; display:block; }
+            html, body { height:auto !important; min-height:0 !important; overflow:visible !important; background:#fff; display:block; }
             body * { visibility:hidden !important; }
+            .app-container, .area-conteudo, .scroll-area, .modal-overlay { position:static !important; display:block !important; height:auto !important; max-height:none !important; min-height:0 !important; overflow:visible !important; box-shadow:none !important; background:#fff !important; }
             #modalRelatorioManual, #modalRelatorioManual .manual-report-modal { position:static !important; display:block !important; width:100% !important; max-width:none !important; height:auto !important; max-height:none !important; overflow:visible !important; box-shadow:none !important; background:#fff !important; padding:0 !important; }
             #modalRelatorioManual .modal-title, #modalRelatorioManual .manual-report-controls, #modalRelatorioManual .manual-report-actions { display:none !important; }
             #printRelatorioManual, #printRelatorioManual * { visibility:visible !important; }
             #printRelatorioManual { position:static !important; left:auto; top:auto; width:100%; height:auto !important; max-height:none !important; overflow:visible !important; border:none; padding:0; }
             .manual-report-sheet { font-size:11px; }
             .manual-report-table th, .manual-report-table td { border-color:#333; height:24px; padding:3px; }
+            .manual-report-table tr { break-inside:avoid; page-break-inside:avoid; }
         }
 

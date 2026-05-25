@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.41-filtros';
-// Atualiza filtros de pagamento e impressao do relatorio manual.
+const CACHE_NAME = 'cooptrans-v1.0.42-relatorio';
+// Ajusta colunas e paginacao da impressao do relatorio manual.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=1.0.41-filtros',
-  './app.js?v=1.0.41-filtros',
+  './style.css?v=1.0.42-relatorio',
+  './app.js?v=1.0.42-relatorio',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',

@@ -13,18 +13,18 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <link rel="icon" href="icons/icon-192.png">
-    <title>Cooptrans v1.0.41</title>
+    <title>Cooptrans v1.0.42</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <!-- Biblioteca Chart.js para Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
-    <link rel="stylesheet" href="style.css?v=1.0.41-filtros">
+    <link rel="stylesheet" href="style.css?v=1.0.42-relatorio">
 </head>
 <body>
 
 <div id="splashScreen">
     <img id="splashLogoObj" style="max-height: 100px; object-fit: contain; margin-bottom: 20px; border-radius: 10px; display: none;">
-    <div class="splash-versao" id="splashVersao">v1.0.41</div>
+    <div class="splash-versao" id="splashVersao">v1.0.42</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 40px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -42,7 +42,7 @@
     <div class="modal login-modal">
         <div class="login-title">
             <strong>Cooptrans</strong>
-            <span id="loginAppVersion">v1.0.41</span>
+            <span id="loginAppVersion">v1.0.42</span>
         </div>
         <p class="login-subtitle" id="loginAdminTexto">Informe a senha do administrador para entrar.</p>
         <div class="form-group">
@@ -161,7 +161,7 @@
 <!-- MENU PRINCIPAL -->
 <div class="modal-overlay" id="modalPainelUnificado">
     <div class="modal" style="padding-top: 25px;">
-        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.41</span></h2>
+        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.42</span></h2>
         <button class="btn-outline" onclick="abrirCooperativaComPermissao()">🏢 Dados da Cooperativa</button>
         <button class="btn-outline" onclick="abrirGerenciarContribuintes()">👥 Gerenciar Contribuintes</button>
         <button class="btn-outline" onclick="abrirConfigGeraisComPermissao()">⚙️ Configurações Gerais</button>
@@ -769,6 +769,6 @@
         </div>
     </div>
 </div>
-<script src="app.js?v=1.0.41-filtros"></script>
+<script src="app.js?v=1.0.42-relatorio"></script>
 </body>
 </html>
