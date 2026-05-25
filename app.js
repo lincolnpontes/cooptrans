@@ -1,6 +1,8 @@
-﻿const APP_VERSION = "v1.0.39";
+﻿const APP_VERSION = "v1.0.40";
 const SYNC_PULL_INTERVAL_MS = 30000;
 const COBRANCA_INICIO_MES = "2026-05";
+const AUDITORIA_RETENCAO_DIAS = 15;
+const DIA_VENCIMENTO_PADRAO = 30;
 
 try {
             let s = localStorage.getItem('cooptrans_v1');
@@ -31,6 +33,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     function escapeHTML(valor) { return String(valor ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
     function getHojeSTR() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
     function getPastMonthStr() { let d = new Date(); d.setMonth(d.getMonth() - 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+    function getMesAtualSTR() { return getHojeSTR().substring(0,7); }
     function getExtensoMes(mesNum) { const m = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]; return m[parseInt(mesNum)-1] || ""; }
     function getAbrevMes(mesNum) { const m = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]; return m[parseInt(mesNum)-1] || ""; }
     function gerarIdLocal(prefixo = 'id') {
@@ -76,6 +79,43 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         if(!car || !car.dataCadastro || !isDataISOValida(car.dataCadastro)) return COBRANCA_INICIO_MES;
         let cadMonth = car.dataCadastro.substring(0, 7);
         return cadMonth < COBRANCA_INICIO_MES ? COBRANCA_INICIO_MES : cadMonth;
+    }
+    function normalizarDiaVencimento(valor) {
+        let dia = parseInt(valor, 10);
+        if(isNaN(dia)) dia = DIA_VENCIMENTO_PADRAO;
+        return Math.min(31, Math.max(1, dia));
+    }
+    function getDiaVencimento(c) {
+        return normalizarDiaVencimento(c && c.diaVencimento);
+    }
+    function getUltimoDiaMes(mesRef) {
+        const [ano, mes] = String(mesRef || getMesAtualSTR()).split('-').map(Number);
+        return new Date(ano, mes, 0).getDate();
+    }
+    function getDiaVencimentoEfetivo(c, mesRef) {
+        return Math.min(getDiaVencimento(c), getUltimoDiaMes(mesRef));
+    }
+    function getDataVencimentoMes(c, mesRef) {
+        const dia = getDiaVencimentoEfetivo(c, mesRef);
+        return `${mesRef}-${String(dia).padStart(2, '0')}`;
+    }
+    function isDataVencida(c, mesRef) {
+        return getHojeSTR() > getDataVencimentoMes(c, mesRef);
+    }
+    function getLabelDiaVencimento(c, mesRef) {
+        return `dia ${String(getDiaVencimentoEfetivo(c, mesRef)).padStart(2, '0')}`;
+    }
+    function getMesesIntervalo(inicio, fim) {
+        if(!inicio || !fim) return [];
+        if(fim < inicio) fim = inicio;
+        let meses = [];
+        let curr = new Date(`${inicio}-01T00:00:00`);
+        let end = new Date(`${fim}-01T00:00:00`);
+        while(curr <= end) {
+            meses.push(`${curr.getFullYear()}-${String(curr.getMonth()+1).padStart(2,'0')}`);
+            curr.setMonth(curr.getMonth() + 1);
+        }
+        return meses;
     }
 
     // DADOS BASE E TEMA
@@ -129,6 +169,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     function garantirIdsInternos(dados) {
         (dados.contribuintes || []).forEach((c, cIdx) => {
             if(!c.id) c.id = `cont_${normalizarTextoId(c.nome)}_${cIdx}`;
+            c.diaVencimento = normalizarDiaVencimento(c.diaVencimento);
             c.carros = Array.isArray(c.carros) ? c.carros : [];
             c.pagamentos = Array.isArray(c.pagamentos) ? c.pagamentos : [];
             c.carros.forEach((car, idx) => {
@@ -165,7 +206,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         dados.categorias = Array.isArray(dados.categorias) ? dados.categorias : [];
         dados.contribuintes = Array.isArray(dados.contribuintes) ? dados.contribuintes : [];
         dados.administradores = Array.isArray(dados.administradores) ? dados.administradores : [];
-        dados.auditoria = Array.isArray(dados.auditoria) ? dados.auditoria : [];
+        dados.auditoria = filtrarAuditoriaRecente(Array.isArray(dados.auditoria) ? dados.auditoria : []);
 
         const alertas = (dados.configGerais && dados.configGerais.alertas) || {};
         const cadastroAtualizadoReset = (dados.configGerais && dados.configGerais.cadastroAtualizadoReset) || {};
@@ -238,6 +279,17 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         return marcarRegistroPendente(registro);
     }
 
+    function filtrarAuditoriaRecente(lista, agora = Date.now()) {
+        const limite = agora - (AUDITORIA_RETENCAO_DIAS * 24 * 60 * 60 * 1000);
+        return (Array.isArray(lista) ? lista : [])
+            .filter(item => {
+                const data = Number(item && (item.createdAt || item._clientChangedAt || item._serverUpdatedAt) || 0);
+                return item && (item._clientDirty || !data || data >= limite);
+            })
+            .sort((a, b) => Number(b.createdAt || b._clientChangedAt || b._serverSeq || 0) - Number(a.createdAt || a._clientChangedAt || a._serverSeq || 0))
+            .slice(0, 300);
+    }
+
     function registrarAuditoria(acao, detalhes = '') {
         db.auditoria = Array.isArray(db.auditoria) ? db.auditoria : [];
         const agora = Date.now();
@@ -251,7 +303,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             _clientDirty: true,
             _clientChangedAt: agora
         });
-        if(db.auditoria.length > 500) db.auditoria = db.auditoria.slice(-500);
+        db.auditoria = filtrarAuditoriaRecente(db.auditoria, agora);
     }
 
     function objetoMaisNovo(a, b) {
@@ -367,6 +419,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         merged.configGerais = objetoMaisNovo(local.configGerais, nuvem.configGerais);
         merged.categorias = mesclarListaPorData(local.categorias || [], nuvem.categorias || [], merged._deleted.categorias);
         merged.administradores = mesclarListaPorData(local.administradores || [], nuvem.administradores || [], merged._deleted.administradores);
+        merged.auditoria = filtrarAuditoriaRecente(mesclarListaPorData(local.auditoria || [], nuvem.auditoria || [], {}));
         merged.contribuintes = mesclarContribuintesPorData(local.contribuintes || [], nuvem.contribuintes || [], merged._deleted);
         merged.configs = { ...(local.configs || {}), ...(nuvem.configs || {}) };
         merged.configs.url = (local.configs && local.configs.url) || (nuvem.configs && nuvem.configs.url) || '';
@@ -394,7 +447,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         if(isPendenteDepois(local.configGerais, syncStartedAt)) server.configGerais = local.configGerais;
         server.categorias = mesclarListaPorData(server.categorias, local.categorias.filter(c => isPendenteDepois(c, syncStartedAt)), server._deleted.categorias);
         server.administradores = mesclarListaPorData(server.administradores, local.administradores.filter(a => isPendenteDepois(a, syncStartedAt)), server._deleted.administradores);
-        server.auditoria = mesclarListaPorData(server.auditoria || [], (local.auditoria || []).filter(a => isPendenteDepois(a, syncStartedAt)), {});
+        server.auditoria = filtrarAuditoriaRecente(mesclarListaPorData(server.auditoria || [], (local.auditoria || []).filter(a => isPendenteDepois(a, syncStartedAt)), {}));
 
         const contribMap = {};
         server.contribuintes.forEach(c => { if(c && c.id) contribMap[c.id] = c; });
@@ -899,6 +952,12 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         } else if(activeMonthTarget === 'pgMesRefSingle') {
             document.getElementById('lblPgMesRefSingle').innerText = `${getExtensoMes(mesStr)} ${mpCurrentYear}`;
             atualizarStatusSingleAcoes();
+        } else if(activeMonthTarget === 'relManualIni') {
+            document.getElementById('lblRelManualIni').innerText = `${getAbrevMes(mesStr)} ${mpCurrentYear}`;
+            gerarRelatorioManual();
+        } else if(activeMonthTarget === 'relManualFim') {
+            document.getElementById('lblRelManualFim').innerText = `${getAbrevMes(mesStr)} ${mpCurrentYear}`;
+            gerarRelatorioManual();
         }
     }
 
@@ -1260,6 +1319,23 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         return Math.max(0, esperado - parciais);
     }
 
+    function getStatusPagamentoMes(c, mesRef) {
+        const valorEsperado = calcularValorEsperado(c, mesRef);
+        const valorPendente = calcularValorPendenteMes(c, mesRef);
+        const pago = isMesPago(c, mesRef);
+        const labelDia = getLabelDiaVencimento(c, mesRef);
+        if(valorEsperado <= 0) {
+            return { tipo: 'neutral', html: `<span>Sem valor</span><strong>${labelDia}</strong>`, valorPendente, pago };
+        }
+        if(pago) {
+            return { tipo: 'ok', html: `<span>Pago</span><strong>${labelDia}</strong>`, valorPendente: 0, pago: true };
+        }
+        if(!isDataVencida(c, mesRef)) {
+            return { tipo: 'warning', html: `<span>Vence</span><strong>${labelDia}</strong>`, valorPendente, pago: false };
+        }
+        return { tipo: 'pendente', html: `<span>Falta R$ ${formatMoeda(valorPendente)}</span><strong>${labelDia}</strong>`, valorPendente, pago: false };
+    }
+
     function getAvatarColor(c, temAlerta) {
         let owesPast = false;
         let earliestCar = null;
@@ -1305,7 +1381,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
             let valorEsperado = calcularValorEsperado(c, mesRef);
             let valorPendente = calcularValorPendenteMes(c, mesRef);
-            let pago = isMesPago(c, mesRef);
+            let statusMes = getStatusPagamentoMes(c, mesRef);
             let pendente = valorPendente > 0;
 
             let alertasArr = [];
@@ -1317,9 +1393,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
             let avatarCor = getAvatarColor(c, temAlerta);
 
-            let statusPgtoHtml = pendente 
-                ? `<span class="status-badge status-pendente status-payment-split"><span>Falta Pagar</span><strong>R$ ${formatMoeda(valorPendente)}</strong></span>` 
-                : `<span class="status-badge status-ok status-payment-split"><span>Pago</span><strong>Regular</strong></span>`;
+            let statusClasse = statusMes.tipo === 'ok' ? 'status-ok' : statusMes.tipo === 'warning' ? 'status-warning' : statusMes.tipo === 'pendente' ? 'status-pendente' : '';
+            let statusPgtoHtml = `<span class="status-badge ${statusClasse} status-payment-split">${statusMes.html}</span>`;
             
             let emojisCarros = '';
             (c.carros || []).filter(car=>car.ativo).forEach(car => {
@@ -1359,6 +1434,87 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
         if(html === '') html = `<li style="padding: 20px; text-align: center; color: #999;">Nenhum contribuinte encontrado.</li>`;
         lista.innerHTML = html;
+    }
+
+    function adicionarMeses(mesRef, qtd) {
+        let d = new Date(`${mesRef}-01T00:00:00`);
+        d.setMonth(d.getMonth() + qtd);
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    }
+
+    function formatMesManual(mesRef) {
+        const [ano, mes] = mesRef.split('-');
+        return `${getAbrevMes(mes)}/${String(ano).slice(2)}`;
+    }
+
+    function setLabelsRelatorioManual() {
+        let ini = document.getElementById('relManualIni').value;
+        let fim = document.getElementById('relManualFim').value;
+        if(ini) document.getElementById('lblRelManualIni').innerText = formatMesManual(ini);
+        if(fim) document.getElementById('lblRelManualFim').innerText = formatMesManual(fim);
+    }
+
+    function abrirRelatorioManual() {
+        const ini = getMesAtualSTR();
+        const fim = adicionarMeses(ini, 5);
+        document.getElementById('relManualIni').value = ini;
+        document.getElementById('relManualFim').value = fim;
+        setLabelsRelatorioManual();
+        gerarRelatorioManual();
+        abrirModal('modalRelatorioManual');
+    }
+
+    function gerarRelatorioManual() {
+        let ini = document.getElementById('relManualIni').value || getMesAtualSTR();
+        let fim = document.getElementById('relManualFim').value || ini;
+        if(fim < ini) {
+            fim = ini;
+            document.getElementById('relManualFim').value = fim;
+        }
+        let meses = getMesesRange(ini, fim);
+        if(meses.length > 12) {
+            meses = meses.slice(0, 12);
+            fim = meses[meses.length - 1];
+            document.getElementById('relManualFim').value = fim;
+        }
+        setLabelsRelatorioManual();
+
+        const contribs = [...db.contribuintes]
+            .filter(c => !estaArquivadoContribuinte(c) && (c.carros || []).some(car => car.ativo))
+            .sort((a,b) => (a.nome || '').localeCompare(b.nome || ''));
+        const cabecalhoMeses = meses.map(m => `<th class="pg-col">${escapeHTML(formatMesManual(m))}</th>`).join('');
+        const linhas = contribs.map(c => `
+            <tr>
+                <td class="manual-row-name">${escapeHTML(c.nome || 'Sem nome')}</td>
+                <td class="due-col">${String(getDiaVencimento(c)).padStart(2, '0')}</td>
+                ${meses.map(() => '<td class="manual-pg-cell"></td>').join('')}
+            </tr>
+        `).join('');
+
+        const colspanVazio = meses.length + 2;
+        document.getElementById('printRelatorioManual').innerHTML = `
+            <div class="manual-report-sheet">
+                <div class="manual-report-head">
+                    <h3>Lista de Acompanhamento</h3>
+                    <span>${escapeHTML(formatMesManual(ini))} a ${escapeHTML(formatMesManual(fim))}</span>
+                </div>
+                <table class="manual-report-table">
+                    <thead>
+                        <tr>
+                            <th class="name-col">Nome</th>
+                            <th class="due-col">Dia</th>
+                            ${cabecalhoMeses}
+                        </tr>
+                    </thead>
+                    <tbody>${linhas || `<tr><td colspan="${colspanVazio}">Nenhum contribuinte ativo.</td></tr>`}</tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    function imprimirRelatorioManual() {
+        gerarRelatorioManual();
+        window.print();
     }
 
     function abrirGerenciarContribuintes() {
@@ -1456,12 +1612,14 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             let c = db.contribuintes.find(x => x.id === id);
             document.getElementById('contId').value = c.id;
             document.getElementById('contNome').value = c.nome || '';
+            document.getElementById('contDiaVencimento').value = getDiaVencimento(c);
             document.getElementById('contDesconto').value = c.desconto || '';
             if(c.telefones) tempTelefones = [...c.telefones];
             if(c.carros) tempCarros = JSON.parse(JSON.stringify(c.carros));
         } else {
             document.getElementById('contId').value = '';
             document.getElementById('contNome').value = '';
+            document.getElementById('contDiaVencimento').value = DIA_VENCIMENTO_PADRAO;
             document.getElementById('contDesconto').value = '';
         }
         renderListaTelefones();
@@ -1522,6 +1680,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             id: id,
             nome: nome,
             telefones: tempTelefones,
+            diaVencimento: normalizarDiaVencimento(document.getElementById('contDiaVencimento').value),
             desconto: document.getElementById('contDesconto').value,
             valorTotal: document.getElementById('contValor').value,
             carros: tempCarros,
@@ -1871,12 +2030,19 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let valorEsperado = calcularValorEsperado(c, mesRef);
         let valorPendente = calcularValorPendenteMes(c, mesRef);
         let pago = isMesPago(c, mesRef);
+        let statusMes = getStatusPagamentoMes(c, mesRef);
         
         let box = document.getElementById('boxStatusPagamento');
         let pgSingle = document.getElementById('pgValorSingle');
         let pgSingleBox = document.getElementById('pgValorSingleBox');
         let btnSingle = document.getElementById('btnRegistrarSingle');
-        box.style.display = 'none';
+        let vencimentoSingle = document.getElementById('pgVencimentoSingle');
+        let vencimentoMulti = document.getElementById('pgVencimentoMulti');
+        let labelVencimento = getLabelDiaVencimento(c, mesRef);
+        if(vencimentoSingle) vencimentoSingle.innerText = labelVencimento;
+        if(vencimentoMulti) vencimentoMulti.innerText = labelVencimento;
+        box.style.display = 'block';
+        box.innerHTML = `<div class="payment-status-value ${statusMes.tipo === 'ok' ? 'paid' : statusMes.tipo === 'warning' ? 'warning' : statusMes.tipo === 'pendente' ? 'pending' : 'neutral'}">${statusMes.html}</div>`;
         pgSingle.classList.remove('amount-due-input', 'amount-paid-input', 'amount-neutral-input');
         if(pgSingleBox) pgSingleBox.classList.remove('amount-due-affix', 'amount-paid-affix', 'amount-neutral-affix');
         btnSingle.classList.remove('payment-disabled-btn');
@@ -2040,6 +2206,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         
         let id = document.getElementById('acoesContId').value;
         let c = db.contribuintes.find(x => x.id === id);
+        let vencimentoMulti = document.getElementById('pgVencimentoMulti');
+        if(vencimentoMulti && c) vencimentoMulti.innerText = getLabelDiaVencimento(c, ini);
         let meses = getMesesRange(ini, fim);
         
         let total = 0;

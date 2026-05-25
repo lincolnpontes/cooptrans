@@ -48,6 +48,7 @@
         .chip.alerta.active { background-color: #E65100; color: white; border-color: #E65100; }
         .chip.pendente { background-color: #FFEBEE; color: #D32F2F; border-color: #EF9A9A; }
         .chip.pendente.active { background-color: #D32F2F; color: white; border-color: #D32F2F; }
+        .filter-report-btn { margin-left:auto; width:38px; height:38px; border-radius:50%; border:1px solid rgba(0,140,74,0.25); background:var(--theme-light); color:var(--theme-base); font-size:20px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto; }
         
         #inputBuscaNome { display: none; padding: 6px 12px; border-radius: 20px; border: 1px solid #ccc; font-size: 14px; outline: none; transition: 0.3s; width: 150px; }
 
@@ -113,6 +114,7 @@
         .status-payment-split span, .status-payment-split strong { font-size: 12px; line-height: 1.15; text-align:center; font-weight:900; }
         .status-ok { background: #E8F5E9; color: #2E7D32; border: 1px solid #A5D6A7; }
         .status-pendente { background: #FFEBEE; color: #C62828; border: 1px solid #EF9A9A; }
+        .status-warning { background:#FFF8E1; color:#6D4C00; border:1px solid #FFE082; }
         
         .radio-custom { display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 12px; color: var(--theme-base); font-weight: bold; }
         .radio-custom input { margin: 0; width: 16px; height: 16px; accent-color: var(--theme-base); }
@@ -207,12 +209,16 @@
         .payment-status-value span { display: inline-block; }
         .payment-status-value.pending { color:#C62828; background:#FFEBEE; border:1px solid #EF9A9A; font-size: 22px; }
         .payment-status-value.paid { color:#2E7D32; background:#E8F5E9; border:1px solid #A5D6A7; font-size: 22px; }
+        .payment-status-value.warning { color:#6D4C00; background:#FFF8E1; border:1px solid #FFE082; font-size: 22px; }
         .payment-status-value.neutral { color:#666; background:#fff; border:1px solid #ddd; font-size: 17px; }
 
         .payment-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; text-align: left; }
         .single-payment-grid { grid-template-columns: 1.2fr 0.9fr 1fr; }
         .payment-grid label { display: block; color:#555; font-weight:800; font-size:11px; margin-bottom:4px; }
         .payment-grid input { width: 100%; min-height: 39px; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; text-align: center; }
+        .due-day-card { background:#f9f9f9; border:1px solid #eee; border-radius:8px; padding:10px; margin-bottom:12px; }
+        .due-day-card input { font-size:18px; font-weight:900; color:var(--theme-base); text-align:center; }
+        .due-day-display { min-height:39px; border:1px solid #ccc; border-radius:6px; background:#fff; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:900; color:#333; }
         .field-month { width: 100%; justify-content:center; padding: 8px 4px; font-size:13px; background:#fff; color:#333; border-color:#ccc; box-sizing:border-box; margin:0; min-height: 39px; }
         .money-input { text-align:center; font-weight:900; color:var(--theme-base); background:#fff; }
         .money-input.readonly { background:#eef4f1; }
@@ -311,6 +317,23 @@
         .payment-decision-card span { font-size:12px; line-height:1.25; color:#555; font-weight:700; }
         .payment-decision-card.partial { border-color:#FFE082; background:#FFFDE7; }
         .payment-decision-card.discount { border-color:#A5D6A7; background:#F1F8E9; }
+        .manual-report-modal { max-width: 900px; width: 96%; height: 88vh; display:flex; flex-direction:column; }
+        .manual-report-controls { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
+        .manual-report-controls label { display:block; color:#555; font-weight:800; font-size:11px; margin-bottom:4px; }
+        .manual-report-actions { margin-top:0; margin-bottom:10px; }
+        .manual-report-print { flex:1; overflow:auto; background:#fff; border:1px solid #ddd; border-radius:8px; padding:12px; }
+        .manual-report-sheet { color:#111; font-family: Arial, sans-serif; }
+        .manual-report-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-end; margin-bottom:10px; }
+        .manual-report-head h3 { margin:0; font-size:18px; text-transform:uppercase; }
+        .manual-report-head span { color:#555; font-size:12px; font-weight:800; }
+        .manual-report-table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:12px; }
+        .manual-report-table th, .manual-report-table td { border:1px solid #777; padding:5px 4px; height:26px; }
+        .manual-report-table th { background:#eee; text-align:center; font-size:11px; }
+        .manual-report-table .name-col { width:36%; text-align:left; }
+        .manual-report-table .due-col { width:44px; text-align:center; color:#C62828; font-weight:900; }
+        .manual-report-table .pg-col { width:36px; text-align:center; color:#111; }
+        .manual-report-table .manual-row-name { font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .manual-report-table .manual-pg-cell { background:#fff; }
 
         @media (min-width: 760px) {
             .status-badge { font-size: 13px; padding: 6px 10px; }
@@ -341,6 +364,8 @@
             .status-payment-split { min-width: 78px; padding: 5px 6px; }
             .alert-home-box { max-width: calc(100% - 84px); }
             .alert-chip-home { font-size: 10px; padding: 4px 6px; }
+            .filter-report-btn { width:34px; height:34px; font-size:18px; }
+            .manual-report-controls { grid-template-columns:1fr; }
             .vehicle-flags-row { gap:8px; }
             .vehicle-flag-control span { font-size:11px; }
             .acoes-toolbar { grid-template-columns: 1fr; }
@@ -351,5 +376,14 @@
             .excel-actions { gap: 6px; }
             .excel-btn { min-height: 46px; font-size: 12px; }
             .payment-status-value.pending, .payment-status-value.paid { font-size: 20px; }
+        }
+
+        @media print {
+            body { background:#fff; display:block; }
+            body * { visibility:hidden !important; }
+            #printRelatorioManual, #printRelatorioManual * { visibility:visible !important; }
+            #printRelatorioManual { position:absolute; left:0; top:0; width:100%; height:auto; overflow:visible; border:none; padding:0; }
+            .manual-report-sheet { font-size:11px; }
+            .manual-report-table th, .manual-report-table td { border-color:#333; height:24px; padding:3px; }
         }
 

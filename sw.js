@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.39-cadupdate';
-// Atualiza o app shell para cadastro atualizado por veiculo.
+const CACHE_NAME = 'cooptrans-v1.0.40-vencimento';
+// Atualiza o app shell para vencimento por contribuinte e relatorio manual.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=1.0.39-cadupdate',
-  './app.js?v=1.0.39-cadupdate',
+  './style.css?v=1.0.40-vencimento',
+  './app.js?v=1.0.40-vencimento',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',
