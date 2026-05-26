@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.42";
+﻿const APP_VERSION = "v1.0.43";
 const SYNC_PULL_INTERVAL_MS = 30000;
 const COBRANCA_INICIO_MES = "2026-05";
 const AUDITORIA_RETENCAO_DIAS = 15;
@@ -182,6 +182,15 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 if(!pg.id) pg.id = `pg_${normalizarTextoId(c.id)}_${normalizarTextoId(pg.mesAno || pg.labelRef)}_${normalizarTextoId(pg.dataPagamento)}_${normalizarTextoId(pg.valorPago)}_${idx}`;
                 if(!pg.updatedAt) pg.updatedAt = Number(c.updatedAt || 0);
             });
+        });
+        dados.administradores = Array.isArray(dados.administradores) ? dados.administradores : [];
+        dados.administradores.forEach((admin, idx) => {
+            if(!admin.id) admin.id = `adm_${normalizarTextoId(admin.nome)}_${idx}`;
+            admin.senha = String(admin.senha || '');
+            admin.forcarTrocaSenha = !!admin.forcarTrocaSenha;
+            if(typeof admin.isAdmin === 'undefined') admin.isAdmin = true;
+            admin.permissoes = getPermissoesUsuario(admin);
+            if(!admin.updatedAt) admin.updatedAt = 0;
         });
         return dados;
     }
@@ -545,7 +554,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 nome: a.nome,
                 senha: String(a.senha),
                 isAdmin: a.isAdmin !== false,
-                permissoes: getPermissoesUsuario(a)
+                permissoes: getPermissoesUsuario(a),
+                forcarTrocaSenha: !!a.forcarTrocaSenha
             }));
 
         if(perfis.length === 0) {
@@ -554,10 +564,15 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 nome: 'Administrador',
                 senha: String((db.configs && db.configs.senhaAdmin) || '1999'),
                 isAdmin: true,
-                permissoes: { cooperativa: true, configGerais: true, usuarios: true }
+                permissoes: { cooperativa: true, configGerais: true, usuarios: true },
+                forcarTrocaSenha: false
             });
         }
         return perfis;
+    }
+
+    function getUsuarioAdminRegistro(id) {
+        return (db.administradores || []).find(a => a && a.id === id) || null;
     }
 
     function atualizarPerfilAdminUI() {
@@ -569,34 +584,86 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         if(labelModal) labelModal.innerText = nome;
     }
 
+    function renderOpcoesLoginAdmin(selectedId = '') {
+        const select = document.getElementById('loginAdminUsuario');
+        if(!select) return;
+        const perfis = getPerfisAdminDisponiveis();
+        select.innerHTML = perfis.map(p => `<option value="${escapeHTML(p.id)}">${escapeHTML(p.nome)}</option>`).join('');
+        const alvo = selectedId && perfis.some(p => p.id === selectedId) ? selectedId : (perfis[0] ? perfis[0].id : '');
+        if(alvo) select.value = alvo;
+    }
+
+    function exibirErroLogin(id, texto) {
+        const erro = document.getElementById(id);
+        if(!erro) return;
+        erro.innerText = texto;
+        erro.style.display = 'block';
+    }
+
+    function limparErroLogin(id) {
+        const erro = document.getElementById(id);
+        if(!erro) return;
+        erro.innerText = '';
+        erro.style.display = 'none';
+    }
+
+    function iniciarFluxoAcesso() {
+        if(!db.configs || !db.configs.url) {
+            abrirSetupUrl();
+            return;
+        }
+        abrirLoginAdmin(false);
+    }
+
+    function abrirSetupUrl() {
+        const modal = document.getElementById('modalSetupUrl');
+        if(!modal) return;
+        document.getElementById('setupAppVersion').innerText = APP_VERSION;
+        document.getElementById('setupUrlApp').value = db.configs?.url || '';
+        limparErroLogin('setupUrlErro');
+        modal.style.display = 'flex';
+        setTimeout(() => document.getElementById('setupUrlApp').focus(), 80);
+    }
+
     function abrirLoginAdmin(ehTroca = false) {
+        if(!db.configs || !db.configs.url) {
+            abrirSetupUrl();
+            return;
+        }
         let modal = document.getElementById('modalLoginAdmin');
         if(!modal) return;
+        renderOpcoesLoginAdmin(adminLogado ? adminLogado.id : '');
         document.getElementById('loginAdminSenha').value = '';
-        document.getElementById('loginAdminErro').style.display = 'none';
-        document.getElementById('loginAdminTexto').innerText = ehTroca ? 'Informe a senha do perfil que deseja usar.' : 'Informe a senha do administrador para entrar.';
+        limparErroLogin('loginAdminErro');
+        document.getElementById('loginAdminTexto').innerText = ehTroca ? 'Escolha o perfil e informe a senha.' : 'Escolha o usuário e informe a senha.';
         document.getElementById('btnCancelarLoginAdmin').style.display = (ehTroca && adminLogado) ? 'block' : 'none';
         modal.style.display = 'flex';
         setTimeout(() => document.getElementById('loginAdminSenha').focus(), 80);
     }
 
     function entrarAdmin() {
+        let usuarioId = document.getElementById('loginAdminUsuario').value;
         let senha = document.getElementById('loginAdminSenha').value.trim();
-        let erro = document.getElementById('loginAdminErro');
-        let perfil = getPerfisAdminDisponiveis().find(a => a.senha === senha);
+        let perfil = getPerfisAdminDisponiveis().find(a => a.id === usuarioId);
 
         if(!perfil) {
-            erro.innerText = 'Senha não encontrada em nenhum perfil de administrador.';
-            erro.style.display = 'block';
+            exibirErroLogin('loginAdminErro', 'Selecione um usuário válido.');
             document.getElementById('loginAdminSenha').select();
             return;
         }
 
-        adminLogado = { id: perfil.id, nome: perfil.nome, isAdmin: perfil.isAdmin !== false, permissoes: getPermissoesUsuario(perfil) };
+        if(!senha || senha !== perfil.senha) {
+            exibirErroLogin('loginAdminErro', 'Senha incorreta para este usuário.');
+            document.getElementById('loginAdminSenha').select();
+            return;
+        }
+
+        adminLogado = { id: perfil.id, nome: perfil.nome, isAdmin: perfil.isAdmin !== false, permissoes: getPermissoesUsuario(perfil), forcarTrocaSenha: !!perfil.forcarTrocaSenha };
         atualizarPerfilAdminUI();
-        erro.style.display = 'none';
+        limparErroLogin('loginAdminErro');
         fecharModal('modalLoginAdmin');
         fecharModal('modalPerfilAdmin');
+        if(perfil.forcarTrocaSenha) abrirTrocaSenhaPerfil(true);
     }
 
     function abrirMenuPerfil() {
@@ -626,6 +693,74 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             return;
         }
         abrirLoginAdmin(false);
+    }
+
+    function abrirTrocaSenhaPerfil(obrigatoria = false) {
+        if(!adminLogado) {
+            abrirLoginAdmin(false);
+            return;
+        }
+        fecharModal('modalPerfilAdmin');
+        document.getElementById('trocaSenhaObrigatoria').value = obrigatoria ? 'true' : 'false';
+        document.getElementById('tituloTrocaSenha').innerText = obrigatoria ? 'Cadastrar nova senha' : 'Trocar senha';
+        document.getElementById('textoTrocaSenha').innerText = obrigatoria ? 'Este usuário precisa cadastrar uma nova senha antes de continuar.' : 'Informe a senha atual e escolha uma nova senha numérica.';
+        document.getElementById('trocaSenhaAtual').value = '';
+        document.getElementById('trocaSenhaNova').value = '';
+        document.getElementById('trocaSenhaNova2').value = '';
+        limparErroLogin('trocaSenhaErro');
+        document.getElementById('btnFecharTrocaSenha').style.display = obrigatoria ? 'none' : 'inline-flex';
+        document.getElementById('btnCancelarTrocaSenha').style.display = obrigatoria ? 'none' : 'block';
+        abrirModal('modalTrocaSenha');
+        setTimeout(() => document.getElementById('trocaSenhaAtual').focus(), 80);
+    }
+
+    function salvarTrocaSenhaPerfil() {
+        if(!adminLogado) return abrirLoginAdmin(false);
+        const atual = document.getElementById('trocaSenhaAtual').value.trim();
+        const nova = document.getElementById('trocaSenhaNova').value.trim();
+        const nova2 = document.getElementById('trocaSenhaNova2').value.trim();
+        const registro = getUsuarioAdminRegistro(adminLogado.id);
+        const senhaAtual = adminLogado.id === 'admin_padrao' ? String(db.configs.senhaAdmin || '1999') : (registro ? String(registro.senha || '') : '');
+
+        if(!/^\d+$/.test(atual) || atual !== senhaAtual) {
+            exibirErroLogin('trocaSenhaErro', 'Senha atual incorreta.');
+            document.getElementById('trocaSenhaAtual').select();
+            return;
+        }
+        if(!/^\d+$/.test(nova)) {
+            exibirErroLogin('trocaSenhaErro', 'A nova senha deve conter apenas números.');
+            document.getElementById('trocaSenhaNova').select();
+            return;
+        }
+        if(nova !== nova2) {
+            exibirErroLogin('trocaSenhaErro', 'As duas novas senhas não conferem.');
+            document.getElementById('trocaSenhaNova2').select();
+            return;
+        }
+        if(nova === atual) {
+            exibirErroLogin('trocaSenhaErro', 'A nova senha precisa ser diferente da senha atual.');
+            document.getElementById('trocaSenhaNova').select();
+            return;
+        }
+
+        if(adminLogado.id === 'admin_padrao') {
+            db.configs.senhaAdmin = nova;
+        } else if(registro) {
+            registro.senha = nova;
+            registro.forcarTrocaSenha = false;
+            tocarRegistro(registro);
+        } else {
+            exibirErroLogin('trocaSenhaErro', 'Usuário não encontrado. Entre novamente.');
+            return;
+        }
+
+        adminLogado.forcarTrocaSenha = false;
+        registrarAuditoria('Senha do usuário alterada', adminLogado.nome || '');
+        salvarBanco();
+        limparErroLogin('trocaSenhaErro');
+        fecharModal('modalTrocaSenha');
+        atualizarPerfilAdminUI();
+        alert('Senha alterada com sucesso.');
     }
 
     function abrirCooperativaComPermissao() {
@@ -763,6 +898,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         document.getElementById('splashVersao').innerText = APP_VERSION;
         document.getElementById('menuAppVersion').innerText = APP_VERSION;
         document.getElementById('loginAppVersion').innerText = APP_VERSION;
+        document.getElementById('setupAppVersion').innerText = APP_VERSION;
         atualizarPerfilAdminUI();
         aplicarTema();
         renderizarCabecalhoPrincipal();
@@ -778,7 +914,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         configurarBloqueioZoom();
         registrarServiceWorker();
         inicializarSincronizacaoAutomatica();
-        abrirLoginAdmin(false);
+        iniciarFluxoAcesso();
     });
 
     function configurarBloqueioZoom() {
@@ -827,6 +963,10 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             if(e.key === 'Escape') {
                 let topModal = modals.sort((a,b) => (parseInt(window.getComputedStyle(a).zIndex)||0) - (parseInt(window.getComputedStyle(b).zIndex)||0)).pop();
                 if(topModal) {
+                    if(topModal.id === 'modalTrocaSenha' && document.getElementById('trocaSenhaObrigatoria')?.value === 'true') {
+                        e.preventDefault();
+                        return;
+                    }
                     let closeBtn = topModal.querySelector('.btn-cancel') || topModal.querySelector('button[onclick*="fechar"]');
                     if(closeBtn) closeBtn.click();
                 }
@@ -2732,6 +2872,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             document.getElementById('adminId').value = a.id;
             document.getElementById('adminNome').value = a.nome;
             document.getElementById('adminSenha').value = a.senha;
+            document.getElementById('adminForcarTrocaSenha').checked = !!a.forcarTrocaSenha;
             document.getElementById('adminIsAdmin').checked = a.isAdmin !== false;
             let perms = getPermissoesUsuario(a);
             document.getElementById('permCooperativa').checked = !!perms.cooperativa;
@@ -2741,6 +2882,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             document.getElementById('adminId').value = '';
             document.getElementById('adminNome').value = '';
             document.getElementById('adminSenha').value = '';
+            document.getElementById('adminForcarTrocaSenha').checked = true;
             document.getElementById('adminIsAdmin').checked = db.administradores.length === 0;
             document.getElementById('permCooperativa').checked = false;
             document.getElementById('permConfigGerais').checked = false;
@@ -2756,13 +2898,18 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let senha = document.getElementById('adminSenha').value.trim();
         if(!nome) return alert("Informe o nome do perfil.");
         if(!senha) return alert("Informe a senha do perfil.");
+        if(!/^\d+$/.test(senha)) return alert("A senha deve conter apenas números.");
 
         let isAdmin = document.getElementById('adminIsAdmin').checked;
+        const idx = db.administradores.findIndex(x => x.id === id);
+        const anterior = idx >= 0 ? db.administradores[idx] : {};
         let novo = {
+            ...anterior,
             id: id,
             nome: nome,
             senha: senha,
             isAdmin: isAdmin,
+            forcarTrocaSenha: document.getElementById('adminForcarTrocaSenha').checked,
             permissoes: {
                 cooperativa: isAdmin || document.getElementById('permCooperativa').checked,
                 configGerais: isAdmin || document.getElementById('permConfigGerais').checked,
@@ -2770,12 +2917,12 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             }
         };
         tocarRegistro(novo);
-        const idx = db.administradores.findIndex(x => x.id === id);
         if(idx >= 0) db.administradores[idx] = novo; else db.administradores.push(novo);
         if(adminLogado && adminLogado.id === id) {
             adminLogado.nome = nome;
             adminLogado.isAdmin = novo.isAdmin;
             adminLogado.permissoes = novo.permissoes;
+            adminLogado.forcarTrocaSenha = novo.forcarTrocaSenha;
             atualizarPerfilAdminUI();
         }
         registrarAuditoria(idx >= 0 ? 'Usuário alterado' : 'Usuário cadastrado', nome);
@@ -3185,11 +3332,20 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     function solicitarAcessoAvancado() { fecharModal('modalPainelUnificado'); document.getElementById('senhaAvancada').value = ''; abrirModal('modalSenhaAvancada'); setTimeout(()=>document.getElementById('senhaAvancada').focus(), 100); }
     document.getElementById('senhaAvancada').addEventListener('input', function(e) { if(this.value === db.configs.senhaAdmin) { this.blur(); this.value = ''; fecharModal('modalSenhaAvancada'); document.getElementById('configUrlApp').value = db.configs.url || ''; abrirModal('modalConfigAvancadas'); } });
     document.getElementById('loginAdminSenha').addEventListener('keydown', function(e) { if(e.key === 'Enter') { e.preventDefault(); entrarAdmin(); } });
+    document.getElementById('loginAdminUsuario').addEventListener('change', function() { document.getElementById('loginAdminSenha').value = ''; limparErroLogin('loginAdminErro'); setTimeout(() => document.getElementById('loginAdminSenha').focus(), 30); });
+    document.getElementById('setupUrlApp').addEventListener('keydown', function(e) { if(e.key === 'Enter') { e.preventDefault(); salvarURLInicial(); } });
+    ['trocaSenhaAtual', 'trocaSenhaNova', 'trocaSenhaNova2'].forEach(id => {
+        document.getElementById(id).addEventListener('keydown', function(e) { if(e.key === 'Enter') { e.preventDefault(); salvarTrocaSenhaPerfil(); } });
+    });
     
-    async function salvarURL() {
-        const inputUrl = document.getElementById('configUrlApp').value.trim();
-        if(!inputUrl) return alert("Digite a URL!");
-
+    async function salvarURLComValor(inputUrl, origem = 'avancada') {
+        inputUrl = String(inputUrl || '').trim();
+        if(!inputUrl) {
+            if(origem === 'inicial') exibirErroLogin('setupUrlErro', 'Digite a URL do back-end.');
+            else alert("Digite a URL!");
+            return false;
+        }
+        if(origem === 'inicial') limparErroLogin('setupUrlErro');
         document.getElementById('loadingOverlay').style.display = 'flex';
         try {
             let fetchUrl = inputUrl + (inputUrl.includes('?') ? '&' : '?') + 'nocache=' + Date.now();
@@ -3197,7 +3353,11 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             if(!res.ok) throw new Error("Falha ao buscar dados da nuvem");
 
             let dadosNuvem = await res.json();
-            if(!validarBancoImportado(dadosNuvem)) return alert("❌ Dados incompatíveis.");
+            if(!validarBancoImportado(dadosNuvem)) {
+                if(origem === 'inicial') exibirErroLogin('setupUrlErro', 'Dados incompatíveis com o Cooptrans.');
+                else alert("❌ Dados incompatíveis.");
+                return false;
+            }
 
             let nuvemDB = normalizarBanco(dadosNuvem);
             nuvemDB.configs.url = inputUrl;
@@ -3205,13 +3365,24 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             nuvemDB.configs.ultimaSincronizacao = Date.now();
             db = nuvemDB;
             salvarBanco({ sincronizar: false, marcarLocal: false });
-            alert("✅ Concluído!");
+            alert(origem === 'inicial' ? "✅ Dados carregados. Agora faça login." : "✅ Concluído!");
             location.reload();
+            return true;
         } catch(e) {
-            alert("❌ Falha.");
+            if(origem === 'inicial') exibirErroLogin('setupUrlErro', 'Não foi possível puxar os dados dessa URL.');
+            else alert("❌ Falha.");
+            return false;
         } finally {
             document.getElementById('loadingOverlay').style.display = 'none';
         }
+    }
+
+    async function salvarURLInicial() {
+        return salvarURLComValor(document.getElementById('setupUrlApp').value, 'inicial');
+    }
+
+    async function salvarURL() {
+        return salvarURLComValor(document.getElementById('configUrlApp').value, 'avancada');
     }
 
     async function sincronizarFundo(forcado = false, apenasEmpurrar = false) {

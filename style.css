@@ -79,8 +79,10 @@
         .profile-modal { max-width: 380px; }
         .profile-current { display:flex; align-items:center; gap:12px; background:var(--theme-light); border:1px solid rgba(0,140,74,0.18); border-radius:8px; padding:12px; margin-bottom:12px; }
         .profile-current-icon { width:42px; height:42px; border-radius:50%; background:var(--theme-base); color:white; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
+        .profile-current > div { min-width:0; flex:1; }
         .profile-current small { display:block; color:#666; font-size:11px; text-transform:uppercase; font-weight:900; margin-bottom:2px; }
         .profile-current strong { color:#222; font-size:17px; }
+        .profile-password-btn { border:1px solid var(--theme-base); color:var(--theme-base); background:#fff; border-radius:8px; padding:8px 9px; font-size:11px; font-weight:900; cursor:pointer; white-space:nowrap; flex-shrink:0; }
         .profile-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
         .permissions-box { border:1px solid #ddd; border-radius:8px; padding:10px; margin:8px 0 12px; background:#f9f9f9; display:flex; flex-direction:column; gap:8px; }
         .permission-check { display:flex; align-items:center; gap:8px; color:#333; font-size:13px; font-weight:800; margin-bottom:8px; }

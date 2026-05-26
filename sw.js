@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.42-printfix';
-// Corrige impressao em branco da lista de acompanhamento manual.
+const CACHE_NAME = 'cooptrans-v1.0.43-login';
+// Ajusta fluxo inicial de URL, login por usuario e troca de senha.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=1.0.42-printfix',
-  './app.js?v=1.0.42-printfix',
+  './style.css?v=1.0.43-login',
+  './app.js?v=1.0.43-login',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',
