@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.43";
+﻿const APP_VERSION = "v1.0.44";
 const SYNC_PULL_INTERVAL_MS = 30000;
 const COBRANCA_INICIO_MES = "2026-05";
 const AUDITORIA_RETENCAO_DIAS = 15;
@@ -1135,6 +1135,13 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         return Math.max(0, soma - desc);
     }
 
+    function deveContarComoInadimplente(c, mesRef) {
+        const mesAtual = getMesAtualSTR();
+        if(mesRef < mesAtual) return true;
+        if(mesRef > mesAtual) return false;
+        return isDataVencida(c, mesRef);
+    }
+
     // DASHBOARD
     let dashOrigem = 'menu';
 
@@ -1271,7 +1278,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                     if(isMesPago(c, m)) {
                         recVal += valEsp;
                         recQtd++;
-                    } else {
+                    } else if(deveContarComoInadimplente(c, m)) {
                         let valPen = calcularValorPendenteMes(c, m);
                         if(valPen > 0) {
                             penVal += valPen;
@@ -1478,8 +1485,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         return { tipo: 'pendente', html: `<span>Falta R$ ${formatMoeda(valorPendente)}</span> <strong>${labelDia}</strong>`, valorPendente, pago: false };
     }
 
-    function getAvatarColor(c, temAlerta) {
-        let owesPast = false;
+    function temPendenciaMesesAnteriores(c) {
         let earliestCar = null;
         (c.carros || []).forEach(car => {
             if(car.ativo) {
@@ -1495,12 +1501,16 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 let end = new Date(endMes + '-01T00:00:00');
                 while(curr <= end) {
                     let m = `${curr.getFullYear()}-${String(curr.getMonth()+1).padStart(2,'0')}`;
-                    if(calcularValorPendenteMes(c, m) > 0) { owesPast = true; break; }
+                    if(calcularValorPendenteMes(c, m) > 0) return true;
                     curr.setMonth(curr.getMonth() + 1);
                 }
             }
         }
-        if(owesPast) return '#D32F2F'; // Vermelho
+        return false;
+    }
+
+    function getAvatarColor(c, temAlerta, temPendenciaAnterior = temPendenciaMesesAnteriores(c)) {
+        if(temPendenciaAnterior) return '#D32F2F'; // Vermelho
         if(temAlerta) return '#F9A825'; // Laranja claro
         return 'var(--theme-base)'; // Verde
     }
@@ -1536,7 +1546,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             if(filtroViewAtual === 'vencidos' && !pagamentoVencido) return;
             if(filtroViewAtual === 'vencimentos' && !temAlerta) return;
 
-            let avatarCor = getAvatarColor(c, temAlerta);
+            let temPendenciaAnterior = temPendenciaMesesAnteriores(c);
+            let avatarCor = getAvatarColor(c, temAlerta, temPendenciaAnterior);
 
             let statusClasse = statusMes.tipo === 'ok' ? 'status-ok' : statusMes.tipo === 'warning' ? 'status-warning' : statusMes.tipo === 'pendente' ? 'status-pendente' : '';
             let statusPgtoHtml = `<span class="status-badge ${statusClasse} status-payment-split">${statusMes.html}</span>`;
@@ -1548,6 +1559,9 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 let tickAtualizado = car.cadastroAtualizado ? '<span class="vehicle-updated-tick">✅</span>' : '';
                 emojisCarros += `<span class="vehicle-emoji-wrap">${escapeHTML(emojiCarro)}${tickAtualizado}</span>`;
             });
+            if(temPendenciaAnterior) {
+                emojisCarros += '<span class="past-debt-dot" title="Possui pendência em meses anteriores"></span>';
+            }
             let subtitleText = carrosAtivos > 0 
                 ? `<div class="item-vehicles">${emojisCarros}</div>` 
                 : `<div class="item-subtitle" style="font-size:11px;">Nenhum veículo ativo</div>`;
@@ -1839,7 +1853,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             document.getElementById('contDiaVencimento').value = DIA_VENCIMENTO_PADRAO;
             document.getElementById('contDesconto').value = '';
         }
-        renderListaTelefones();
+        carregarTelefonesFormulario(tempTelefones);
         renderListaCarros();
         abrirModal('modalFormContribuinte');
     }
@@ -1877,13 +1891,32 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         return true;
     }
 
-    function renderListaTelefones() {
-        const box = document.getElementById('listaTelefones');
-        if(tempTelefones.length === 0) { box.innerHTML = '<div style="color:#999; font-size:12px; text-align:center;">Nenhum telefone.</div>'; return; }
-        box.innerHTML = tempTelefones.map((t, i) => `<div class="list-item-config"><span>${escapeHTML(t)}</span><button onclick="removerTelefone(${i})">X</button></div>`).join('');
+    function carregarTelefonesFormulario(telefones = []) {
+        const principal = document.getElementById('contTelefonePrincipal');
+        const alternativo = document.getElementById('contTelefoneAlternativo');
+        const boxAlternativo = document.getElementById('boxTelefoneAlternativo');
+        principal.value = telefones[0] || '';
+        alternativo.value = telefones[1] || '';
+        boxAlternativo.style.display = alternativo.value ? 'flex' : 'none';
     }
-    function addTelefone() { let v = document.getElementById('novoTelInput').value.trim(); if(v) { tempTelefones.push(v); document.getElementById('novoTelInput').value = ''; renderListaTelefones(); } }
-    function removerTelefone(idx) { tempTelefones.splice(idx, 1); renderListaTelefones(); }
+
+    function mostrarTelefoneAlternativo() {
+        const box = document.getElementById('boxTelefoneAlternativo');
+        box.style.display = 'flex';
+        setTimeout(() => document.getElementById('contTelefoneAlternativo').focus(), 30);
+    }
+
+    function removerTelefoneAlternativo() {
+        document.getElementById('contTelefoneAlternativo').value = '';
+        document.getElementById('boxTelefoneAlternativo').style.display = 'none';
+    }
+
+    function obterTelefonesFormulario() {
+        return [
+            document.getElementById('contTelefonePrincipal').value.trim(),
+            document.getElementById('contTelefoneAlternativo').value.trim()
+        ].filter(Boolean);
+    }
 
     function salvarContribuinte() {
         let nome = document.getElementById('contNome').value.trim();
@@ -1896,7 +1929,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let novo = {
             id: id,
             nome: nome,
-            telefones: tempTelefones,
+            telefones: obterTelefonesFormulario(),
             diaVencimento: normalizarDiaVencimento(document.getElementById('contDiaVencimento').value),
             desconto: document.getElementById('contDesconto').value,
             valorTotal: document.getElementById('contValor').value,

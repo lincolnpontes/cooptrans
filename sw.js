@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.43-login';
-// Ajusta fluxo inicial de URL, login por usuario e troca de senha.
+const CACHE_NAME = 'cooptrans-v1.0.44-pendencias';
+// Ajusta pendencias anteriores, inadimplencia por vencimento e telefones.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=1.0.43-login',
-  './app.js?v=1.0.43-login',
+  './style.css?v=1.0.44-pendencias',
+  './app.js?v=1.0.44-pendencias',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',
