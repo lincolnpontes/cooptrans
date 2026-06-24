@@ -94,7 +94,8 @@
         .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 14px; }
         .phone-field-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
         .phone-field-row input { flex:1; min-width:0; }
-        .phone-add-btn, .phone-remove-btn { flex:0 0 44px; width:44px; height:38px; padding:0; display:inline-flex; align-items:center; justify-content:center; font-size:20px; font-weight:900; border-radius:6px; cursor:pointer; }
+        .phone-add-btn { flex:0 0 30px; width:30px; height:30px; padding:0; display:inline-flex; align-items:center; justify-content:center; font-size:17px; line-height:1; font-weight:900; border-radius:6px; cursor:pointer; }
+        .phone-remove-btn { flex:0 0 36px; width:36px; height:36px; padding:0; display:inline-flex; align-items:center; justify-content:center; font-size:14px; font-weight:900; border-radius:6px; cursor:pointer; }
         .phone-remove-btn { border:0; background:#FFEBEE; color:#C62828; font-size:14px; }
         .phone-alternate-row { margin-top:2px; }
         
@@ -345,7 +346,7 @@
         .manual-report-table .pg-col { width:28px; text-align:center; color:#111; }
         .manual-report-table .value-col { width:58px; text-align:center; color:#111; font-weight:900; }
         .manual-report-table .manual-row-name { font-weight:700; white-space:normal; overflow:visible; text-overflow:clip; line-height:1.15; }
-        .manual-report-table .manual-pg-cell { background:#fff; }
+        .manual-report-table .manual-pg-cell { background:#fff; text-align:center; font-weight:900; }
 
         @media (min-width: 760px) {
             .status-badge { font-size: 13px; padding: 6px 10px; }

@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.44-pendencias';
-// Ajusta pendencias anteriores, inadimplencia por vencimento e telefones.
+const CACHE_NAME = 'cooptrans-v1.0.45-relatorio-pg';
+// Ajusta meses e pagamentos da lista manual e o botao de telefone.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=1.0.44-pendencias',
-  './app.js?v=1.0.44-pendencias',
+  './style.css?v=1.0.45-relatorio-pg',
+  './app.js?v=1.0.45-relatorio-pg',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',

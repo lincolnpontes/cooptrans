@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.44";
+﻿const APP_VERSION = "v1.0.45";
 const SYNC_PULL_INTERVAL_MS = 30000;
 const COBRANCA_INICIO_MES = "2026-05";
 const AUDITORIA_RETENCAO_DIAS = 15;
@@ -1606,6 +1606,11 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         return `${getAbrevMes(mes)}/${String(ano).slice(2)}`;
     }
 
+    function formatMesColunaManual(mesRef) {
+        const mes = String(mesRef || '').split('-')[1];
+        return getAbrevMes(mes);
+    }
+
     function setLabelsRelatorioManual() {
         let ini = document.getElementById('relManualIni').value;
         let fim = document.getElementById('relManualFim').value;
@@ -1641,14 +1646,14 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         const contribs = [...db.contribuintes]
             .filter(c => !estaArquivadoContribuinte(c) && (c.carros || []).some(car => car.ativo))
             .sort((a,b) => (a.nome || '').localeCompare(b.nome || ''));
-        const cabecalhoMeses = meses.map(m => `<th class="pg-col">${escapeHTML(formatMesManual(m))}</th>`).join('');
+        const cabecalhoMeses = meses.map(m => `<th class="pg-col">${escapeHTML(formatMesColunaManual(m))}</th>`).join('');
         const linhas = contribs.map(c => {
             const valorAPagar = calcularValorEsperado(c, ini);
             return `
             <tr>
                 <td class="manual-row-name">${escapeHTML(c.nome || 'Sem nome')}</td>
                 <td class="due-col">${String(getDiaVencimento(c)).padStart(2, '0')}</td>
-                ${meses.map(() => '<td class="manual-pg-cell"></td>').join('')}
+                ${meses.map(m => `<td class="manual-pg-cell">${isMesPago(c, m) ? 'PG' : ''}</td>`).join('')}
                 <td class="value-col">R$ ${formatMoeda(valorAPagar)}</td>
             </tr>
         `;
@@ -1694,10 +1699,10 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             .manual-report-table th { background: #eee; text-align: center; font-weight: 800; }
             .manual-report-table .name-col { width: 52%; text-align: left; }
             .manual-report-table .due-col { width: 26px; text-align: center; color: #111; font-weight: 900; }
-            .manual-report-table .pg-col { width: 24px; text-align: center; color: #111; }
+            .manual-report-table .pg-col { width: 28px; text-align: center; color: #111; }
             .manual-report-table .value-col { width: 54px; text-align: center; color: #111; font-weight: 900; }
             .manual-report-table .manual-row-name { font-weight: 700; white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.12; }
-            .manual-report-table .manual-pg-cell { background: #fff; }
+            .manual-report-table .manual-pg-cell { background: #fff; text-align: center; font-weight: 900; }
         </style>`;
     }
 
