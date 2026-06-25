@@ -1,3542 +1,3409 @@
-﻿const APP_VERSION = "v1.0.45";
-const SYNC_PULL_INTERVAL_MS = 30000;
-const COBRANCA_INICIO_MES = "2026-05";
-const AUDITORIA_RETENCAO_DIAS = 15;
-const DIA_VENCIMENTO_PADRAO = 30;
-
-try {
-            let s = localStorage.getItem('cooptrans_v1');
-            if(s) {
-                let parsed = JSON.parse(s);
-                if(parsed && parsed.cooperativa && parsed.cooperativa.logo) {
-                    let img = document.getElementById('splashLogoObj');
-                    img.src = parsed.cooperativa.logo;
-                    img.style.display = 'block';
-                }
-            }
-        } catch(e){}
-
-function toggleDiv(id) { let el = document.getElementById(id); el.style.display = (el.style.display === 'none') ? 'block' : 'none'; }
-    function converterLogo(input) { if (input.files && input.files[0]) { let reader = new FileReader(); reader.onload = function(e) { document.getElementById('coopLogoBase64').value = e.target.result; document.getElementById('previewLogo').innerHTML = `<img src="${e.target.result}" style="max-height:50px;">`; }; reader.readAsDataURL(input.files[0]); } }
-    
-    // MÁSCARAS
-    function maskCNPJ(el) { let v = el.value.replace(/\D/g, ""); if (v.length > 14) v = v.substring(0, 14); v = v.replace(/^(\d{2})(\d)/, "$1.$2"); v = v.replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3"); v = v.replace(/\.(\d{3})(\d)/, ".$1/$2"); v = v.replace(/(\d{4})(\d)/, "$1-$2"); el.value = v; }
-    function maskTelefone(el) { let v = el.value.replace(/\D/g,""); if (v.length > 11) v = v.substring(0, 11); v = v.replace(/^(\d{2})(\d)/g,"($1) $2"); v = v.replace(/(\d{5})(\d{4})$/,"$1-$2"); el.value = v; }
-    function formatMoedaInput(val) { return formatMoeda(val); }
-    function maskMoeda(el) { let v = el.value.replace(/\D/g, ""); if(!v) { el.value = ""; return; } el.value = (parseFloat(v) / 100).toLocaleString('pt-BR', {minimumFractionDigits: 2}); }
-    function parseMoeda(str) { if(!str) return 0; let v = String(str).replace(/\s/g, '').replace(/R\$/gi, ''); if(v.includes(',') && v.includes('.')) v = v.replace(/\./g, '').replace(',', '.'); else if(v.includes(',')) v = v.replace(',', '.'); else if(v.includes('.')) { let partes = v.split('.'); if(partes.length > 2 || partes[partes.length - 1].length === 3) v = v.replace(/\./g, ''); } let n = parseFloat(v.replace(/[^\d.-]/g, '')); return isNaN(n) ? 0 : n; }
-    function formatMoeda(val) { return parseFloat(val).toLocaleString('pt-BR', {minimumFractionDigits: 2}); }
-    function maskPercentual(el) { let v = el.value.replace(/[^\d,\.]/g, "").replace(".", ","); let partes = v.split(","); if(partes.length > 2) v = partes[0] + "," + partes.slice(1).join(""); el.value = v; }
-    function parsePercentual(str) { let n = parseFloat(String(str || '').replace(",", ".")); if(isNaN(n)) return 0; return Math.max(0, Math.min(100, n)); }
-    function formatPercentual(val) { return parseFloat(val || 0).toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 2}); }
-    function formatDataBR(dataStr) { if(!dataStr) return ""; const partes = dataStr.split('-'); if(partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`; return dataStr; }
-    function escapeHTML(valor) { return String(valor ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
-    function getHojeSTR() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
-    function getPastMonthStr() { let d = new Date(); d.setMonth(d.getMonth() - 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
-    function getMesAtualSTR() { return getHojeSTR().substring(0,7); }
-    function getExtensoMes(mesNum) { const m = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"]; return m[parseInt(mesNum)-1] || ""; }
-    function getAbrevMes(mesNum) { const m = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"]; return m[parseInt(mesNum)-1] || ""; }
-    function gerarIdLocal(prefixo = 'id') {
-        if(window.crypto && crypto.randomUUID) return `${prefixo}_${crypto.randomUUID()}`;
-        return `${prefixo}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    }
-    function getClientIdLocal() {
-        let id = localStorage.getItem('cooptrans_client_id');
-        if(!id) {
-            id = gerarIdLocal('client');
-            localStorage.setItem('cooptrans_client_id', id);
-        }
-        return id;
-    }
-    function getUsuarioAuditoria() {
-        return adminLogado && adminLogado.nome ? adminLogado.nome : 'Sistema';
-    }
-    function isDataISOValida(valor) {
-        if(!valor) return true;
-        if(!/^\d{4}-\d{2}-\d{2}$/.test(String(valor))) return false;
-        const [ano, mes, dia] = String(valor).split('-').map(Number);
-        if(ano < 2000 || ano > 2100 || mes < 1 || mes > 12 || dia < 1 || dia > 31) return false;
-        const d = new Date(`${valor}T00:00:00`);
-        return d.getFullYear() === ano && d.getMonth() + 1 === mes && d.getDate() === dia;
-    }
-    function validarDataCampo(id, nome, obrigatoria = false) {
-        const el = document.getElementById(id);
-        const valor = el ? el.value : '';
-        if(!valor && !obrigatoria) return true;
-        if(!valor && obrigatoria) {
-            alert(`Informe a data de ${nome}.`);
-            if(el) el.focus();
-            return false;
-        }
-        if(!isDataISOValida(valor)) {
-            alert(`A data de ${nome} está inválida. Use uma data real entre 2000 e 2100.`);
-            if(el) el.focus();
-            return false;
-        }
-        return true;
-    }
-    function getMesCadastroCobranca(car) {
-        if(!car || !car.dataCadastro || !isDataISOValida(car.dataCadastro)) return COBRANCA_INICIO_MES;
-        let cadMonth = car.dataCadastro.substring(0, 7);
-        return cadMonth < COBRANCA_INICIO_MES ? COBRANCA_INICIO_MES : cadMonth;
-    }
-    function normalizarDiaVencimento(valor) {
-        let dia = parseInt(valor, 10);
-        if(isNaN(dia)) dia = DIA_VENCIMENTO_PADRAO;
-        return Math.min(31, Math.max(1, dia));
-    }
-    function getDiaVencimento(c) {
-        return normalizarDiaVencimento(c && c.diaVencimento);
-    }
-    function getUltimoDiaMes(mesRef) {
-        const [ano, mes] = String(mesRef || getMesAtualSTR()).split('-').map(Number);
-        return new Date(ano, mes, 0).getDate();
-    }
-    function getDiaVencimentoEfetivo(c, mesRef) {
-        return Math.min(getDiaVencimento(c), getUltimoDiaMes(mesRef));
-    }
-    function getDataVencimentoMes(c, mesRef) {
-        const dia = getDiaVencimentoEfetivo(c, mesRef);
-        return `${mesRef}-${String(dia).padStart(2, '0')}`;
-    }
-    function isDataVencida(c, mesRef) {
-        return getHojeSTR() > getDataVencimentoMes(c, mesRef);
-    }
-    function getLabelDiaVencimento(c, mesRef) {
-        return `dia ${String(getDiaVencimentoEfetivo(c, mesRef)).padStart(2, '0')}`;
-    }
-    function getMesesIntervalo(inicio, fim) {
-        if(!inicio || !fim) return [];
-        if(fim < inicio) fim = inicio;
-        let meses = [];
-        let curr = new Date(`${inicio}-01T00:00:00`);
-        let end = new Date(`${fim}-01T00:00:00`);
-        while(curr <= end) {
-            meses.push(`${curr.getFullYear()}-${String(curr.getMonth()+1).padStart(2,'0')}`);
-            curr.setMonth(curr.getMonth() + 1);
-        }
-        return meses;
-    }
-
-    // DADOS BASE E TEMA
-    let db = carregarBanco(); 
-    let isSyncingFundo = false;
-    let tempCategorias = [];
-    let tempTelefones = [];
-    let tempCarros = [];
-    let tempCarrosExcluidos = [];
-    let tempPixCoop = [];
-    let filtroViewAtual = 'todos'; 
-    let chartArrecadacao = null;
-    let chartInadimplencia = null;
-    let syncTimer = null;
-    let syncPendente = false;
-    let pagamentoMenorPendente = null;
-    let adminLogado = null;
-
-    function criarBancoBase() {
-        return {
-            app_id: "cooptrans",
-            cooperativa: { logo: "", razao: "", fantasia: "", cnpj: "", pixList: [] },
-            categorias: [], 
-            contribuintes: [], 
-            administradores: [],
-            auditoria: [],
-            configGerais: { 
-                corTema: "#008C4A",
-                corSubHeader: "#ffffff",
-                alertas: {
-                    laudo: { ativo: true, dias: 7 },
-                    seguro: { ativo: true, dias: 7 },
-                    licenca: { ativo: true, dias: 7 }
-                },
-                cadastroAtualizadoReset: { dia: "31", mes: "07", ultimoResetAno: "" }
-            },
-            configs: { url: "", dadosBaixados: false, ultimaMudancaLocal: 0, ultimaSincronizacao: 0, syncRevision: 0, senhaAdmin: "1999", clientId: getClientIdLocal() },
-            _deleted: { contribuintes: {}, pagamentos: {}, pix: {}, categorias: {}, administradores: {}, carros: {} }
-        };
-    }
-
-    function normalizarTextoId(valor) {
-        return String(valor || '')
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^a-z0-9]+/g, '_')
-            .replace(/^_+|_+$/g, '') || 'item';
-    }
-
-    function garantirIdsInternos(dados) {
-        (dados.contribuintes || []).forEach((c, cIdx) => {
-            if(!c.id) c.id = `cont_${normalizarTextoId(c.nome)}_${cIdx}`;
-            c.diaVencimento = normalizarDiaVencimento(c.diaVencimento);
-            c.carros = Array.isArray(c.carros) ? c.carros : [];
-            c.pagamentos = Array.isArray(c.pagamentos) ? c.pagamentos : [];
-            c.carros.forEach((car, idx) => {
-                if(!car.id) car.id = `car_${normalizarTextoId(c.id)}_${normalizarTextoId(car.placa || car.categoria)}_${idx}`;
-                if(!car.updatedAt) car.updatedAt = Number(c.updatedAt || 0);
-                if(typeof car.ativo === 'undefined') car.ativo = true;
-                if(typeof car.cadastroAtualizado === 'undefined') car.cadastroAtualizado = false;
-            });
-            c.pagamentos.forEach((pg, idx) => {
-                if(!pg.id) pg.id = `pg_${normalizarTextoId(c.id)}_${normalizarTextoId(pg.mesAno || pg.labelRef)}_${normalizarTextoId(pg.dataPagamento)}_${normalizarTextoId(pg.valorPago)}_${idx}`;
-                if(!pg.updatedAt) pg.updatedAt = Number(c.updatedAt || 0);
-            });
-        });
-        dados.administradores = Array.isArray(dados.administradores) ? dados.administradores : [];
-        dados.administradores.forEach((admin, idx) => {
-            if(!admin.id) admin.id = `adm_${normalizarTextoId(admin.nome)}_${idx}`;
-            admin.senha = String(admin.senha || '');
-            admin.forcarTrocaSenha = !!admin.forcarTrocaSenha;
-            if(typeof admin.isAdmin === 'undefined') admin.isAdmin = true;
-            admin.permissoes = getPermissoesUsuario(admin);
-            if(!admin.updatedAt) admin.updatedAt = 0;
-        });
-        return dados;
-    }
-
-    function carregarBanco() {
-        const base = criarBancoBase();
-        try {
-            let salvo = localStorage.getItem('cooptrans_v1');
-            if(salvo) return normalizarBanco(JSON.parse(salvo), base);
-        } catch(e) {
-            console.warn("Banco local inválido. Usando estrutura inicial.", e);
-        }
-        return base;
-    }
-
-    function normalizarBanco(dados, base = criarBancoBase()) {
-        if(!dados || dados.app_id !== "cooptrans") return base;
-
-        dados.cooperativa = { ...base.cooperativa, ...(dados.cooperativa || {}) };
-        dados.cooperativa.pixList = Array.isArray(dados.cooperativa.pixList) ? dados.cooperativa.pixList : [];
-
-        dados.categorias = Array.isArray(dados.categorias) ? dados.categorias : [];
-        dados.contribuintes = Array.isArray(dados.contribuintes) ? dados.contribuintes : [];
-        dados.administradores = Array.isArray(dados.administradores) ? dados.administradores : [];
-        dados.auditoria = filtrarAuditoriaRecente(Array.isArray(dados.auditoria) ? dados.auditoria : []);
-
-        const alertas = (dados.configGerais && dados.configGerais.alertas) || {};
-        const cadastroAtualizadoReset = (dados.configGerais && dados.configGerais.cadastroAtualizadoReset) || {};
-        dados.configGerais = { ...base.configGerais, ...(dados.configGerais || {}) };
-        dados.configGerais.alertas = {
-            laudo: { ...base.configGerais.alertas.laudo, ...(alertas.laudo || {}) },
-            seguro: { ...base.configGerais.alertas.seguro, ...(alertas.seguro || {}) },
-            licenca: { ...base.configGerais.alertas.licenca, ...(alertas.licenca || {}) }
-        };
-        dados.configGerais.cadastroAtualizadoReset = {
-            ...base.configGerais.cadastroAtualizadoReset,
-            ...cadastroAtualizadoReset
-        };
-
-        dados.configs = { ...base.configs, ...(dados.configs || {}) };
-        dados.configs.clientId = dados.configs.clientId || getClientIdLocal();
-        dados._deleted = { ...base._deleted, ...(dados._deleted || {}) };
-        dados._deleted.contribuintes = dados._deleted.contribuintes || {};
-        dados._deleted.pagamentos = dados._deleted.pagamentos || {};
-        dados._deleted.pix = dados._deleted.pix || {};
-        dados._deleted.categorias = dados._deleted.categorias || {};
-        dados._deleted.administradores = dados._deleted.administradores || {};
-        dados._deleted.carros = dados._deleted.carros || {};
-        return garantirIdsInternos(dados);
-    }
-    
-    function salvarBanco(opcoes = {}) {
-        db.configs = { ...criarBancoBase().configs, ...(db.configs || {}) };
-        db.configs.clientId = db.configs.clientId || getClientIdLocal();
-        if(opcoes.marcarLocal !== false) db.configs.ultimaMudancaLocal = Date.now();
-        localStorage.setItem('cooptrans_v1', JSON.stringify(db));
-        if(opcoes.sincronizar !== false) agendarSincronizacao();
-    }
-
-    function agendarSincronizacao() {
-        if(!db.configs || !db.configs.url) return;
-        syncPendente = true;
-        clearTimeout(syncTimer);
-        syncTimer = setTimeout(() => sincronizarFundo(false, true), 1500);
-    }
-
-    function registrarExclusao(tipo, id) {
-        if(!id) return;
-        db._deleted = db._deleted || criarBancoBase()._deleted;
-        db._deleted[tipo] = db._deleted[tipo] || {};
-        const agora = Date.now();
-        db._deleted[tipo][id] = {
-            id,
-            tipo,
-            deletedAt: agora,
-            _clientDirty: true,
-            _clientChangedAt: agora,
-            _clientId: getClientIdLocal(),
-            usuario: getUsuarioAuditoria()
-        };
-    }
-
-    function marcarRegistroPendente(registro) {
-        if(!registro) return registro;
-        const agora = Date.now();
-        registro.updatedAt = agora;
-        registro._clientDirty = true;
-        registro._clientChangedAt = agora;
-        registro._clientId = getClientIdLocal();
-        registro._clientUser = getUsuarioAuditoria();
-        return registro;
-    }
-
-    function tocarRegistro(registro) {
-        return marcarRegistroPendente(registro);
-    }
-
-    function filtrarAuditoriaRecente(lista, agora = Date.now()) {
-        const limite = agora - (AUDITORIA_RETENCAO_DIAS * 24 * 60 * 60 * 1000);
-        return (Array.isArray(lista) ? lista : [])
-            .filter(item => {
-                const data = Number(item && (item.createdAt || item._clientChangedAt || item._serverUpdatedAt) || 0);
-                return item && (item._clientDirty || !data || data >= limite);
-            })
-            .sort((a, b) => Number(b.createdAt || b._clientChangedAt || b._serverSeq || 0) - Number(a.createdAt || a._clientChangedAt || a._serverSeq || 0))
-            .slice(0, 300);
-    }
-
-    function registrarAuditoria(acao, detalhes = '') {
-        db.auditoria = Array.isArray(db.auditoria) ? db.auditoria : [];
-        const agora = Date.now();
-        db.auditoria.push({
-            id: gerarIdLocal('audit'),
-            acao,
-            detalhes,
-            usuario: getUsuarioAuditoria(),
-            clientId: getClientIdLocal(),
-            createdAt: agora,
-            _clientDirty: true,
-            _clientChangedAt: agora
-        });
-        db.auditoria = filtrarAuditoriaRecente(db.auditoria, agora);
-    }
-
-    function objetoMaisNovo(a, b) {
-        if(!a) return b || {};
-        if(!b) return a || {};
-        if(a._clientDirty && !b._clientDirty) return a;
-        if(!a._clientDirty && b._clientDirty) return b;
-        const seqA = Number(a._serverSeq || 0);
-        const seqB = Number(b._serverSeq || 0);
-        if(seqA !== seqB) return seqB > seqA ? b : a;
-        return Number(b.updatedAt || b._clientChangedAt || 0) >= Number(a.updatedAt || a._clientChangedAt || 0) ? b : a;
-    }
-
-    function tombstoneSeq(valor) {
-        if(!valor) return 0;
-        return typeof valor === 'object' ? Number(valor._serverSeq || 0) : 0;
-    }
-
-    function tombstoneTempo(valor) {
-        if(!valor) return 0;
-        return typeof valor === 'object' ? Number(valor.deletedAt || valor._clientChangedAt || 0) : Number(valor || 0);
-    }
-
-    function isPendenteDepois(registro, syncStartedAt) {
-        if(!registro || !registro._clientDirty) return false;
-        return Number(registro._clientChangedAt || registro.updatedAt || 0) > Number(syncStartedAt || 0);
-    }
-
-    function tombstonePendenteDepois(valor, syncStartedAt) {
-        return !!(valor && typeof valor === 'object' && valor._clientDirty && Number(valor._clientChangedAt || valor.deletedAt || 0) > Number(syncStartedAt || 0));
-    }
-
-    function temMudancaLocalPendente() {
-        if(db.cooperativa && db.cooperativa._clientDirty) return true;
-        if(db.configGerais && db.configGerais._clientDirty) return true;
-        if((db.categorias || []).some(item => item && item._clientDirty)) return true;
-        if((db.administradores || []).some(item => item && item._clientDirty)) return true;
-        if((db.auditoria || []).some(item => item && item._clientDirty)) return true;
-        if((db.contribuintes || []).some(c => c && (c._clientDirty || (c.carros || []).some(car => car && car._clientDirty) || (c.pagamentos || []).some(pg => pg && pg._clientDirty)))) return true;
-        return Object.values(db._deleted || {}).some(grupo => Object.values(grupo || {}).some(tomb => tomb && typeof tomb === 'object' && tomb._clientDirty));
-    }
-
-    function mesclarExclusoes(a, b) {
-        const tipos = ['contribuintes', 'pagamentos', 'pix', 'categorias', 'administradores', 'carros'];
-        const result = {};
-        tipos.forEach((tipo) => {
-            result[tipo] = {};
-            const atual = (a && a[tipo]) || {};
-            const novo = (b && b[tipo]) || {};
-            Object.keys(atual).forEach((id) => result[tipo][id] = atual[id]);
-            Object.keys(novo).forEach((id) => {
-                const existente = result[tipo][id];
-                result[tipo][id] = tombstoneSeq(novo[id]) > tombstoneSeq(existente) || tombstoneTempo(novo[id]) > tombstoneTempo(existente) ? novo[id] : existente;
-            });
-        });
-        return result;
-    }
-
-    function mesclarListaPorData(atual = [], nova = [], excluidos = {}) {
-        const map = {};
-        atual.concat(nova).forEach((item) => {
-            if(!item) return;
-            const key = item.id || item.nome || item.chave;
-            if(!key) return;
-            map[key] = objetoMaisNovo(map[key], item);
-        });
-        return Object.keys(map)
-            .filter((id) => {
-                const tomb = (excluidos || {})[id];
-                if(!tomb) return true;
-                const seqDel = tombstoneSeq(tomb);
-                const seqReg = Number(map[id]._serverSeq || 0);
-                if(seqDel || seqReg) return seqDel < seqReg;
-                return tombstoneTempo(tomb) < Number(map[id].updatedAt || 0);
-            })
-            .map((id) => map[id]);
-    }
-
-    function mesclarPagamentosPorData(atual = [], nova = [], excluidos = {}) {
-        return mesclarListaPorData(atual, nova, excluidos);
-    }
-
-    function mesclarContribuintesPorData(atual = [], nova = [], excluidos = {}) {
-        const map = {};
-        atual.forEach((item) => { if(item && item.id) map[item.id] = item; });
-        nova.forEach((item) => {
-            if(!item || !item.id) return;
-            const anterior = map[item.id];
-            const escolhido = { ...objetoMaisNovo(anterior, item) };
-            escolhido.carros = mesclarListaPorData((anterior && anterior.carros) || [], item.carros || [], (excluidos && excluidos.carros) || {});
-            escolhido.pagamentos = mesclarPagamentosPorData((anterior && anterior.pagamentos) || [], item.pagamentos || [], (excluidos && excluidos.pagamentos) || {});
-            map[item.id] = escolhido;
-        });
-        return Object.keys(map)
-            .filter((id) => {
-                const tomb = excluidos && excluidos.contribuintes && excluidos.contribuintes[id];
-                if(!tomb) return true;
-                const seqDel = tombstoneSeq(tomb);
-                const seqReg = Number(map[id]._serverSeq || 0);
-                if(seqDel || seqReg) return seqDel < seqReg;
-                return tombstoneTempo(tomb) < Number(map[id].updatedAt || 0);
-            })
-            .map((id) => map[id]);
-    }
-
-    function mesclarBancosPorData(local, nuvem) {
-        local = normalizarBanco(local);
-        nuvem = normalizarBanco(nuvem);
-        const merged = normalizarBanco({ ...local });
-        merged._deleted = mesclarExclusoes(local._deleted, nuvem._deleted);
-        merged.cooperativa = objetoMaisNovo(local.cooperativa, nuvem.cooperativa);
-        merged.cooperativa.pixList = mesclarListaPorData(local.cooperativa.pixList || [], nuvem.cooperativa.pixList || [], merged._deleted.pix);
-        merged.configGerais = objetoMaisNovo(local.configGerais, nuvem.configGerais);
-        merged.categorias = mesclarListaPorData(local.categorias || [], nuvem.categorias || [], merged._deleted.categorias);
-        merged.administradores = mesclarListaPorData(local.administradores || [], nuvem.administradores || [], merged._deleted.administradores);
-        merged.auditoria = filtrarAuditoriaRecente(mesclarListaPorData(local.auditoria || [], nuvem.auditoria || [], {}));
-        merged.contribuintes = mesclarContribuintesPorData(local.contribuintes || [], nuvem.contribuintes || [], merged._deleted);
-        merged.configs = { ...(local.configs || {}), ...(nuvem.configs || {}) };
-        merged.configs.url = (local.configs && local.configs.url) || (nuvem.configs && nuvem.configs.url) || '';
-        merged.configs.ultimaMudancaLocal = Math.max(Number(local.configs?.ultimaMudancaLocal || 0), Number(nuvem.configs?.ultimaMudancaLocal || 0));
-        merged.configs.ultimaSincronizacao = Math.max(Number(local.configs?.ultimaSincronizacao || 0), Number(nuvem.configs?.ultimaSincronizacao || 0));
-        merged.configs.syncRevision = Math.max(Number(local.configs?.syncRevision || 0), Number(nuvem.configs?.syncRevision || 0));
-        return normalizarBanco(merged);
-    }
-
-    function reaplicarMudancasLocaisRecentes(baseServidor, local, syncStartedAt) {
-        const server = normalizarBanco(baseServidor);
-        local = normalizarBanco(local);
-        server._deleted = mesclarExclusoes(server._deleted, local._deleted);
-        Object.keys(local._deleted || {}).forEach((tipo) => {
-            Object.keys(local._deleted[tipo] || {}).forEach((id) => {
-                const tomb = local._deleted[tipo][id];
-                if(tombstonePendenteDepois(tomb, syncStartedAt)) {
-                    server._deleted[tipo] = server._deleted[tipo] || {};
-                    server._deleted[tipo][id] = tomb;
-                }
-            });
-        });
-
-        if(isPendenteDepois(local.cooperativa, syncStartedAt)) server.cooperativa = local.cooperativa;
-        if(isPendenteDepois(local.configGerais, syncStartedAt)) server.configGerais = local.configGerais;
-        server.categorias = mesclarListaPorData(server.categorias, local.categorias.filter(c => isPendenteDepois(c, syncStartedAt)), server._deleted.categorias);
-        server.administradores = mesclarListaPorData(server.administradores, local.administradores.filter(a => isPendenteDepois(a, syncStartedAt)), server._deleted.administradores);
-        server.auditoria = filtrarAuditoriaRecente(mesclarListaPorData(server.auditoria || [], (local.auditoria || []).filter(a => isPendenteDepois(a, syncStartedAt)), {}));
-
-        const contribMap = {};
-        server.contribuintes.forEach(c => { if(c && c.id) contribMap[c.id] = c; });
-        local.contribuintes.forEach(cLocal => {
-            if(!cLocal || !cLocal.id) return;
-            let cServer = contribMap[cLocal.id] || { ...cLocal, carros: [], pagamentos: [] };
-            if(isPendenteDepois(cLocal, syncStartedAt)) cServer = { ...cServer, ...cLocal };
-            cServer.carros = mesclarListaPorData(cServer.carros || [], (cLocal.carros || []).filter(car => isPendenteDepois(car, syncStartedAt)), server._deleted.carros);
-            cServer.pagamentos = mesclarPagamentosPorData(cServer.pagamentos || [], (cLocal.pagamentos || []).filter(pg => isPendenteDepois(pg, syncStartedAt)), server._deleted.pagamentos);
-            contribMap[cLocal.id] = cServer;
-        });
-        server.contribuintes = Object.values(contribMap).filter(c => {
-            const tomb = server._deleted.contribuintes && server._deleted.contribuintes[c.id];
-            if(!tomb) return true;
-            if(tombstonePendenteDepois(tomb, syncStartedAt)) return false;
-            const seqDel = tombstoneSeq(tomb);
-            const seqReg = Number(c._serverSeq || 0);
-            return seqDel < seqReg;
-        });
-        return normalizarBanco(server);
-    }
-    
-    function abrirModal(id) {
-        let el = document.getElementById(id);
-        if(el) {
-            el.style.display = 'flex';
-            let modalBox = el.querySelector('.modal');
-            if(modalBox) {
-                modalBox.scrollTop = 0;
-            }
-        }
-    }
-    
-    function fecharModal(id) { document.getElementById(id).style.display = 'none'; }
-    function marcarMudancaEstrutural() { db.configs.ultimaMudancaLocal = Date.now(); salvarBanco(); }
-
-    function aplicarBancoAtualizado(novoBanco, opcoes = {}) {
-        if(!validarBancoImportado(novoBanco)) return false;
-        let urlSalva = db.configs && db.configs.url;
-        const ultimaMudancaAntes = Number(db.configs?.ultimaMudancaLocal || 0);
-        const houveMudancaDuranteSync = opcoes.syncStartedAt && ultimaMudancaAntes > opcoes.syncStartedAt;
-        db = houveMudancaDuranteSync ? reaplicarMudancasLocaisRecentes(novoBanco, db, opcoes.syncStartedAt) : normalizarBanco(novoBanco);
-        if(urlSalva) db.configs.url = urlSalva;
-        db.configs.ultimaSincronizacao = houveMudancaDuranteSync ? Number(db.configs.ultimaSincronizacao || 0) : Date.now();
-        localStorage.setItem('cooptrans_v1', JSON.stringify(db));
-
-        if(houveMudancaDuranteSync) {
-            syncPendente = true;
-            clearTimeout(syncTimer);
-            syncTimer = setTimeout(() => sincronizarFundo(false, true), 1500);
-        }
-
-        if(opcoes.render !== false) {
-            aplicarTema();
-            renderizarCabecalhoPrincipal();
-            atualizarPerfilAdminUI();
-            try { atualizarTextoMesGeral(); } catch(e) {}
-            if(document.getElementById('modalPainelResultados') && getComputedStyle(document.getElementById('modalPainelResultados')).display !== 'none') {
-                renderizarResumoMes();
-                gerarGraficosComparativos();
-            }
-            if(document.getElementById('modalListagem') && getComputedStyle(document.getElementById('modalListagem')).display !== 'none') {
-                if(document.getElementById('inputBuscaGerenciarContrib').style.display !== 'none') renderGerenciarContribuintesLista();
-            }
-            if(document.getElementById('modalAuditoria') && getComputedStyle(document.getElementById('modalAuditoria')).display !== 'none') {
-                renderAuditoria();
-            }
-        }
-        return true;
-    }
-
-    function estaArquivadoContribuinte(c) {
-        return !!(c && (c.arquivado || c.ativo === false));
-    }
-
-    function getPermissoesUsuario(usuario) {
-        return { cooperativa: false, configGerais: false, usuarios: false, ...(usuario && usuario.permissoes ? usuario.permissoes : {}) };
-    }
-
-    function usuarioTemPermissao(chave) {
-        if(!adminLogado) return false;
-        if(adminLogado.isAdmin) return true;
-        return !!(adminLogado.permissoes && adminLogado.permissoes[chave]);
-    }
-
-    function negarPermissao() {
-        alert("Este usuário não tem acesso a essa área.");
-    }
-
-    function getPerfisAdminDisponiveis() {
-        let perfis = (db.administradores || [])
-            .filter(a => a && a.nome && a.senha)
-            .map(a => ({
-                id: a.id,
-                nome: a.nome,
-                senha: String(a.senha),
-                isAdmin: a.isAdmin !== false,
-                permissoes: getPermissoesUsuario(a),
-                forcarTrocaSenha: !!a.forcarTrocaSenha
-            }));
-
-        if(perfis.length === 0) {
-            perfis.push({
-                id: 'admin_padrao',
-                nome: 'Administrador',
-                senha: String((db.configs && db.configs.senhaAdmin) || '1999'),
-                isAdmin: true,
-                permissoes: { cooperativa: true, configGerais: true, usuarios: true },
-                forcarTrocaSenha: false
-            });
-        }
-        return perfis;
-    }
-
-    function getUsuarioAdminRegistro(id) {
-        return (db.administradores || []).find(a => a && a.id === id) || null;
-    }
-
-    function atualizarPerfilAdminUI() {
-        let nome = adminLogado ? adminLogado.nome : 'Entrar';
-        let nomeCurto = nome.length > 14 ? `${nome.substring(0, 13)}…` : nome;
-        let labelHeader = document.getElementById('perfilAdminNome');
-        let labelModal = document.getElementById('perfilAtualNome');
-        if(labelHeader) labelHeader.innerText = nomeCurto;
-        if(labelModal) labelModal.innerText = nome;
-    }
-
-    function renderOpcoesLoginAdmin(selectedId = '') {
-        const select = document.getElementById('loginAdminUsuario');
-        if(!select) return;
-        const perfis = getPerfisAdminDisponiveis();
-        select.innerHTML = perfis.map(p => `<option value="${escapeHTML(p.id)}">${escapeHTML(p.nome)}</option>`).join('');
-        const alvo = selectedId && perfis.some(p => p.id === selectedId) ? selectedId : (perfis[0] ? perfis[0].id : '');
-        if(alvo) select.value = alvo;
-    }
-
-    function exibirErroLogin(id, texto) {
-        const erro = document.getElementById(id);
-        if(!erro) return;
-        erro.innerText = texto;
-        erro.style.display = 'block';
-    }
-
-    function limparErroLogin(id) {
-        const erro = document.getElementById(id);
-        if(!erro) return;
-        erro.innerText = '';
-        erro.style.display = 'none';
-    }
-
-    function iniciarFluxoAcesso() {
-        if(!db.configs || !db.configs.url) {
-            abrirSetupUrl();
-            return;
-        }
-        abrirLoginAdmin(false);
-    }
-
-    function abrirSetupUrl() {
-        const modal = document.getElementById('modalSetupUrl');
-        if(!modal) return;
-        document.getElementById('setupAppVersion').innerText = APP_VERSION;
-        document.getElementById('setupUrlApp').value = db.configs?.url || '';
-        limparErroLogin('setupUrlErro');
-        modal.style.display = 'flex';
-        setTimeout(() => document.getElementById('setupUrlApp').focus(), 80);
-    }
-
-    function abrirLoginAdmin(ehTroca = false) {
-        if(!db.configs || !db.configs.url) {
-            abrirSetupUrl();
-            return;
-        }
-        let modal = document.getElementById('modalLoginAdmin');
-        if(!modal) return;
-        renderOpcoesLoginAdmin(adminLogado ? adminLogado.id : '');
-        document.getElementById('loginAdminSenha').value = '';
-        limparErroLogin('loginAdminErro');
-        document.getElementById('loginAdminTexto').innerText = ehTroca ? 'Escolha o perfil e informe a senha.' : 'Escolha o usuário e informe a senha.';
-        document.getElementById('btnCancelarLoginAdmin').style.display = (ehTroca && adminLogado) ? 'block' : 'none';
-        modal.style.display = 'flex';
-        setTimeout(() => document.getElementById('loginAdminSenha').focus(), 80);
-    }
-
-    function entrarAdmin() {
-        let usuarioId = document.getElementById('loginAdminUsuario').value;
-        let senha = document.getElementById('loginAdminSenha').value.trim();
-        let perfil = getPerfisAdminDisponiveis().find(a => a.id === usuarioId);
-
-        if(!perfil) {
-            exibirErroLogin('loginAdminErro', 'Selecione um usuário válido.');
-            document.getElementById('loginAdminSenha').select();
-            return;
-        }
-
-        if(!senha || senha !== perfil.senha) {
-            exibirErroLogin('loginAdminErro', 'Senha incorreta para este usuário.');
-            document.getElementById('loginAdminSenha').select();
-            return;
-        }
-
-        adminLogado = { id: perfil.id, nome: perfil.nome, isAdmin: perfil.isAdmin !== false, permissoes: getPermissoesUsuario(perfil), forcarTrocaSenha: !!perfil.forcarTrocaSenha };
-        atualizarPerfilAdminUI();
-        limparErroLogin('loginAdminErro');
-        fecharModal('modalLoginAdmin');
-        fecharModal('modalPerfilAdmin');
-        if(perfil.forcarTrocaSenha) abrirTrocaSenhaPerfil(true);
-    }
-
-    function abrirMenuPerfil() {
-        if(!adminLogado) {
-            abrirLoginAdmin(false);
-            return;
-        }
-        atualizarPerfilAdminUI();
-        abrirModal('modalPerfilAdmin');
-    }
-
-    function trocarPerfilAdmin() {
-        fecharModal('modalPerfilAdmin');
-        abrirLoginAdmin(true);
-    }
-
-    function sairPerfilAdmin() {
-        adminLogado = null;
-        atualizarPerfilAdminUI();
-        fecharModal('modalPerfilAdmin');
-        abrirLoginAdmin(false);
-    }
-
-    function cancelarTrocaPerfil() {
-        if(adminLogado) {
-            fecharModal('modalLoginAdmin');
-            return;
-        }
-        abrirLoginAdmin(false);
-    }
-
-    function abrirTrocaSenhaPerfil(obrigatoria = false) {
-        if(!adminLogado) {
-            abrirLoginAdmin(false);
-            return;
-        }
-        fecharModal('modalPerfilAdmin');
-        document.getElementById('trocaSenhaObrigatoria').value = obrigatoria ? 'true' : 'false';
-        document.getElementById('tituloTrocaSenha').innerText = obrigatoria ? 'Cadastrar nova senha' : 'Trocar senha';
-        document.getElementById('textoTrocaSenha').innerText = obrigatoria ? 'Este usuário precisa cadastrar uma nova senha antes de continuar.' : 'Informe a senha atual e escolha uma nova senha numérica.';
-        document.getElementById('trocaSenhaAtual').value = '';
-        document.getElementById('trocaSenhaNova').value = '';
-        document.getElementById('trocaSenhaNova2').value = '';
-        limparErroLogin('trocaSenhaErro');
-        document.getElementById('btnFecharTrocaSenha').style.display = obrigatoria ? 'none' : 'inline-flex';
-        document.getElementById('btnCancelarTrocaSenha').style.display = obrigatoria ? 'none' : 'block';
-        abrirModal('modalTrocaSenha');
-        setTimeout(() => document.getElementById('trocaSenhaAtual').focus(), 80);
-    }
-
-    function salvarTrocaSenhaPerfil() {
-        if(!adminLogado) return abrirLoginAdmin(false);
-        const atual = document.getElementById('trocaSenhaAtual').value.trim();
-        const nova = document.getElementById('trocaSenhaNova').value.trim();
-        const nova2 = document.getElementById('trocaSenhaNova2').value.trim();
-        const registro = getUsuarioAdminRegistro(adminLogado.id);
-        const senhaAtual = adminLogado.id === 'admin_padrao' ? String(db.configs.senhaAdmin || '1999') : (registro ? String(registro.senha || '') : '');
-
-        if(!/^\d+$/.test(atual) || atual !== senhaAtual) {
-            exibirErroLogin('trocaSenhaErro', 'Senha atual incorreta.');
-            document.getElementById('trocaSenhaAtual').select();
-            return;
-        }
-        if(!/^\d+$/.test(nova)) {
-            exibirErroLogin('trocaSenhaErro', 'A nova senha deve conter apenas números.');
-            document.getElementById('trocaSenhaNova').select();
-            return;
-        }
-        if(nova !== nova2) {
-            exibirErroLogin('trocaSenhaErro', 'As duas novas senhas não conferem.');
-            document.getElementById('trocaSenhaNova2').select();
-            return;
-        }
-        if(nova === atual) {
-            exibirErroLogin('trocaSenhaErro', 'A nova senha precisa ser diferente da senha atual.');
-            document.getElementById('trocaSenhaNova').select();
-            return;
-        }
-
-        if(adminLogado.id === 'admin_padrao') {
-            db.configs.senhaAdmin = nova;
-        } else if(registro) {
-            registro.senha = nova;
-            registro.forcarTrocaSenha = false;
-            tocarRegistro(registro);
-        } else {
-            exibirErroLogin('trocaSenhaErro', 'Usuário não encontrado. Entre novamente.');
-            return;
-        }
-
-        adminLogado.forcarTrocaSenha = false;
-        registrarAuditoria('Senha do usuário alterada', adminLogado.nome || '');
-        salvarBanco();
-        limparErroLogin('trocaSenhaErro');
-        fecharModal('modalTrocaSenha');
-        atualizarPerfilAdminUI();
-        alert('Senha alterada com sucesso.');
-    }
-
-    function abrirCooperativaComPermissao() {
-        if(!usuarioTemPermissao('cooperativa')) return negarPermissao();
-        abrirModalCooperativa();
-    }
-
-    function abrirConfigGeraisComPermissao() {
-        if(!usuarioTemPermissao('configGerais')) return negarPermissao();
-        abrirModalConfigGerais();
-    }
-
-    function abrirUsuariosComPermissao() {
-        if(!usuarioTemPermissao('usuarios')) return negarPermissao();
-        abrirGerenciar('administradores');
-    }
-
-    function abrirAuditoriaComPermissao() {
-        if(!adminLogado || (!adminLogado.isAdmin && !usuarioTemPermissao('usuarios'))) return negarPermissao();
-        fecharModal('modalPainelUnificado');
-        renderAuditoria();
-        abrirModal('modalAuditoria');
-    }
-
-    function formatarDataHoraAuditoria(item) {
-        const valor = Number(item._serverUpdatedAt || item.createdAt || item._clientChangedAt || 0);
-        if(!valor) return '-';
-        return new Date(valor).toLocaleString('pt-BR');
-    }
-
-    function renderAuditoria() {
-        const box = document.getElementById('listaAuditoria');
-        if(!box) return;
-        const busca = (document.getElementById('buscaAuditoria')?.value || '').toLowerCase();
-        const itens = [...(db.auditoria || [])]
-            .filter(item => {
-                const texto = `${item.acao || ''} ${item.detalhes || ''} ${item.usuario || ''}`.toLowerCase();
-                return !busca || texto.includes(busca);
-            })
-            .sort((a,b) => Number(b._serverSeq || b.createdAt || 0) - Number(a._serverSeq || a.createdAt || 0))
-            .slice(0, 200);
-        if(itens.length === 0) {
-            box.innerHTML = '<div class="empty-state">Nenhuma mudança registrada.</div>';
-            return;
-        }
-        box.innerHTML = itens.map(item => `
-            <div class="audit-row">
-                <div class="audit-main">
-                    <strong>${escapeHTML(item.acao || 'Mudança')}</strong>
-                    <span>${escapeHTML(item.detalhes || '')}</span>
-                </div>
-                <div class="audit-meta">
-                    <b>${escapeHTML(item.usuario || 'Sistema')}</b>
-                    <span>${formatarDataHoraAuditoria(item)}</span>
-                    ${item._clientDirty ? '<em>Pendente de sincronização</em>' : `<small>Rev. ${escapeHTML(item._serverSeq || '-')}</small>`}
-                </div>
+'use strict';
+
+const STORAGE_KEY = 'paoa_lab_v1';
+const APP_VERSION = '1.9.0';
+const MEAT_CUTS_SOURCE_URL = 'https://nepa.unicamp.br/publicacoes/tabela-taco-pdf/';
+
+const MEAT_CUTS = [
+  { id: 'acem', nome: 'Acém bovino', comGordura: 5.9, semGordura: 6.1, fonteCom: 'TACO: acém moído, cru', fonteSem: 'TACO: acém sem gordura, cru' },
+  { id: 'fraldinha', nome: 'Fraldinha / flanco bovino', comGordura: 16.1, semGordura: 6.2, fonteCom: 'TACO: fraldinha com gordura, crua', fonteSem: 'TACO: flanco sem gordura, cru' },
+  { id: 'peito_bovino', nome: 'Peito bovino', comGordura: null, semGordura: 20.4, fonteSem: 'TACO: peito sem gordura, cru' },
+  { id: 'alcatra', nome: 'Miolo de alcatra bovina', comGordura: null, semGordura: 7.8, fonteSem: 'TACO: miolo de alcatra sem gordura, cru' },
+  { id: 'coxao_mole', nome: 'Coxão mole bovino', comGordura: null, semGordura: 8.7, fonteSem: 'TACO: coxão mole sem gordura, cru' },
+  { id: 'coxao_duro', nome: 'Coxão duro bovino', comGordura: null, semGordura: 6.2, fonteSem: 'TACO: coxão duro sem gordura, cru' },
+  { id: 'patinho', nome: 'Patinho bovino', comGordura: null, semGordura: 4.5, fonteSem: 'TACO: patinho sem gordura, cru' },
+  { id: 'lagarto', nome: 'Lagarto bovino', comGordura: 5.2, semGordura: null, fonteCom: 'TACO: lagarto, cru; a tabela não especifica retirada de gordura' },
+  { id: 'maminha', nome: 'Maminha bovina', comGordura: 7, semGordura: null, fonteCom: 'TACO: maminha, crua; a tabela não especifica retirada de gordura' },
+  { id: 'musculo', nome: 'Músculo bovino', comGordura: null, semGordura: 5.5, fonteSem: 'TACO: músculo sem gordura, cru' },
+  { id: 'paleta', nome: 'Paleta bovina', comGordura: 7.5, semGordura: 5.7, fonteCom: 'TACO: paleta com gordura, crua', fonteSem: 'TACO: paleta sem gordura, crua' },
+  { id: 'contrafile', nome: 'Contrafilé bovino', comGordura: 12.8, semGordura: 6, fonteCom: 'TACO: contrafilé com gordura, cru', fonteSem: 'TACO: contrafilé sem gordura, cru' },
+  { id: 'file_mignon', nome: 'Filé mignon bovino', comGordura: null, semGordura: 5.6, fonteSem: 'TACO: filé mignon sem gordura, cru' },
+  { id: 'picanha', nome: 'Picanha bovina', comGordura: 14.7, semGordura: 4.7, fonteCom: 'TACO: picanha com gordura, crua', fonteSem: 'TACO: picanha sem gordura, crua' },
+  { id: 'costela_bovina', nome: 'Costela bovina', comGordura: 31.8, semGordura: null, fonteCom: 'TACO: costela, crua; a tabela não especifica retirada de gordura' },
+  { id: 'cupim', nome: 'Cupim bovino', comGordura: 15.3, semGordura: null, fonteCom: 'TACO: cupim, cru; a tabela não especifica retirada de gordura' },
+  { id: 'pernil_suino', nome: 'Pernil suíno', comGordura: 11.1, semGordura: null, fonteCom: 'TACO: porco, pernil, cru' },
+  { id: 'lombo_suino', nome: 'Lombo suíno', comGordura: 8.8, semGordura: null, fonteCom: 'TACO: porco, lombo, cru' },
+  { id: 'peito_frango', nome: 'Peito de frango', comGordura: 6.7, semGordura: 3, fonteCom: 'TACO: peito de frango com pele, cru', fonteSem: 'TACO: peito de frango sem pele, cru' },
+  { id: 'coxa_frango', nome: 'Coxa de frango', comGordura: 9.8, semGordura: 4.9, fonteCom: 'TACO: coxa de frango com pele, crua', fonteSem: 'TACO: coxa de frango sem pele, crua' },
+  { id: 'sobrecoxa_frango', nome: 'Sobrecoxa de frango', comGordura: 20.9, semGordura: 9.6, fonteCom: 'TACO: sobrecoxa de frango com pele, crua', fonteSem: 'TACO: sobrecoxa de frango sem pele, crua' },
+  { id: 'gordura_bovina', nome: 'Gordura bovina adicionada', comGordura: 100, semGordura: null, fonteCom: 'Gordura de formulação; ajustar conforme análise ou ficha técnica' },
+  { id: 'toucinho_suino', nome: 'Toucinho suíno', comGordura: 60.3, semGordura: null, fonteCom: 'TACO: toucinho, cru' },
+  { id: 'outro', nome: 'Outro corte ou matéria-prima', comGordura: 0, semGordura: 0, fonteCom: 'Informe o teor analisado ou consultado', fonteSem: 'Informe o teor analisado ou consultado' }
+];
+
+const TYPES = [
+  { value: 'materia_prima_carnea', label: 'Matéria-prima cárnea', subtipos: [], exemplos: 'carne bovina, frango, pernil, toucinho, pele suína' },
+  { value: 'basico_nao_carneo', label: 'Ingredientes básicos não cárneos', subtipos: [], exemplos: 'água, gelo, sal, açúcar, dextrose' },
+  { value: 'condimento_especiaria', label: 'Condimentos e especiarias', subtipos: ['naturais', 'frescos', 'desidratados', 'em pó', 'moídos', 'extratos'], exemplos: 'alho em pó, cebola, pimenta-do-reino preta moída, pimenta branca moída, páprica, noz-moscada moída' },
+  { value: 'funcional_nao_aditivo', label: 'Ingredientes funcionais não aditivos', subtipos: ['proteínas', 'amidos/farinhas', 'fibras', 'hidrocoloides usados como ingrediente', 'lácteos', 'ovos'], exemplos: 'proteína de soja, fécula, amido, farinha de rosca, leite em pó, ovo' },
+  { value: 'aditivo_alimentar', label: 'Aditivos alimentares', subtipos: ['conservadores', 'antioxidantes', 'estabilizantes', 'emulsificantes', 'espessantes', 'corantes', 'reguladores de acidez', 'realçadores de sabor', 'aromatizantes'], exemplos: 'nitrito, nitrato, eritorbato, fosfato, corante, glutamato' },
+  { value: 'coadjuvante_tecnologia', label: 'Coadjuvantes de tecnologia', subtipos: [], exemplos: 'enzimas, agentes de cura/processo, nitrogênio/CO2' },
+  { value: 'cultura_fermento', label: 'Culturas e fermentos', subtipos: [], exemplos: 'culturas para salame, fermentação/maturação' },
+  { value: 'envoltorio_apresentacao', label: 'Envoltórios e insumos de apresentação', subtipos: ['envoltório comestível', 'envoltório não comestível', 'embalagem', 'clips', 'barbante', 'rótulo'], exemplos: 'tripa natural, tripa de colágeno, embalagem a vácuo' },
+  { value: 'mistura_comercial', label: 'Misturas/preparados comerciais', subtipos: ['mistura de cura', 'blend de condimentos', 'preparado funcional'], exemplos: 'condimento para linguiça, sal de cura, mix para hambúrguer' }
+];
+
+const LEGACY_TYPE_MAP = {
+  carne: 'materia_prima_carnea',
+  gordura: 'materia_prima_carnea',
+  agua: 'basico_nao_carneo',
+  sal: 'basico_nao_carneo',
+  condimento: 'condimento_especiaria',
+  carboidrato: 'funcional_nao_aditivo',
+  proteina_nao_carnea: 'funcional_nao_aditivo',
+  aditivo: 'aditivo_alimentar',
+  lacteo: 'funcional_nao_aditivo',
+  outro: 'funcional_nao_aditivo'
+};
+
+const DEFAULT_RULES = [
+  { id: 'regra_entrada', numero: '01', titulo: 'Entrada no laboratório', texto: 'Usar jaleco claro fechado, touca sanfonada, calçado fechado e mãos higienizadas antes de iniciar a prática.' },
+  { id: 'regra_higiene', numero: '02', titulo: 'Higiene e EPI', texto: 'Manter luvas limpas, prender cabelos sob a touca e evitar adornos, relógios, perfumes fortes ou objetos soltos.' },
+  { id: 'regra_bancada', numero: '03', titulo: 'Bancada e utensílios', texto: 'Sanitizar superfícies, separar utensílios por etapa e manter apenas o material necessário sobre a bancada.' },
+  { id: 'regra_temperatura', numero: '04', titulo: 'Temperatura e matéria-prima', texto: 'Controlar tempo fora de refrigeração, pesar rapidamente e registrar qualquer alteração observada no produto.' },
+  { id: 'regra_equipamentos', numero: '05', titulo: 'Equipamentos', texto: 'Operar moedor, cutter, embutidora e demais equipamentos apenas com autorização e supervisão do professor ou técnico.' },
+  { id: 'regra_encerramento', numero: '06', titulo: 'Encerramento', texto: 'Identificar amostras, descartar resíduos corretamente, lavar utensílios e deixar a bancada pronta para a próxima turma.' }
+];
+
+const IMAGE_MIGRATIONS = {
+  'assets/hamburguer-bovino.png': 'assets/hamburguer-bovino.jpg',
+  'assets/linguica-frescal.png': 'assets/linguica-frescal.jpg'
+};
+
+const PRODUCT_CATEGORIES = [
+  {
+    id: 'reestruturados',
+    titulo: 'Produtos Reestruturados',
+    resumo: 'Produtos reestruturados usam cortes moídos ou fragmentados, sal, água/gelo e trabalho mecânico para reorganizar proteínas e formar uma matriz coesa.',
+    topicos: [
+      'Extração de proteínas miofibrilares e formação de liga',
+      'Distribuição de gordura e impacto em suculência, maciez e rendimento',
+      'Modelagem em porções padronizadas e avaliação de perda por cocção',
+      'Formulações podem ser calculadas sobre a massa cárnea ou sobre 100% do produto final'
+    ],
+    perguntas: [
+      'O que muda na textura quando a gordura é reduzida?',
+      'Por que sal e mistura mecânica ajudam na coesão?',
+      'Como interpretar percentuais sobre massa cárnea em vez de produto final?'
+    ],
+    produtos: ['prod_hamburguer', 'prod_kafta', 'prod_almondega'],
+    insumos: ['ing_carne_bovina_magra', 'ing_gordura_bovina', 'ing_sal', 'ing_agua_gelada', 'ing_alho_po', 'ing_farinha_rosca']
+  },
+  {
+    id: 'embutidos',
+    titulo: 'Produtos Embutidos',
+    etiqueta: 'Processos cárneos',
+    resumo: 'Produtos embutidos organizam massa cárnea, gordura, condimentos e envoltório para padronizar formato, calibre, textura e conservação.',
+    topicos: [
+      'Moagem, mistura e controle de temperatura da massa',
+      'Função do envoltório natural ou artificial na forma, mordida e aparência',
+      'Diferenças entre embutidos frescos, cozidos, curados e dessecados',
+      'Controle de bolsas de ar, distribuição de gordura e conservação refrigerada'
+    ],
+    perguntas: [
+      'Como a granulometria muda a aparência e a mordida do produto?',
+      'Por que o produto frescal exige atenção maior à refrigeração?',
+      'Que falhas de processo aparecem durante o embutimento?'
+    ],
+    produtos: ['prod_linguica_frescal', 'prod_salsicha'],
+    insumos: ['ing_pernil_suino', 'ing_toucinho_suino', 'ing_sal', 'ing_agua_gelada', 'ing_tripa_suina', 'ing_paprica_doce']
+  },
+  {
+    id: 'emulsionados',
+    titulo: 'Produtos Emulsionados',
+    resumo: 'Produtos emulsionados dependem de trituração fina, gelo, sal e proteínas solubilizadas para estabilizar água, gordura e fase cárnea em uma massa homogênea.',
+    topicos: [
+      'Controle de temperatura durante cutterização ou processamento fino',
+      'Papel do sal, gelo e fosfatos na extração proteica e estabilidade',
+      'Formação de emulsão cárnea, textura fina e perda de gordura por cocção',
+      'Relação entre produto emulsionado, embutimento e tratamento térmico'
+    ],
+    perguntas: [
+      'O que acontece quando a massa aquece demais durante a emulsificação?',
+      'Como gelo, gordura e proteína influenciam estabilidade e textura?',
+      'Por que alguns produtos podem pertencer a mais de uma categoria?'
+    ],
+    produtos: ['prod_pate', 'prod_salsicha'],
+    insumos: ['ing_pernil_suino', 'ing_toucinho_suino', 'ing_agua_gelada', 'ing_sal', 'ing_fosfato', 'ing_amido', 'ing_leite_po']
+  }
+];
+
+const DEFAULT_DB = {
+  app_id: 'paoa_lab',
+  version: APP_VERSION,
+  configs: { ultimoProdutoAula: 'prod_hamburguer', produtoSelecionado: '', filtroInsumo: 'todos', periodoAtivoId: 'periodo_demo', periodos: [], regrasLaboratorio: clone(DEFAULT_RULES), conteudosTeoricos: [] },
+  produtos: [
+    {
+      id: 'prod_hamburguer',
+      nome: 'Hambúrguer bovino',
+      categoria: 'Produto cárneo reestruturado',
+      categoriaId: 'reestruturados',
+      categoriaIds: ['reestruturados'],
+      especie: 'bovina',
+      tipo: 'hamburguer',
+      descricao: 'Produto cárneo industrializado obtido de carne moída, com ou sem tecido adiposo e ingredientes, moldado e submetido a processo tecnológico adequado.',
+      objetivo: 'Compreender o efeito da gordura, do sal, da água gelada e do trabalho mecânico na formação da textura, suculência e rendimento do hambúrguer.',
+      parametros: {
+        gorduraMax: 25,
+        proteinaMin: 15,
+        carbMax: 3,
+        proteinaNaoCarneaMax: 4,
+        proibeProteinaNaoCarnea: false,
+        mostrarValidacao: true
+      },
+      fotos: ['assets/hamburguer-bovino.jpg'],
+      fluxo: [
+        'Recepção e seleção da matéria-prima refrigerada',
+        'Pesagem dos insumos conforme a formulação',
+        'Moagem da carne e da gordura',
+        'Mistura com sal, água gelada e condimentos',
+        'Trabalho mecânico para melhorar a extração proteica e a liga',
+        'Moldagem em porções padronizadas',
+        'Congelamento ou cocção conforme o objetivo da prática',
+        'Avaliação de rendimento, textura, suculência e aparência'
+      ],
+      pontos: [
+        'Manter carne e gordura refrigeradas durante a manipulação',
+        'Conferir se a soma da formulação está em 100%',
+        'Controlar o teor de gordura da formulação',
+        'Evitar excesso de água livre',
+        'Registrar peso antes e depois da cocção',
+        'Conferir limites legais quando houver proteína não cárnea ou carboidratos'
+      ],
+      equipamentos: [
+        'Balança semianalítica ou balança de bancada',
+        'Moedor de carne',
+        'Bacias ou bowls de aço inox',
+        'Modelador de hambúrguer',
+        'Papel filme ou papel manteiga para separação das unidades',
+        'Chapa, frigideira ou grill para cocção experimental',
+        'Termômetro tipo espeto',
+        'Luvas, touca, avental e superfície higienizada'
+      ],
+      perguntas: [
+        'Qual foi o papel do sal na formação da textura?',
+        'Como a gordura influenciou a suculência e a maciez?',
+        'A formulação atende aos parâmetros legais de gordura, proteína e carboidratos?',
+        'O que mudaria se fosse usado outro corte ou outra espécie animal?'
+      ]
+    },
+    {
+      id: 'prod_kafta',
+      nome: 'Kafta bovina',
+      categoria: 'Produto cárneo reestruturado moldado',
+      categoriaId: 'reestruturados',
+      categoriaIds: ['reestruturados'],
+      especie: 'bovina',
+      tipo: 'geral',
+      descricao: 'Preparação cárnea reestruturada, condimentada e moldada em formato alongado, útil para discutir liga, modelagem, padronização de porções e estabilidade durante cocção.',
+      objetivo: 'Avaliar como condimentos, teor de gordura, mistura mecânica e moldagem influenciam coesão, aparência, rendimento e estabilidade da kafta.',
+      parametros: {
+        gorduraMax: '',
+        proteinaMin: '',
+        carbMax: '',
+        proteinaNaoCarneaMax: '',
+        proibeProteinaNaoCarnea: false,
+        mostrarValidacao: true
+      },
+      fotos: ['assets/kafta-bovina.jpg'],
+      fluxo: [
+        'Seleção da carne e gordura sob refrigeração',
+        'Moagem da matéria-prima na granulometria definida',
+        'Pesagem dos condimentos conforme a formulação',
+        'Mistura até distribuição uniforme e boa coesão da massa',
+        'Moldagem em espetos ou porções alongadas padronizadas',
+        'Pesagem antes da cocção para cálculo de rendimento',
+        'Cocção experimental em chapa, forno ou grelha',
+        'Avaliação de perda por cocção, estabilidade, textura e aparência'
+      ],
+      pontos: [
+        'Manter a massa fria para evitar perda de definição e exsudação de gordura',
+        'Padronizar peso e formato das porções',
+        'Evitar excesso de condimentos secos que fragilizem a coesão',
+        'Registrar peso antes e depois da cocção',
+        'Observar rachaduras, desprendimento do espeto e perda de suculência'
+      ],
+      equipamentos: [
+        'Balança de bancada',
+        'Moedor de carne',
+        'Bowls de aço inox',
+        'Espetos ou moldes alongados',
+        'Espátulas e bandejas',
+        'Chapa, forno ou grelha para cocção experimental',
+        'Termômetro tipo espeto',
+        'Papel filme para padronização e descanso da massa'
+      ],
+      perguntas: [
+        'Como a intensidade da mistura alterou a coesão da kafta?',
+        'O formato alongado aumenta ou reduz a perda por cocção?',
+        'Quais condimentos interferem mais na percepção sensorial?',
+        'Que ajustes fariam a formulação ficar mais estável sem perder suculência?'
+      ]
+    },
+    {
+      id: 'prod_almondega',
+      nome: 'Almôndega bovina',
+      categoria: 'Produto cárneo reestruturado moldado',
+      categoriaId: 'reestruturados',
+      categoriaIds: ['reestruturados'],
+      especie: 'bovina',
+      tipo: 'geral',
+      descricao: 'Produto cárneo moldado em porções esféricas, adequado para estudar liga, ingredientes de estrutura, perda por cocção, padronização e rendimento.',
+      objetivo: 'Compreender o papel de ingredientes ligantes, gordura, mistura e padronização de tamanho na textura, rendimento e aparência da almôndega.',
+      parametros: {
+        gorduraMax: '',
+        proteinaMin: '',
+        carbMax: '',
+        proteinaNaoCarneaMax: '',
+        proibeProteinaNaoCarnea: false,
+        mostrarValidacao: true
+      },
+      fotos: ['assets/almondega-bovina.jpg'],
+      fluxo: [
+        'Recepção e manutenção da carne refrigerada',
+        'Moagem da carne e da gordura',
+        'Pesagem dos ingredientes secos e úmidos',
+        'Mistura até obtenção de massa coesa e homogênea',
+        'Modelagem em unidades com peso padronizado',
+        'Pesagem inicial das unidades',
+        'Cocção experimental em forno, chapa ou molho padronizado',
+        'Cálculo de rendimento e avaliação de textura, cor e formato'
+      ],
+      pontos: [
+        'Controlar o tamanho das unidades para comparar rendimento',
+        'Evitar mistura insuficiente, que causa desmanche na cocção',
+        'Evitar mistura excessiva, que pode endurecer a textura',
+        'Observar efeito de ligantes como ovo e farinha de rosca',
+        'Registrar perda de massa e aparência final'
+      ],
+      equipamentos: [
+        'Balança de bancada',
+        'Moedor de carne',
+        'Bowls de aço inox',
+        'Colher dosadora ou porcionador',
+        'Bandejas',
+        'Forno, chapa ou panela para cocção experimental',
+        'Termômetro tipo espeto',
+        'Papel filme ou recipiente tampado para descanso'
+      ],
+      perguntas: [
+        'Qual foi a função do ovo ou do ingrediente ligante na estrutura?',
+        'Como o tamanho da almôndega altera tempo de cocção e rendimento?',
+        'A formulação ficou mais macia ou mais firme do que o esperado?',
+        'Que alteração faria sentido para reduzir desmanche sem deixar a textura seca?'
+      ]
+    },
+    {
+      id: 'prod_linguica_frescal',
+      nome: 'Linguiça frescal suína',
+      categoria: 'Embutido cárneo fresco',
+      categoriaId: 'embutidos',
+      categoriaIds: ['embutidos'],
+      especie: 'suína',
+      tipo: 'linguica_frescal',
+      descricao: 'Produto cárneo fresco, moído, condimentado e embutido em envoltório natural ou artificial, mantido sob refrigeração e sem tratamento térmico no processamento.',
+      objetivo: 'Relacionar granulometria, teor de gordura, sal, gelo e embutimento com textura, rendimento, aparência e controle higiênico-sanitário da linguiça frescal.',
+      parametros: {
+        gorduraMax: 30,
+        proteinaMin: 12,
+        carbMax: '',
+        proteinaNaoCarneaMax: 2.5,
+        proibeProteinaNaoCarnea: false,
+        mostrarValidacao: true
+      },
+      fotos: ['assets/linguica-frescal.jpg'],
+      fluxo: [
+        'Recepção da carne suína, gordura e tripas sob refrigeração',
+        'Toalete, corte e padronização dos pedaços para moagem',
+        'Moagem da carne e do toucinho na granulometria definida',
+        'Pesagem dos condimentos, sal e água gelada',
+        'Mistura até distribuição uniforme dos ingredientes',
+        'Hidratação e preparo das tripas naturais quando utilizadas',
+        'Embutimento sem excesso de ar e torção em gomos padronizados',
+        'Embalagem, identificação e conservação refrigerada',
+        'Avaliação de rendimento, aparência, coesão e perda por cocção'
+      ],
+      pontos: [
+        'Trabalhar com matéria-prima fria e utensílios higienizados',
+        'Evitar aquecimento da massa durante moagem e mistura',
+        'Controlar teor de gordura para não ultrapassar o limite do produto frescal',
+        'Não utilizar CMS em linguiça frescal',
+        'Evitar bolsas de ar e falhas de enchimento no embutimento',
+        'Manter o produto refrigerado até a cocção experimental'
+      ],
+      equipamentos: [
+        'Balança de bancada',
+        'Moedor de carne',
+        'Misturador manual ou bowls de aço inox',
+        'Embutidora ou ensacadeira',
+        'Tripa suína natural hidratada',
+        'Barbante culinário ou amarrador',
+        'Agulha fina para retirada de ar',
+        'Bandejas, filme plástico e termômetro'
+      ],
+      perguntas: [
+        'Como a granulometria altera textura e aparência?',
+        'Qual é o efeito do teor de gordura sobre suculência e perda por cocção?',
+        'Como o gelo ajuda no controle de temperatura e distribuição dos condimentos?',
+        'Quais diferenças tecnológicas existem entre linguiça frescal, cozida e dessecada?',
+        'A formulação atende aos limites de gordura e proteína previstos para linguiças frescais?'
+      ]
+    },
+    {
+      id: 'prod_pate',
+      nome: 'Patê cárneo',
+      categoria: 'Produto cárneo emulsionado/pastoso',
+      categoriaId: 'emulsionados',
+      categoriaIds: ['emulsionados'],
+      especie: 'suína',
+      tipo: 'geral',
+      descricao: 'Produto cárneo de textura fina e espalhável, adequado para discutir trituração, emulsificação, tratamento térmico, envase e estabilidade de massa pastosa.',
+      objetivo: 'Compreender como matéria-prima cárnea, gordura, água/gelo, sal, amido e processamento fino interferem na textura, estabilidade, rendimento e segurança do patê.',
+      parametros: {
+        gorduraMax: '',
+        proteinaMin: '',
+        carbMax: '',
+        proteinaNaoCarneaMax: '',
+        proibeProteinaNaoCarnea: false,
+        mostrarValidacao: true
+      },
+      fotos: ['assets/pate-carneo.jpg'],
+      fluxo: [
+        'Recepção e seleção da matéria-prima refrigerada',
+        'Pesagem de carnes, gordura, água/gelo, sal e ingredientes secos',
+        'Pré-cominuição ou moagem da matéria-prima',
+        'Processamento fino em cutter ou processador com adição gradual de gelo',
+        'Ajuste de condimentos e ingredientes de estabilidade',
+        'Envase em potes ou formas adequadas',
+        'Tratamento térmico conforme objetivo da prática',
+        'Resfriamento rápido, identificação e avaliação de textura, aparência e espalhabilidade'
+      ],
+      pontos: [
+        'Manter a massa fria durante a trituração fina',
+        'Adicionar gelo de forma controlada para evitar aquecimento',
+        'Observar separação de gordura ou água livre',
+        'Padronizar peso de envase para comparar rendimento',
+        'Monitorar tempo e temperatura do tratamento térmico',
+        'Resfriar rapidamente após o processamento térmico'
+      ],
+      equipamentos: [
+        'Balança de bancada',
+        'Moedor, cutter ou processador de alimentos',
+        'Bowls de aço inox',
+        'Espátulas de silicone',
+        'Potes ou formas para envase',
+        'Banho-maria, panela ou forno para tratamento térmico',
+        'Termômetro tipo espeto',
+        'Bandejas e filme plástico'
+      ],
+      perguntas: [
+        'O que indica instabilidade quando aparece água livre ou gordura separada?',
+        'Como a temperatura da massa interfere na textura final?',
+        'Qual ingrediente teve maior impacto na espalhabilidade?',
+        'Como o envase e o resfriamento podem afetar segurança e padronização?'
+      ]
+    },
+    {
+      id: 'prod_salsicha',
+      nome: 'Salsicha',
+      categoria: 'Produto cárneo embutido e emulsionado',
+      categoriaId: 'embutidos',
+      categoriaIds: ['embutidos', 'emulsionados'],
+      especie: 'suína',
+      tipo: 'geral',
+      descricao: 'Produto cárneo emulsionado, embutido e cozido, usado para integrar conceitos de emulsão cárnea, envoltório, estabilidade, tratamento térmico e resfriamento.',
+      objetivo: 'Relacionar cutterização, teor de gordura, gelo, sal, estabilidade da emulsão e embutimento com textura fina, rendimento, aparência e qualidade da salsicha.',
+      parametros: {
+        gorduraMax: '',
+        proteinaMin: '',
+        carbMax: '',
+        proteinaNaoCarneaMax: '',
+        proibeProteinaNaoCarnea: false,
+        mostrarValidacao: true
+      },
+      fotos: ['assets/salsicha.jpg'],
+      fluxo: [
+        'Recepção e manutenção das matérias-primas sob refrigeração',
+        'Corte, pesagem e pré-moagem de carnes e gordura',
+        'Cutterização com sal, gelo e ingredientes secos',
+        'Acompanhamento da temperatura da massa durante a emulsificação',
+        'Embutimento em envoltório apropriado e padronização do calibre',
+        'Tratamento térmico até atingir temperatura interna definida',
+        'Resfriamento rápido em água fria ou banho de gelo',
+        'Avaliação de textura, cor, estabilidade e perda por cocção'
+      ],
+      pontos: [
+        'Evitar aquecimento excessivo durante a cutterização',
+        'Adicionar gelo gradualmente para controlar temperatura e hidratação',
+        'Observar quebra de emulsão, exsudação e falhas de textura',
+        'Evitar bolhas de ar e variação de calibre no embutimento',
+        'Monitorar temperatura interna no cozimento',
+        'Resfriar rapidamente para interromper cocção e estabilizar textura'
+      ],
+      equipamentos: [
+        'Balança de bancada',
+        'Moedor de carne',
+        'Cutter, processador ou emulsificador',
+        'Embutidora',
+        'Envoltório artificial ou natural adequado',
+        'Tanque, panela ou banho-maria para cozimento',
+        'Banho de gelo para resfriamento',
+        'Termômetro tipo espeto e bandejas'
+      ],
+      perguntas: [
+        'Por que a salsicha aparece em Embutidos e em Emulsionados?',
+        'Quais sinais indicam quebra de emulsão?',
+        'Como temperatura e gelo influenciam textura e rendimento?',
+        'O envoltório usado alterou aparência, calibre ou mordida?'
+      ]
+    }
+  ],
+  insumos: [
+    { id: 'ing_carne_bovina_magra', nome: 'Carne bovina magra', categoria: 'Matéria-prima cárnea', tipo: 'carne', funcao: 'Fornece proteínas miofibrilares responsáveis pela estrutura, liga e textura do produto.', obs: 'Em aula, comparar cortes mais magros e cortes com maior teor de gordura evidencia diferenças de textura e rendimento.', gordura: 5, proteina: 20, carboidrato: 0, custo: 0, proteinaNaoCarnea: false, alergeno: false },
+    { id: 'ing_gordura_bovina', nome: 'Gordura bovina', categoria: 'Gordura animal', tipo: 'gordura', funcao: 'Contribui para suculência, sabor, maciez e percepção de palatabilidade.', obs: 'Deve ser bem distribuída para evitar perda excessiva durante a cocção.', gordura: 100, proteina: 0, carboidrato: 0, custo: 0, proteinaNaoCarnea: false, alergeno: false },
+    { id: 'ing_pernil_suino', nome: 'Pernil suíno magro', categoria: 'Matéria-prima cárnea', tipo: 'carne', funcao: 'Base proteica da linguiça frescal; contribui para estrutura, rendimento e sabor característico.', obs: 'Manter refrigerado e moer frio para reduzir liberação de gordura.', gordura: 8, proteina: 20, carboidrato: 0, custo: 0, proteinaNaoCarnea: false, alergeno: false },
+    { id: 'ing_toucinho_suino', nome: 'Toucinho suíno', categoria: 'Gordura animal', tipo: 'gordura', funcao: 'Ajusta o teor de gordura, melhora suculência e contribui para sabor e textura do embutido.', obs: 'Cortar em cubos e manter frio antes da moagem para preservar definição de partículas.', gordura: 99, proteina: 1, carboidrato: 0, custo: 0, proteinaNaoCarnea: false, alergeno: false },
+    { id: 'ing_agua_gelada', nome: 'Água gelada / gelo', categoria: 'Veículo tecnológico', tipo: 'agua', funcao: 'Ajuda na distribuição dos ingredientes, hidratação e controle de temperatura durante a mistura.', obs: 'O excesso pode deixar a massa pouco coesa ou favorecer exsudação.', gordura: 0, proteina: 0, carboidrato: 0, custo: 0, proteinaNaoCarnea: false, alergeno: false },
+    { id: 'ing_sal', nome: 'Sal', categoria: 'Condimento / sal', tipo: 'sal', funcao: 'Contribui para sabor e favorece a extração de proteínas miofibrilares, aumentando a liga da massa.', obs: 'Em aula, comparar teores de sal mostra diferença de coesão e percepção sensorial.', gordura: 0, proteina: 0, carboidrato: 0, custo: 0, proteinaNaoCarnea: false, alergeno: false },
+    { id: 'ing_alho_po', nome: 'Alho em pó', categoria: 'Condimento', tipo: 'condimento', funcao: 'Fornece sabor e aroma característicos.', obs: 'Pode ser substituído por alho fresco, ajustando umidade e intensidade.', gordura: 0, proteina: 0, carboidrato: 70, custo: 0, proteinaNaoCarnea: false, alergeno: false },
+    { id: 'ing_pimenta_reino', nome: 'Pimenta-do-reino preta', categoria: 'Condimento', tipo: 'condimento', subtipo: 'moídos', funcao: 'Ajusta pungência e aroma, ajudando a caracterizar o perfil sensorial do produto.', obs: 'Usar pequenas quantidades para não mascarar diferenças entre formulações.', gordura: 3, proteina: 10, carboidrato: 64, custo: 0, proteinaNaoCarnea: false, alergeno: false },
+    { id: 'ing_paprica_doce', nome: 'Páprica doce', categoria: 'Condimento', tipo: 'condimento', funcao: 'Contribui para cor e aroma suave em embutidos frescais.', obs: 'Permite discutir padronização visual sem depender de corantes.', gordura: 13, proteina: 14, carboidrato: 54, custo: 0, proteinaNaoCarnea: false, alergeno: false },
+    { id: 'ing_acucar', nome: 'Açúcar', categoria: 'Carboidrato', tipo: 'carboidrato', funcao: 'Equilibra sabor e pode contribuir para escurecimento em produtos submetidos à cocção.', obs: 'Em linguiça frescal, usar em baixo teor para ajuste sensorial.', gordura: 0, proteina: 0, carboidrato: 100, custo: 0, proteinaNaoCarnea: false, alergeno: false },
+    { id: 'ing_cebola_desidratada', nome: 'Cebola desidratada', categoria: 'Condimento', tipo: 'condimento', funcao: 'Fornece aroma e dulçor característicos, contribuindo para o perfil sensorial de produtos moldados.', obs: 'Permite padronização melhor que cebola fresca, que varia em umidade.', gordura: 1, proteina: 10, carboidrato: 75, custo: 0, proteinaNaoCarnea: false, alergeno: false },
+    { id: 'ing_salsa_desidratada', nome: 'Salsa desidratada', categoria: 'Condimento / erva', tipo: 'condimento', funcao: 'Adiciona notas herbais e pontos visuais verdes em produtos como kafta e almôndega.', obs: 'Usar em baixo teor para não mascarar diferenças de textura.', gordura: 4, proteina: 22, carboidrato: 51, custo: 0, proteinaNaoCarnea: false, alergeno: false },
+    { id: 'ing_farinha_rosca', nome: 'Farinha de rosca', categoria: 'Ingrediente ligante', tipo: 'carboidrato', funcao: 'Auxilia na absorção de umidade e na estrutura de produtos moldados, reduzindo desmanche durante a cocção.', obs: 'Discutir presença de glúten e impacto sobre textura, rendimento e rotulagem.', gordura: 3, proteina: 13, carboidrato: 72, custo: 0, proteinaNaoCarnea: false, alergeno: true },
+    { id: 'ing_ovo_liquido', nome: 'Ovo líquido', categoria: 'Ingrediente ligante', tipo: 'outro', funcao: 'Contribui para liga, emulsificação parcial e estrutura térmica em produtos moldados.', obs: 'Ingrediente alergênico; útil para comparar formulações com e sem ligante proteico.', gordura: 10, proteina: 12, carboidrato: 1, custo: 0, proteinaNaoCarnea: false, alergeno: true },
+    { id: 'ing_tripa_suina', nome: 'Tripa suína natural', categoria: 'Envoltório', tipo: 'outro', funcao: 'Envoltório comestível que dá formato ao embutido e influencia aparência, calibre e mordida.', obs: 'Hidratar, lavar e manter sob boas condições higiênicas antes do embutimento.', gordura: 0, proteina: 0, carboidrato: 0, custo: 0, usadoNaFormulacao: false, proteinaNaoCarnea: false, alergeno: false },
+    { id: 'ing_proteina_soja', nome: 'Proteína de soja texturizada/fina', categoria: 'Proteína não cárnea', tipo: 'proteina_nao_carnea', funcao: 'Pode contribuir para retenção de água, rendimento e textura, respeitando os limites do produto.', obs: 'Discutir rotulagem, limite legal, declaração de alergênico e impacto sensorial.', gordura: 1, proteina: 50, carboidrato: 30, custo: 0, proteinaNaoCarnea: true, alergeno: true },
+    { id: 'ing_figado_suino', nome: 'Fígado suíno', categoria: 'Matéria-prima cárnea', tipo: 'carne', funcao: 'Contribui para sabor característico, cor e corpo em formulações pastosas como patê.', obs: 'Usar refrigerado e discutir intensidade sensorial quando a proporção aumenta.', gordura: 4, proteina: 20, carboidrato: 4, custo: 0, proteinaNaoCarnea: false, alergeno: false },
+    { id: 'ing_fosfato', nome: 'Fosfato', categoria: 'Aditivo funcional', tipo: 'aditivo', funcao: 'Auxilia na retenção de água, extração proteica e estabilidade de emulsões cárneas, quando permitido.', obs: 'Usar apenas em discussão didática e conferir limites e permissões na legislação vigente para cada produto.', gordura: 0, proteina: 0, carboidrato: 0, custo: 0, proteinaNaoCarnea: false, alergeno: false },
+    { id: 'ing_leite_po', nome: 'Leite em pó', categoria: 'Ingrediente lácteo', tipo: 'lacteo', funcao: 'Contribui para corpo, retenção de água e estabilidade em alguns produtos emulsionados.', obs: 'Ingrediente alergênico; discutir declaração em rótulo quando utilizado.', gordura: 1, proteina: 34, carboidrato: 52, custo: 0, proteinaNaoCarnea: false, alergeno: true },
+    { id: 'ing_pimenta_branca', nome: 'Pimenta branca moída', categoria: 'Condimento', tipo: 'condimento', subtipo: 'moídos', funcao: 'Ajusta pungência e aroma com menor impacto visual em massas claras e emulsionadas.', obs: 'Boa opção para comparar sabor suave e acentuado sem alterar muito a aparência.', gordura: 2, proteina: 10, carboidrato: 64, custo: 0, proteinaNaoCarnea: false, alergeno: false },
+    { id: 'ing_amido', nome: 'Amido', categoria: 'Carboidrato', tipo: 'carboidrato', funcao: 'Auxilia na retenção de água e na estabilidade, quando permitido e dentro dos limites do produto.', obs: 'Rendimento, textura e enquadramento legal podem ser comparados quando o teor é alterado.', gordura: 0, proteina: 0, carboidrato: 88, custo: 0, proteinaNaoCarnea: false, alergeno: false }
+  ],
+  formulacoes: [
+    {
+      id: 'form_hamb_base',
+      produtoId: 'prod_hamburguer',
+      nome: 'Hambúrguer bovino base',
+      pesoReferencia: 1000,
+      baseCalculo: 'massa_carnea',
+      rendimento: 82,
+      itens: [
+        { insumoId: 'ing_carne_bovina_magra', percentual: 82 },
+        { insumoId: 'ing_gordura_bovina', percentual: 18 },
+        { insumoId: 'ing_agua_gelada', percentual: 3 },
+        { insumoId: 'ing_sal', percentual: 1.8 },
+        { insumoId: 'ing_alho_po', percentual: 1.5 }
+      ],
+      observacoes: ''
+    },
+    {
+      id: 'form_kafta_base',
+      produtoId: 'prod_kafta',
+      nome: 'Kafta bovina base',
+      pesoReferencia: 1000,
+      baseCalculo: 'massa_carnea',
+      rendimento: 80,
+      itens: [
+        { insumoId: 'ing_carne_bovina_magra', percentual: 90 },
+        { insumoId: 'ing_gordura_bovina', percentual: 10 },
+        { insumoId: 'ing_sal', percentual: 1.7 },
+        { insumoId: 'ing_alho_po', percentual: 0.6 },
+        { insumoId: 'ing_cebola_desidratada', percentual: 1.2 },
+        { insumoId: 'ing_pimenta_reino', percentual: 0.2 },
+        { insumoId: 'ing_salsa_desidratada', percentual: 0.6 }
+      ],
+      observacoes: 'Formulação para discutir moldagem, estabilidade no espeto e efeito de condimentos sobre a coesão.'
+    },
+    {
+      id: 'form_almondega_base',
+      produtoId: 'prod_almondega',
+      nome: 'Almôndega bovina base',
+      pesoReferencia: 1000,
+      baseCalculo: 'massa_carnea',
+      rendimento: 78,
+      itens: [
+        { insumoId: 'ing_carne_bovina_magra', percentual: 88 },
+        { insumoId: 'ing_gordura_bovina', percentual: 12 },
+        { insumoId: 'ing_ovo_liquido', percentual: 5 },
+        { insumoId: 'ing_farinha_rosca', percentual: 4 },
+        { insumoId: 'ing_sal', percentual: 1.6 },
+        { insumoId: 'ing_alho_po', percentual: 0.4 },
+        { insumoId: 'ing_pimenta_reino', percentual: 0.2 },
+        { insumoId: 'ing_salsa_desidratada', percentual: 0.5 }
+      ],
+      observacoes: 'Formulação para comparar o efeito de ingredientes ligantes sobre desmanche, textura e perda por cocção.'
+    },
+    {
+      id: 'form_linguica_base',
+      produtoId: 'prod_linguica_frescal',
+      nome: 'Linguiça frescal suína base',
+      pesoReferencia: 2000,
+      baseCalculo: 'produto_final',
+      rendimento: 92,
+      itens: [
+        { insumoId: 'ing_pernil_suino', percentual: 72 },
+        { insumoId: 'ing_toucinho_suino', percentual: 20 },
+        { insumoId: 'ing_agua_gelada', percentual: 5 },
+        { insumoId: 'ing_sal', percentual: 1.8 },
+        { insumoId: 'ing_alho_po', percentual: 0.5 },
+        { insumoId: 'ing_paprica_doce', percentual: 0.3 },
+        { insumoId: 'ing_pimenta_reino', percentual: 0.2 },
+        { insumoId: 'ing_acucar', percentual: 0.2 }
+      ],
+      observacoes: 'Formulação demonstrativa para observar embutimento, teor de gordura, coesão e perda por cocção em produto frescal.'
+    },
+    {
+      id: 'form_pate_base',
+      produtoId: 'prod_pate',
+      nome: 'Patê cárneo base',
+      pesoReferencia: 1000,
+      baseCalculo: 'produto_final',
+      rendimento: 88,
+      itens: [
+        { insumoId: 'ing_pernil_suino', percentual: 42 },
+        { insumoId: 'ing_figado_suino', percentual: 18 },
+        { insumoId: 'ing_toucinho_suino', percentual: 16 },
+        { insumoId: 'ing_agua_gelada', percentual: 15 },
+        { insumoId: 'ing_amido', percentual: 5 },
+        { insumoId: 'ing_sal', percentual: 1.8 },
+        { insumoId: 'ing_alho_po', percentual: 0.4 },
+        { insumoId: 'ing_pimenta_branca', percentual: 0.2 },
+        { insumoId: 'ing_acucar', percentual: 0.6 },
+        { insumoId: 'ing_leite_po', percentual: 1 }
+      ],
+      observacoes: 'Formulação didática em 100% do produto final para observar estabilidade, espalhabilidade e efeito do processamento fino.'
+    },
+    {
+      id: 'form_salsicha_base',
+      produtoId: 'prod_salsicha',
+      nome: 'Salsicha base',
+      pesoReferencia: 2000,
+      baseCalculo: 'produto_final',
+      rendimento: 90,
+      itens: [
+        { insumoId: 'ing_pernil_suino', percentual: 60 },
+        { insumoId: 'ing_toucinho_suino', percentual: 15 },
+        { insumoId: 'ing_agua_gelada', percentual: 18 },
+        { insumoId: 'ing_amido', percentual: 3 },
+        { insumoId: 'ing_sal', percentual: 1.8 },
+        { insumoId: 'ing_leite_po', percentual: 1 },
+        { insumoId: 'ing_acucar', percentual: 0.5 },
+        { insumoId: 'ing_alho_po', percentual: 0.3 },
+        { insumoId: 'ing_fosfato', percentual: 0.3 },
+        { insumoId: 'ing_pimenta_branca', percentual: 0.1 }
+      ],
+      observacoes: 'Formulação didática fechada em 100% para discutir massa emulsionada, embutimento, cozimento e resfriamento.'
+    }
+  ],
+  legislacoes: [
+    {
+      id: 'leg_hamburguer_724_2022',
+      produtoId: 'prod_hamburguer',
+      titulo: 'Portaria SDA/MAPA nº 724/2022',
+      orgao: 'Ministério da Agricultura e Pecuária',
+      url: 'https://www.gov.br/agricultura/pt-br/assuntos/inspecao/produtos-animal/legislacao/Port7242022RThamburguer1.pdf',
+      resumo: 'Aprova o Regulamento Técnico de Identidade e Qualidade do hambúrguer, com definição, denominação de venda, ingredientes e parâmetros físico-químicos.',
+      pontos: [
+        'Gordura máxima: 25%',
+        'Carboidratos totais máximos: 3%',
+        'Proteína mínima: 15%',
+        'Proteína não cárnea: máximo de 4% na forma agregada',
+        'Quando houver indicação de corte na denominação, não é permitida proteína não cárnea'
+      ]
+    },
+    {
+      id: 'leg_linguica_in4_2000',
+      produtoId: 'prod_linguica_frescal',
+      titulo: 'IN SDA/MAPA nº 4/2000 - RTIQ de Linguiça',
+      orgao: 'Ministério da Agricultura e Pecuária',
+      url: 'https://www.gov.br/agricultura/pt-br/assuntos/inspecao/produtos-animal/legislacao/IN042000salsichamortadelalinguia.pdf',
+      resumo: 'Aprova o RTIQ de linguiça e diferencia parâmetros para linguiças frescais, cozidas e dessecadas.',
+      pontos: [
+        'Linguiças frescais: umidade máxima 70%',
+        'Linguiças frescais: gordura máxima 30%',
+        'Linguiças frescais: proteína mínima 12%',
+        'Proteína animal e/ou vegetal agregada: máximo 2,5%, com regras específicas por denominação',
+        'É proibido o uso de CMS em linguiças frescais'
+      ]
+    },
+    {
+      id: 'leg_salsicha_in4_2000',
+      produtoId: 'prod_salsicha',
+      titulo: 'IN SDA/MAPA nº 4/2000 - RTIQ de Salsicha',
+      orgao: 'Ministério da Agricultura e Pecuária',
+      url: 'https://www.gov.br/agricultura/pt-br/assuntos/inspecao/produtos-animal/legislacao/IN042000salsichamortadelalinguia.pdf',
+      resumo: 'Inclui regulamentos técnicos de produtos cárneos como salsicha, mortadela e linguiça, apoiando a discussão de produto embutido e emulsionado.',
+      pontos: [
+        'Definição e identidade tecnológica da salsicha',
+        'Ingredientes permitidos e denominação de venda',
+        'Parâmetros físico-químicos e discussão de composição',
+        'Conexão entre formulação, estabilidade da emulsão e enquadramento legal'
+      ]
+    },
+    {
+      id: 'leg_riispoa_9013',
+      produtoId: null,
+      titulo: 'RIISPOA - Decreto nº 9.013/2017',
+      orgao: 'Presidência da República',
+      url: 'https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2017/decreto/d9013.htm',
+      resumo: 'Regulamento de inspeção industrial e sanitária de produtos de origem animal. Serve como base geral para discussão de inspeção, registro, estabelecimento e responsabilidades.',
+      pontos: [
+        'Referência geral para produtos de origem animal',
+        'Inspeção, controle higiênico-sanitário e responsabilidades',
+        'Deve ser consultado com suas alterações vigentes'
+      ]
+    },
+    {
+      id: 'leg_rotulagem_anvisa',
+      produtoId: null,
+      titulo: 'Rotulagem nutricional - Anvisa',
+      orgao: 'Agência Nacional de Vigilância Sanitária',
+      url: 'https://www.gov.br/anvisa/pt-br/assuntos/alimentos/rotulagem/rotulagem-nutricional',
+      resumo: 'Página de referência sobre rotulagem nutricional de alimentos embalados, incluindo RDC 429/2020 e IN 75/2020.',
+      pontos: [
+        'Tabela de informação nutricional',
+        'Rotulagem frontal',
+        'Relação entre formulação, composição e comunicação ao consumidor'
+      ]
+    }
+  ]
+};
+
+const THEORY_LESSONS = PRODUCT_CATEGORIES;
+
+const CLASS_SCHEDULE = [
+  {
+    id: 'aula_1',
+    aula: 'Aula 1',
+    tema: 'Introdução ao laboratório e cálculos percentuais',
+    foco: 'Boas práticas, pesagem, leitura de formulações e diferença entre massa cárnea e produto final.',
+    produtos: ['prod_hamburguer'],
+    categorias: ['reestruturados']
+  },
+  {
+    id: 'aula_2',
+    aula: 'Aula 2',
+    tema: 'Produtos reestruturados',
+    foco: 'Hambúrguer, kafta e almôndega: liga, gordura, modelagem, rendimento e discussão de textura.',
+    produtos: ['prod_hamburguer', 'prod_kafta', 'prod_almondega'],
+    categorias: ['reestruturados']
+  },
+  {
+    id: 'aula_3',
+    aula: 'Aula 3',
+    tema: 'Produtos embutidos frescais',
+    foco: 'Linguiça frescal: moagem, mistura, embutimento, calibre, conservação refrigerada e perda por cocção.',
+    produtos: ['prod_linguica_frescal'],
+    categorias: ['embutidos']
+  },
+  {
+    id: 'aula_4',
+    aula: 'Aula 4',
+    tema: 'Produtos emulsionados e pastosos',
+    foco: 'Patê: processamento fino, estabilidade, espalhabilidade, tratamento térmico e resfriamento.',
+    produtos: ['prod_pate'],
+    categorias: ['emulsionados']
+  },
+  {
+    id: 'aula_5',
+    aula: 'Aula 5',
+    tema: 'Produto embutido emulsionado',
+    foco: 'Salsicha: emulsão cárnea, envoltório, cozimento, resfriamento e pertencimento a mais de uma categoria.',
+    produtos: ['prod_salsicha'],
+    categorias: ['embutidos', 'emulsionados']
+  },
+  {
+    id: 'aula_6',
+    aula: 'Aula 6',
+    tema: 'Discussão técnica e relatório',
+    foco: 'Comparação dos roteiros, ajuste de formulações, interpretação de perdas, parâmetros e referências.',
+    produtos: ['prod_hamburguer', 'prod_linguica_frescal', 'prod_pate', 'prod_salsicha'],
+    categorias: ['reestruturados', 'embutidos', 'emulsionados']
+  }
+];
+
+let db = loadDB();
+let activePage = 'Inicio';
+let selectedIngredientFilter = db.configs.filtroInsumo || 'todos';
+let activeProductId = db.configs.produtoSelecionado || '';
+let pendingInstallPrompt = null;
+let tempProductPhotos = [];
+let tempIngredientPhoto = '';
+let tempTheoryImages = [];
+let formulaDraftItems = [];
+let activeProductSlideId = 'visao';
+let activeTheoryLessonIndex = 0;
+let activeTheoryImageIndex = 0;
+let inlineEditTimer = null;
+let modalZIndex = 1000;
+let pendingConfirmationAction = null;
+
+const $ = (selector) => document.querySelector(selector);
+const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+
+window.addEventListener('DOMContentLoaded', init);
+
+function init() {
+  setTimeout(() => $('#splashScreen')?.classList.add('hide'), 450);
+  setupEvents();
+  populateTypeOptions();
+  populateProductCategoryOptions();
+  if ($('#configAppVersion')) $('#configAppVersion').textContent = `Versão ${APP_VERSION}`;
+  renderAll();
+  registerServiceWorker();
+}
+
+function setupEvents() {
+  $$('.nav-btn').forEach(btn => btn.addEventListener('click', () => setPage(btn.dataset.page)));
+  $$('[data-page-target]').forEach(btn => btn.addEventListener('click', () => setPage(btn.dataset.pageTarget)));
+  $$('[data-open-url]').forEach(btn => btn.addEventListener('click', () => window.open(btn.dataset.openUrl, '_blank', 'noopener')));
+  $$('[data-action="open-product"]').forEach(btn => btn.addEventListener('click', () => openProductModal()));
+  $$('[data-action="open-ingredient"]').forEach(btn => btn.addEventListener('click', () => openIngredientModal()));
+  $$('[data-action="open-formula"]').forEach(btn => btn.addEventListener('click', () => openFormulaModal()));
+  $$('[data-open-config-modal]').forEach(btn => btn.addEventListener('click', () => {
+    closeModal('modalConfig');
+    openModal(btn.dataset.openConfigModal);
+    if (btn.dataset.openConfigModal === 'modalConfigProdutos') renderConfigProdutos();
+    if (btn.dataset.openConfigModal === 'modalConfigInsumos') renderInsumos();
+    if (btn.dataset.openConfigModal === 'modalConfigCronograma') renderScheduleConfig();
+    if (btn.dataset.openConfigModal === 'modalConfigRegras') renderRulesConfig();
+    if (btn.dataset.openConfigModal === 'modalConfigConteudos') renderContentConfig();
+  }));
+  $$('[data-config-tab]').forEach(btn => btn.addEventListener('click', () => setConfigTab(btn.dataset.configTab)));
+  $$('[data-close]').forEach(btn => btn.addEventListener('click', () => closeModal(btn.dataset.close)));
+  $$('[data-toggle]').forEach(btn => btn.addEventListener('click', () => $('#' + btn.dataset.toggle)?.classList.toggle('open')));
+  $$('.modal-overlay').forEach(overlay => overlay.addEventListener('click', (ev) => {
+    if (ev.target === overlay) closeModal(overlay.id);
+  }));
+
+  $('#searchProdutos')?.addEventListener('input', renderProdutos);
+  $('#searchConfigProdutos')?.addEventListener('input', renderConfigProdutos);
+  $('#searchInsumos')?.addEventListener('input', renderInsumos);
+  $('#btnSalvarProduto')?.addEventListener('click', saveProductFromModal);
+  $('#btnExcluirProduto')?.addEventListener('click', deleteProductFromModal);
+  $('#produtoFotos')?.addEventListener('change', handleProductPhotos);
+  $('#btnSalvarInsumo')?.addEventListener('click', saveIngredientFromModal);
+  $('#btnExcluirInsumo')?.addEventListener('click', deleteIngredientFromModal);
+  $('#insumoFoto')?.addEventListener('change', handleIngredientPhoto);
+  $('#insumoTipo')?.addEventListener('change', () => populateSubtypeOptions($('#insumoTipo').value));
+  $('#btnSalvarFormula')?.addEventListener('click', saveFormulaFromModal);
+  $('#btnExcluirFormula')?.addEventListener('click', deleteFormulaFromModal);
+  $('#btnAddFormulaItem')?.addEventListener('click', () => {
+    formulaDraftItems.push({ insumoId: formulaEligibleIngredients()[0]?.id || '', percentual: 0 });
+    renderFormulaItems();
+  });
+  $('#formulaPeso')?.addEventListener('input', renderFormulaItems);
+  $('#formulaProduto')?.addEventListener('change', () => {
+    if (!$('#formulaId')?.value) $('#formulaBaseCalculo').value = defaultFormulaBase(findProduct($('#formulaProduto').value));
+    renderFormulaItems();
+  });
+  $('#formulaBaseCalculo')?.addEventListener('change', renderFormulaItems);
+  $('#btnGerarRelatorio')?.addEventListener('click', showFormulaReport);
+  $('#btnCopiarRelatorio')?.addEventListener('click', copyReport);
+  $('#btnCopiarRoteiro')?.addEventListener('click', copyLesson);
+  $('#btnConfig')?.addEventListener('click', () => {
+    openModal('modalConfig');
+  });
+  $('#periodoAtivoSelect')?.addEventListener('change', () => setActivePeriod($('#periodoAtivoSelect').value));
+  $('#periodoNome')?.addEventListener('change', () => savePeriodField('nome', $('#periodoNome').value));
+  $('#periodoInicio')?.addEventListener('change', () => savePeriodField('inicio', $('#periodoInicio').value));
+  $('#periodoFim')?.addEventListener('change', () => savePeriodField('fim', $('#periodoFim').value));
+  $('#btnNovoPeriodo')?.addEventListener('click', () => createPeriod(false));
+  $('#btnArquivarPeriodo')?.addEventListener('click', archiveActivePeriod);
+  $('#btnArquivarNovoPeriodo')?.addEventListener('click', () => createPeriod(true));
+  $('#btnAdicionarAula')?.addEventListener('click', addScheduleLesson);
+  $('#btnNovoConteudo')?.addEventListener('click', () => openTheoryContentModal());
+  $('#conteudoModo')?.addEventListener('change', updateTheoryContentMode);
+  $('#conteudoImagens')?.addEventListener('change', handleTheoryContentImages);
+  $('#btnSalvarConteudo')?.addEventListener('click', saveTheoryContent);
+  $('#btnExcluirConteudo')?.addEventListener('click', deleteTheoryContent);
+  $('#btnCancelarConfirmacao')?.addEventListener('click', closeConfirmation);
+  $('#btnConfirmarAcao')?.addEventListener('click', confirmPendingAction);
+  $('#btnAddRule')?.addEventListener('click', addLabRule);
+  $('#btnExportar')?.addEventListener('click', exportData);
+  $('#btnImportar')?.addEventListener('click', () => $('#fileImportar').click());
+  $('#fileImportar')?.addEventListener('change', importData);
+  $('#btnBaixarModelo')?.addEventListener('click', downloadTemplate);
+  $('#btnResetDemo')?.addEventListener('click', resetDemo);
+
+  window.addEventListener('beforeinstallprompt', (ev) => {
+    ev.preventDefault();
+    pendingInstallPrompt = ev;
+    const btn = $('#btnInstall');
+    if (btn) btn.hidden = false;
+  });
+  $('#btnInstall')?.addEventListener('click', async () => {
+    if (!pendingInstallPrompt) return toast('A instalação será oferecida pelo navegador quando disponível.');
+    pendingInstallPrompt.prompt();
+    await pendingInstallPrompt.userChoice;
+    pendingInstallPrompt = null;
+    $('#btnInstall').hidden = true;
+  });
+}
+
+function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
+
+function loadDB() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return normalizeDB(clone(DEFAULT_DB));
+    return normalizeDB(JSON.parse(raw));
+  } catch (err) {
+    console.error(err);
+    return clone(DEFAULT_DB);
+  }
+}
+
+function normalizeDB(data) {
+  const source = data && typeof data === 'object' ? data : {};
+  const resetLegacyBlendDefault = source.version !== APP_VERSION;
+  const merged = Object.assign(clone(DEFAULT_DB), source);
+  merged.configs = Object.assign(clone(DEFAULT_DB.configs), source.configs || {});
+  merged.configs.regrasLaboratorio = normalizeLabRules(source.configs?.regrasLaboratorio || source.configs?.regras || DEFAULT_RULES);
+  merged.configs.conteudosTeoricos = normalizeTheoryContents(source.configs?.conteudosTeoricos || source.conteudosTeoricos, source.configs?.periodos || [])
+    .filter(content => !(content.titulo === 'Conteúdo temporário de validação' && content.resumo === 'Resumo de teste'));
+  if (merged.configs.filtroInsumo !== 'todos' && !TYPES.some(type => type.value === merged.configs.filtroInsumo)) merged.configs.filtroInsumo = 'todos';
+  merged.configs.periodos = normalizeSchedulePeriods(source.configs?.periodos || source.configs?.cronogramaPeriodos, source.configs?.cronograma);
+  if (!merged.configs.periodos.some(period => period.id === merged.configs.periodoAtivoId)) {
+    merged.configs.periodoAtivoId = (merged.configs.periodos.find(period => !period.arquivado) || merged.configs.periodos[0])?.id || '';
+  }
+  merged.configs.cronograma = getPeriodById(merged.configs.periodos, merged.configs.periodoAtivoId)?.aulas || normalizeSchedule();
+  merged.produtos = mergeDefaults(Array.isArray(source.produtos) ? source.produtos : clone(DEFAULT_DB.produtos), DEFAULT_DB.produtos);
+  merged.insumos = mergeDefaults(Array.isArray(source.insumos) ? source.insumos : clone(DEFAULT_DB.insumos), DEFAULT_DB.insumos);
+  merged.formulacoes = mergeDefaults(Array.isArray(source.formulacoes) ? source.formulacoes : clone(DEFAULT_DB.formulacoes), DEFAULT_DB.formulacoes);
+  merged.legislacoes = mergeDefaults(Array.isArray(source.legislacoes) ? source.legislacoes : clone(DEFAULT_DB.legislacoes), DEFAULT_DB.legislacoes);
+
+  DEFAULT_DB.produtos.forEach(def => {
+    const existing = merged.produtos.find(p => p.id === def.id);
+    if (existing && (!Array.isArray(existing.fotos) || existing.fotos.length === 0) && def.fotos?.length) existing.fotos = clone(def.fotos);
+  });
+
+  merged.produtos.forEach(p => {
+    const defaultProduct = DEFAULT_DB.produtos.find(def => def.id === p.id);
+    p.categoriaIds = normalizeCategoryIds(p, defaultProduct);
+    p.categoriaId = p.categoriaIds[0] || p.categoriaId || inferProductCategoryId(p);
+    p.parametros = Object.assign({ gorduraMax: '', proteinaMin: '', carbMax: '', proteinaNaoCarneaMax: '', proibeProteinaNaoCarnea: false, mostrarValidacao: true }, p.parametros || {});
+    p.fotos = Array.isArray(p.fotos) ? p.fotos.map(src => IMAGE_MIGRATIONS[src] || src) : [];
+    p.fluxo = Array.isArray(p.fluxo) ? p.fluxo : linesFrom(p.fluxo);
+    p.pontos = Array.isArray(p.pontos) ? p.pontos : linesFrom(p.pontos);
+    p.equipamentos = Array.isArray(p.equipamentos) ? p.equipamentos : (defaultProduct?.equipamentos ? clone(defaultProduct.equipamentos) : linesFrom(p.equipamentos));
+    p.perguntas = Array.isArray(p.perguntas) ? p.perguntas : linesFrom(p.perguntas);
+  });
+  merged.insumos.forEach(i => {
+    if (i.id === 'ing_pimenta_reino' && ['Pimenta-do-reino', 'Pimenta do reino'].includes(i.nome)) i.nome = 'Pimenta-do-reino preta';
+    if (i.id === 'ing_pimenta_branca' && i.nome === 'Pimenta branca') i.nome = 'Pimenta branca moída';
+    i.tipo = normalizeIngredientType(i);
+    i.subtipo = normalizeIngredientSubtype(i);
+    i.categoria = i.categoria || typeLabel(i.tipo);
+    i.gordura = toNumber(i.gordura);
+    i.proteina = toNumber(i.proteina);
+    i.carboidrato = toNumber(i.carboidrato);
+    i.custo = toNumber(i.custo);
+    i.usadoNaFormulacao = i.usadoNaFormulacao === undefined
+      ? i.tipo !== 'envoltorio_apresentacao'
+      : i.usadoNaFormulacao !== false;
+    i.proteinaNaoCarnea = Boolean(i.proteinaNaoCarnea || isFunctionalProtein(i));
+  });
+  merged.formulacoes.forEach(f => {
+    const product = merged.produtos.find(p => p.id === f.produtoId);
+    const hadBaseCalculo = Boolean(f.baseCalculo);
+    const defaultFormula = DEFAULT_DB.formulacoes.find(def => def.id === f.id);
+    if (!hadBaseCalculo && defaultFormula && f.id === 'form_hamb_base') {
+      f.itens = clone(defaultFormula.itens);
+      f.observacoes = defaultFormula.observacoes;
+    }
+    f.baseCalculo = f.baseCalculo || defaultFormula?.baseCalculo || defaultFormulaBase(product);
+    f.pesoReferencia = toNumber(f.pesoReferencia) || 1000;
+    f.itens = Array.isArray(f.itens) ? f.itens : [];
+    f.blendComponentes = normalizeBlendComponents(f.blendComponentes, f, merged.insumos);
+    f.materiaPrimaUnica = normalizeSingleMaterial(f.materiaPrimaUnica, f, merged.insumos);
+    f.usarBlend = resetLegacyBlendDefault ? false : f.usarBlend === true;
+    f.bloqueada = Boolean(f.bloqueada);
+    if (String(f.observacoes || '').startsWith('Percentuais calculados sobre')) f.observacoes = '';
+  });
+  merged.legislacoes.forEach(law => {
+    law.pontos = (Array.isArray(law.pontos) ? law.pontos : linesFrom(law.pontos)).map(point => String(point)
+      .replace(/^Útil para discutir tabela/i, 'Tabela')
+      .replace(/^Útil para discutir rotulagem/i, 'Rotulagem')
+      .replace(/^Útil para discutir /i, '')
+      .replace(/^Útil para conectar /i, 'Relação entre '));
+  });
+  return merged;
+}
+
+function mergeDefaults(current, defaults) {
+  const list = Array.isArray(current) ? current : [];
+  const ids = new Set(list.map(item => item.id));
+  defaults.forEach(item => {
+    if (!ids.has(item.id)) list.push(clone(item));
+  });
+  return list;
+}
+
+function saveDB() {
+  db.version = APP_VERSION;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+    return true;
+  } catch (err) {
+    console.error(err);
+    toast('Não foi possível salvar. Remova algumas imagens grandes e tente novamente.');
+    return false;
+  }
+}
+
+function renderAll() {
+  renderActivePeriodLabel();
+  renderHomeProducts();
+  renderProdutos();
+  renderConfigProdutos();
+  renderInsumos();
+  renderCronograma();
+  renderScheduleConfig();
+  renderContentConfig();
+  renderRules();
+  renderRulesConfig();
+  renderAulas();
+}
+
+function setPage(page) {
+  activePage = page;
+  $$('.page').forEach(p => p.classList.remove('active'));
+  $('#page' + page)?.classList.add('active');
+  $$('.nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.page === page));
+  $('.content').scrollTop = 0;
+  if (page === 'Produtos') renderProdutos();
+  if (page === 'Cronograma') renderCronograma();
+  if (page === 'Aulas') renderAulas();
+}
+
+function setConfigTab(tab) {
+  $$('.config-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.configTab === tab));
+  $$('.config-panel').forEach(panel => panel.classList.remove('active'));
+  $('#configPanel' + capitalize(tab))?.classList.add('active');
+  if (tab === 'produtos') renderConfigProdutos();
+  if (tab === 'insumos') renderInsumos();
+  if (tab === 'cronograma') renderScheduleConfig();
+}
+
+function renderActivePeriodLabel() {
+  const el = $('#activePeriodLabel');
+  if (!el) return;
+  const period = getActivePeriod();
+  el.textContent = period?.nome ? `Período ${period.nome}` : '';
+}
+
+function renderHomeProducts() {
+  const root = $('#homeProductCards');
+  if (!root) return;
+  root.innerHTML = db.produtos.map(productCardHTML).join('') || emptyHTML('Nenhum produto cadastrado.');
+  root.querySelectorAll('[data-product-card]').forEach(card => card.addEventListener('click', () => {
+    openProductWorkspace(card.dataset.productCard);
+  }));
+}
+
+function productCardHTML(p) {
+  const categoryLabel = productCategoryLabel(p);
+  const photo = p.fotos?.[0] || '';
+  const mediaStyle = photo ? ` style="background-image: url('${escapeAttr(photo)}')"` : '';
+  const mediaText = photo ? '' : escapeHTML((p.nome || '?').slice(0, 1).toUpperCase());
+  return `
+    <button type="button" class="product-tile" data-product-card="${escapeAttr(p.id)}">
+      <div class="product-tile-media"${mediaStyle}>${mediaText}</div>
+      <div class="product-tile-body">
+        <div class="product-tile-title">${escapeHTML(p.nome)}</div>
+        <div class="product-tile-subtitle">${escapeHTML(categoryLabel)}</div>
+      </div>
+    </button>`;
+}
+
+function renderProdutos() {
+  const overview = $('#produtosOverview');
+  const workspace = $('#produtoWorkspace');
+  const selected = activeProductId ? findProduct(activeProductId) : null;
+  if (selected && !($('#searchProdutos')?.value || '').trim()) {
+    overview.hidden = true;
+    workspace.hidden = false;
+    workspace.innerHTML = productWorkspaceHTML(selected);
+    bindProductWorkspace(workspace);
+    return;
+  }
+  overview.hidden = false;
+  workspace.hidden = true;
+  if (activeProductId && !selected) activeProductId = '';
+  const term = ($('#searchProdutos')?.value || '').toLowerCase().trim();
+  const produtos = db.produtos.filter(p => [p.nome, p.categoria, p.especie, p.descricao].join(' ').toLowerCase().includes(term));
+  $('#produtosList').innerHTML = produtos.map(productListHTML).join('') || emptyHTML('Nenhum produto encontrado.');
+  $('#produtosList').querySelectorAll('[data-open-product]').forEach(el => el.addEventListener('click', () => openProductWorkspace(el.dataset.openProduct)));
+}
+
+function productListHTML(p) {
+  const categoryLabel = productCategoryLabel(p);
+  return `
+    <button type="button" class="item-card" data-open-product="${escapeAttr(p.id)}">
+      <div class="item-avatar">${photoOrInitial(p)}</div>
+      <div>
+        <div class="item-title">${escapeHTML(p.nome)}</div>
+        <div class="item-subtitle">${escapeHTML(categoryLabel || p.categoria || 'Sem categoria')}</div>
+      </div>
+    </button>`;
+}
+
+function renderConfigProdutos() {
+  const root = $('#configProdutosList');
+  if (!root) return;
+  const term = ($('#searchConfigProdutos')?.value || '').toLowerCase().trim();
+  const produtos = db.produtos.filter(p => [p.nome, p.categoria, p.especie, p.descricao].join(' ').toLowerCase().includes(term));
+  root.innerHTML = produtos.map(productConfigHTML).join('') || emptyHTML('Nenhum produto encontrado.');
+  root.querySelectorAll('[data-config-edit-product]').forEach(btn => btn.addEventListener('click', () => openProductModal(btn.dataset.configEditProduct)));
+}
+
+function productConfigHTML(p) {
+  return `
+    <button type="button" class="item-card" data-config-edit-product="${escapeAttr(p.id)}">
+      <div class="item-avatar">${photoOrInitial(p)}</div>
+      <div>
+        <div class="item-title">${escapeHTML(p.nome)}</div>
+        <div class="item-subtitle">${escapeHTML(productCategoryLabel(p))}</div>
+      </div>
+    </button>`;
+}
+
+function openProductWorkspace(id) {
+  if (!findProduct(id)) return;
+  activeProductId = id;
+  activeProductSlideId = 'visao';
+  db.configs.produtoSelecionado = id;
+  db.configs.ultimoProdutoAula = id;
+  saveDB();
+  if ($('#searchProdutos')) $('#searchProdutos').value = '';
+  setPage('Produtos');
+  renderProdutos();
+}
+
+function closeProductWorkspace() {
+  activeProductId = '';
+  activeProductSlideId = 'visao';
+  db.configs.produtoSelecionado = '';
+  saveDB();
+  renderProdutos();
+}
+
+function productWorkspaceHTML(p) {
+  const formulas = db.formulacoes.filter(f => f.produtoId === p.id);
+  const laws = db.legislacoes.filter(l => !l.produtoId || l.produtoId === p.id);
+  const categoryLabel = productCategoryLabel(p);
+  const photo = p.fotos?.[0] || '';
+  const mediaStyle = photo ? ` style="background-image: url('${escapeAttr(photo)}')"` : '';
+  const mediaText = photo ? '' : escapeHTML((p.nome || '?').slice(0, 1).toUpperCase());
+  const slides = [
+    { id: 'visao', label: 'Visão geral' },
+    { id: 'fluxo', label: 'Fluxograma' },
+    { id: 'controle', label: 'Pontos de controle' },
+    { id: 'equipamentos', label: 'Equipamentos' },
+    { id: 'formulas', label: 'Formulações do produto' },
+    { id: 'discussao', label: 'Discussão da prática' },
+    { id: 'referencias', label: 'Referências' }
+  ];
+  return `
+    <button type="button" class="back-btn" data-product-back>Voltar aos produtos</button>
+    <div class="product-slide-deck" data-slide-deck>
+      <aside class="product-slide-summary">
+        <div class="summary-label">Sumário do roteiro</div>
+        ${slides.map((slide, index) => `<button type="button" class="slide-jump ${index === 0 ? 'active' : ''}" data-product-slide="${escapeAttr(slide.id)}"><span>${index + 1}</span>${escapeHTML(slide.label)}</button>`).join('')}
+      </aside>
+
+      <div class="product-slide-stage">
+        <section class="product-slide active" data-slide-panel="visao">
+          <div class="product-detail-hero">
+            <div class="product-detail-media"${mediaStyle}>${mediaText}</div>
+            <div class="product-detail-copy">
+              <div class="hero-label">Roteiro de aula prática</div>
+              <h2>${escapeHTML(p.nome)}</h2>
+              <div class="category-callout">
+                <span>Categoria do produto</span>
+                <strong>${escapeHTML(categoryLabel)}</strong>
+              </div>
+              <p>${escapeHTML(p.objetivo || p.descricao || 'Produto cadastrado para a disciplina.')}</p>
             </div>
-        `).join('');
-    }
-
-    function aplicarTema() {
-        let cor = db.configGerais.corTema || '#008C4A';
-        let corSub = db.configGerais.corSubHeader || '#ffffff';
-        document.documentElement.style.setProperty('--theme-base', cor);
-        document.documentElement.style.setProperty('--theme-sub', corSub);
-        document.getElementById('metaThemeColor').setAttribute('content', cor);
-    }
-
-    function renderizarCabecalhoPrincipal() {
-        let logoImg = document.getElementById('headerLogo');
-        let splashLogo = document.getElementById('splashLogoObj');
-
-        if(db.cooperativa.logo) {
-            logoImg.src = db.cooperativa.logo;
-            logoImg.style.display = 'block';
-            if(splashLogo) {
-                splashLogo.src = db.cooperativa.logo;
-                splashLogo.style.display = 'block';
-            }
-        } else {
-            logoImg.style.display = 'none';
-            if(splashLogo) splashLogo.style.display = 'none';
-        }
-    }
-
-    function getConfigResetCadastroAtualizado() {
-        const base = criarBancoBase().configGerais.cadastroAtualizadoReset;
-        const cfg = (db.configGerais && db.configGerais.cadastroAtualizadoReset) || {};
-        return {
-            ...base,
-            ...cfg,
-            dia: String(cfg.dia || base.dia).padStart(2, '0'),
-            mes: String(cfg.mes || base.mes).padStart(2, '0')
-        };
-    }
-
-    function normalizarDiaMesResetCadastro(diaValor, mesValor) {
-        const dia = Math.min(31, Math.max(1, parseInt(diaValor, 10) || 31));
-        const mes = Math.min(12, Math.max(1, parseInt(mesValor, 10) || 7));
-        return {
-            dia: String(dia).padStart(2, '0'),
-            mes: String(mes).padStart(2, '0')
-        };
-    }
-
-    function aplicarResetCadastroAtualizadoSeNecessario() {
-        const cfg = getConfigResetCadastroAtualizado();
-        const hoje = getHojeSTR();
-        const ano = hoje.substring(0, 4);
-        const dataReset = `${ano}-${cfg.mes}-${cfg.dia}`;
-        if(hoje < dataReset || String(cfg.ultimoResetAno || '') === ano) return;
-
-        let alterouVeiculo = false;
-        (db.contribuintes || []).forEach(c => {
-            let alterouContribuinte = false;
-            (c.carros || []).forEach(car => {
-                if(car.cadastroAtualizado) {
-                    car.cadastroAtualizado = false;
-                    tocarRegistro(car);
-                    alterouVeiculo = true;
-                    alterouContribuinte = true;
-                }
-            });
-            if(alterouContribuinte) tocarRegistro(c);
-        });
-
-        db.configGerais.cadastroAtualizadoReset = { ...cfg, ultimoResetAno: ano };
-        tocarRegistro(db.configGerais);
-        if(alterouVeiculo) registrarAuditoria('Cadastro atualizado zerado', `Reset anual em ${cfg.dia}/${cfg.mes}/${ano}`);
-        salvarBanco();
-    }
-
-    document.addEventListener("DOMContentLoaded", () => { 
-        document.title = `Cooptrans ${APP_VERSION}`;
-        document.getElementById('splashVersao').innerText = APP_VERSION;
-        document.getElementById('menuAppVersion').innerText = APP_VERSION;
-        document.getElementById('loginAppVersion').innerText = APP_VERSION;
-        document.getElementById('setupAppVersion').innerText = APP_VERSION;
-        atualizarPerfilAdminUI();
-        aplicarTema();
-        renderizarCabecalhoPrincipal();
-        aplicarResetCadastroAtualizadoSeNecessario();
-        setTimeout(() => {
-            document.getElementById('splashScreen').style.opacity = '0';
-            setTimeout(()=>{document.getElementById('splashScreen').style.display = 'none';}, 500); 
-        }, 1000); 
-        
-        let hjMes = getHojeSTR().substring(0,7);
-        document.getElementById('filtroMesGeral').value = hjMes;
-        atualizarTextoMesGeral();
-        configurarBloqueioZoom();
-        registrarServiceWorker();
-        inicializarSincronizacaoAutomatica();
-        iniciarFluxoAcesso();
-    });
-
-    function configurarBloqueioZoom() {
-        document.addEventListener('wheel', (e) => { if(e.ctrlKey) e.preventDefault(); }, { passive: false });
-        document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
-        document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
-        document.addEventListener('keydown', (e) => {
-            const zoomKeys = ['+', '-', '=', '0'];
-            if((e.ctrlKey || e.metaKey) && zoomKeys.includes(e.key)) e.preventDefault();
-        }, { capture: true });
-    }
-
-    function registrarServiceWorker() {
-        if('serviceWorker' in navigator && location.protocol !== 'file:') {
-            navigator.serviceWorker.register('sw.js').catch(() => {});
-        }
-    }
-
-    function inicializarSincronizacaoAutomatica() {
-        if(!db.configs.url) return;
-        setTimeout(() => sincronizacaoAutomatica(), 2500);
-        setInterval(() => sincronizacaoAutomatica(), SYNC_PULL_INTERVAL_MS);
-        window.addEventListener('focus', () => sincronizacaoAutomatica());
-    }
-
-    function sincronizacaoAutomatica() {
-        if(!db.configs.url || isSyncingFundo) return;
-        if(syncPendente || temMudancaLocalPendente()) {
-            sincronizarFundo(false, true);
-        } else {
-            puxarDadosNuvem(true);
-        }
-    }
-
-    // ATALHO ENTER E ESC E NAVEGACAO LISTA
-    document.addEventListener('keydown', function(e) {
-        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName) && e.key !== 'Escape') {
-            return; 
-        }
-
-        let modals = Array.from(document.querySelectorAll('.modal-overlay')).filter(m => window.getComputedStyle(m).display !== 'none');
-        let isModalOpen = modals.length > 0;
-        let scrollKeys = ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End'];
-
-        if(isModalOpen) {
-            if(e.key === 'Escape') {
-                let topModal = modals.sort((a,b) => (parseInt(window.getComputedStyle(a).zIndex)||0) - (parseInt(window.getComputedStyle(b).zIndex)||0)).pop();
-                if(topModal) {
-                    if(topModal.id === 'modalTrocaSenha' && document.getElementById('trocaSenhaObrigatoria')?.value === 'true') {
-                        e.preventDefault();
-                        return;
-                    }
-                    let closeBtn = topModal.querySelector('.btn-cancel') || topModal.querySelector('button[onclick*="fechar"]');
-                    if(closeBtn) closeBtn.click();
-                }
-                e.preventDefault();
-                return;
-            }
-            
-            if(scrollKeys.includes(e.key)) {
-                let topModal = modals.sort((a,b) => (parseInt(window.getComputedStyle(a).zIndex)||0) - (parseInt(window.getComputedStyle(b).zIndex)||0)).pop();
-                let modalBox = topModal.querySelector('.modal');
-                if(modalBox) {
-                    if(e.key === 'ArrowDown') { modalBox.scrollTop += 50; }
-                    else if(e.key === 'ArrowUp') { modalBox.scrollTop -= 50; }
-                    else if(e.key === 'PageDown') { modalBox.scrollTop += modalBox.clientHeight; }
-                    else if(e.key === 'PageUp') { modalBox.scrollTop -= modalBox.clientHeight; }
-                    else if(e.key === 'Home') { modalBox.scrollTop = 0; }
-                    else if(e.key === 'End') { modalBox.scrollTop = modalBox.scrollHeight; }
-                    e.preventDefault(); 
-                }
-            }
-        } else {
-            if(e.key === 'Enter') {
-                clickFiltroTodos();
-                e.preventDefault();
-            } else if(scrollKeys.includes(e.key)) {
-                let scrollArea = document.querySelector('.scroll-area');
-                if(e.key === 'ArrowDown') { scrollArea.scrollTop += 50; e.preventDefault(); }
-                else if(e.key === 'ArrowUp') { scrollArea.scrollTop -= 50; e.preventDefault(); }
-                else if(e.key === 'PageDown') { scrollArea.scrollTop += scrollArea.clientHeight; e.preventDefault(); }
-                else if(e.key === 'PageUp') { scrollArea.scrollTop -= scrollArea.clientHeight; e.preventDefault(); }
-                else if(e.key === 'Home') { scrollArea.scrollTop = 0; e.preventDefault(); }
-                else if(e.key === 'End') { scrollArea.scrollTop = scrollArea.scrollHeight; e.preventDefault(); }
-            }
-        }
-    });
-
-    // EVENTO DE SCROLL PARA MOSTRAR LETRA
-    let scrollTimeout;
-    document.querySelector('.scroll-area').addEventListener('scroll', function() {
-        let listItems = document.querySelectorAll('#listaPrincipal .item');
-        if(listItems.length === 0) return;
-        
-        let containerTop = this.getBoundingClientRect().top;
-        let currentItem = null;
-        for(let item of listItems) {
-            let rect = item.getBoundingClientRect();
-            if(rect.top >= containerTop || rect.bottom > containerTop) {
-                currentItem = item;
-                break;
-            }
-        }
-        
-        if(currentItem) {
-            let titleEl = currentItem.querySelector('.item-title');
-            if(titleEl) {
-                let letter = titleEl.innerText.charAt(0).toUpperCase();
-                let ind = document.getElementById('letterIndicator');
-                if (ind) {
-                    ind.innerText = letter;
-                    ind.style.display = 'flex';
-                    
-                    clearTimeout(scrollTimeout);
-                    scrollTimeout = setTimeout(() => {
-                        ind.style.display = 'none';
-                    }, 800); 
-                }
-            }
-        }
-    });
-
-    // LOGICA CUSTOM MONTH PICKER UNIFICADA
-    let mpCurrentYear = new Date().getFullYear();
-    let activeMonthTarget = 'filtroMesGeral';
-    
-    function abrirSeletorMes(target) {
-        activeMonthTarget = target;
-        let val = document.getElementById(target).value;
-        if(val) mpCurrentYear = parseInt(val.split('-')[0]);
-        else mpCurrentYear = new Date().getFullYear();
-        
-        renderizarGridMeses();
-        abrirModal('modalMonthPicker');
-    }
-    function mpChangeYear(dir) {
-        mpCurrentYear += dir;
-        renderizarGridMeses();
-    }
-    function renderizarGridMeses() {
-        document.getElementById('mpYearLabel').innerText = mpCurrentYear;
-        let valAt = document.getElementById(activeMonthTarget).value;
-        let mesAt = valAt ? valAt.split('-')[1] : null;
-        let anoAt = valAt ? parseInt(valAt.split('-')[0]) : null;
-
-        let html = '';
-        for(let i=1; i<=12; i++) {
-            let isActive = (i === parseInt(mesAt) && mpCurrentYear === anoAt);
-            html += `<div class="month-btn ${isActive ? 'active':''}" onclick="mpSelectMonth(${i})">${getAbrevMes(i)}</div>`;
-        }
-        document.getElementById('mpMonthGrid').innerHTML = html;
-    }
-    function mpSelectMonth(m) {
-        let mesStr = String(m).padStart(2,'0');
-        document.getElementById(activeMonthTarget).value = `${mpCurrentYear}-${mesStr}`;
-        fecharModal('modalMonthPicker');
-        
-        if(activeMonthTarget === 'filtroMesGeral') {
-            atualizarTextoMesGeral();
-        } else if(activeMonthTarget === 'dashMesSingle') {
-            document.getElementById('lblDashMesSingle').innerText = `${getExtensoMes(mesStr)} ${mpCurrentYear}`;
-            renderizarResumoMes();
-        } else if(activeMonthTarget === 'dashGrafIni') {
-            document.getElementById('lblDashGrafIni').innerText = `${getAbrevMes(mesStr)} ${mpCurrentYear}`;
-            gerarGraficosComparativos();
-        } else if(activeMonthTarget === 'dashGrafFim') {
-            document.getElementById('lblDashGrafFim').innerText = `${getAbrevMes(mesStr)} ${mpCurrentYear}`;
-            gerarGraficosComparativos();
-        } else if(activeMonthTarget === 'pgIni') {
-            document.getElementById('lblPgIni').innerText = `${getExtensoMes(mesStr)} ${mpCurrentYear}`;
-            calcPgtoMulti(true);
-        } else if(activeMonthTarget === 'pgFim') {
-            document.getElementById('lblPgFim').innerText = `${getExtensoMes(mesStr)} ${mpCurrentYear}`;
-            calcPgtoMulti(true);
-        } else if(activeMonthTarget === 'pgMesRefSingle') {
-            document.getElementById('lblPgMesRefSingle').innerText = `${getExtensoMes(mesStr)} ${mpCurrentYear}`;
-            atualizarStatusSingleAcoes();
-        } else if(activeMonthTarget === 'relManualIni') {
-            document.getElementById('lblRelManualIni').innerText = `${getAbrevMes(mesStr)} ${mpCurrentYear}`;
-            gerarRelatorioManual();
-        } else if(activeMonthTarget === 'relManualFim') {
-            document.getElementById('lblRelManualFim').innerText = `${getAbrevMes(mesStr)} ${mpCurrentYear}`;
-            gerarRelatorioManual();
-        }
-    }
-
-    function atualizarTextoMesGeral() {
-        let val = document.getElementById('filtroMesGeral').value;
-        if(val) {
-            let partes = val.split('-');
-            let mesNome = getExtensoMes(partes[1]);
-            document.getElementById('lblMesVisivel').innerText = `${mesNome} ${partes[0]}`;
-            atualizarCorMesReferencia(val);
-        }
-        try { renderizarLista(); } catch(e) { console.error("Erro ao renderizar lista", e); }
-    }
-
-    function atualizarCorMesReferencia(val) {
-        const box = document.querySelector('.header-month-slot .month-picker-box');
-        if(!box || !val) return;
-        const mesAtual = getHojeSTR().substring(0,7);
-        box.classList.remove('month-ref-past', 'month-ref-future');
-        if(val < mesAtual) box.classList.add('month-ref-past');
-        if(val > mesAtual) box.classList.add('month-ref-future');
-    }
-
-    function calcularValorEsperado(c, mesRef) {
-        if(!mesRef || mesRef < COBRANCA_INICIO_MES || estaArquivadoContribuinte(c)) return 0;
-        let soma = 0;
-        (c.carros || []).forEach(car => {
-            if(!car.ativo) return;
-            let cadMonth = getMesCadastroCobranca(car);
-            if(mesRef >= cadMonth) {
-                soma += parseMoeda(car.valor);
-            }
-        });
-        let desc = parseMoeda(c.desconto || "0");
-        return Math.max(0, soma - desc);
-    }
-
-    function deveContarComoInadimplente(c, mesRef) {
-        const mesAtual = getMesAtualSTR();
-        if(mesRef < mesAtual) return true;
-        if(mesRef > mesAtual) return false;
-        return isDataVencida(c, mesRef);
-    }
-
-    // DASHBOARD
-    let dashOrigem = 'menu';
-
-    function abrirPainelResultados(fromHome = false) {
-        dashOrigem = fromHome ? 'home' : 'menu';
-        if(dashOrigem === 'menu') fecharModal('modalPainelUnificado');
-        
-        let valFiltro = document.getElementById('filtroMesGeral').value || getHojeSTR().substring(0,7);
-        let pFiltro = valFiltro.split('-');
-        
-        document.getElementById('dashMesSingle').value = valFiltro;
-        document.getElementById('lblDashMesSingle').innerText = `${getExtensoMes(pFiltro[1])} ${pFiltro[0]}`;
-        
-        let currYear = new Date().getFullYear();
-        document.getElementById('dashGrafIni').value = `${currYear}-01`;
-        document.getElementById('lblDashGrafIni').innerText = `Jan ${currYear}`;
-        
-        document.getElementById('dashGrafFim').value = `${currYear}-12`;
-        document.getElementById('lblDashGrafFim').innerText = `Dez ${currYear}`;
-        
-        renderizarResumoMes();
-        abrirModal('modalPainelResultados');
-        setTimeout(() => gerarGraficosComparativos(), 300);
-    }
-
-    function fecharPainelResultados() {
-        fecharModal('modalPainelResultados');
-        if(dashOrigem === 'home') {
-            // Volta para a home
-        } else {
-            abrirModal('modalPainelUnificado');
-        }
-    }
-
-    function toggleDashTipoDado() {
-        let isQtd = document.getElementById('dashSwTipoDado').checked;
-        document.getElementById('lblSwValor').style.color = isQtd ? '#777' : 'var(--theme-base)';
-        document.getElementById('lblSwQtd').style.color = isQtd ? 'var(--theme-base)' : '#777';
-        gerarGraficosComparativos();
-    }
-
-    function toggleDashTipoGrafico() {
-        let isLinha = document.getElementById('dashSwTipoGrafico').checked;
-        document.getElementById('lblSwBarra').style.color = isLinha ? '#777' : 'var(--theme-base)';
-        document.getElementById('lblSwLinha').style.color = isLinha ? 'var(--theme-base)' : '#777';
-        gerarGraficosComparativos();
-    }
-
-    function renderizarResumoMes() {
-        let mesRef = document.getElementById('dashMesSingle').value;
-        if(!mesRef) return;
-        
-        let totalContribAtivos = 0;
-        let totalCarrosAtivos = 0;
-        let totalCarrosGrandes = 0;
-        let totalCarrosPequenos = 0;
-        let recebidoVal = 0;
-        let recebidoQtd = 0;
-        let pendenteVal = 0;
-        let pendenteQtd = 0;
-
-        db.contribuintes.forEach(c => {
-            if(estaArquivadoContribuinte(c)) return;
-            let valEsp = calcularValorEsperado(c, mesRef);
-            let valPen = calcularValorPendenteMes(c, mesRef);
-            let carrosAtivosMes = (c.carros || []).filter(car => {
-                if(!car.ativo) return false;
-                let cadMonth = getMesCadastroCobranca(car);
-                return cadMonth <= mesRef;
-            });
-            let carrosDeste = carrosAtivosMes.length;
-            
-            if(valEsp > 0 || carrosDeste > 0) {
-                totalContribAtivos++;
-                totalCarrosAtivos += carrosDeste;
-                carrosAtivosMes.forEach(car => {
-                    if(normalizarHeaderExcel(car.categoria).includes('grande')) totalCarrosGrandes++;
-                    else totalCarrosPequenos++;
-                });
-
-                if(isMesPago(c, mesRef)) {
-                    recebidoVal += valEsp;
-                    recebidoQtd++;
-                } else if(valPen > 0) {
-                    pendenteVal += valPen;
-                    pendenteQtd++;
-                }
-            }
-        });
-
-        let totalEsperadoMes = recebidoVal + pendenteVal;
-
-        document.getElementById('dashTotalContrib').innerText = totalContribAtivos;
-        document.getElementById('dashTotalCarros').innerText = totalCarrosAtivos;
-        document.getElementById('dashTotalCarrosTipo').innerText = `${totalCarrosGrandes} grandes | ${totalCarrosPequenos} pequenos`;
-        document.getElementById('dashTotalEsperado').innerText = `R$ ${formatMoeda(totalEsperadoMes)}`;
-        
-        document.getElementById('dashRecebidoVal').innerText = `R$ ${formatMoeda(recebidoVal)}`;
-        document.getElementById('dashRecebidoQtd').innerText = `${recebidoQtd} contribuintes`;
-        document.getElementById('dashPendenteVal').innerText = `R$ ${formatMoeda(pendenteVal)}`;
-        document.getElementById('dashPendenteQtd').innerText = `${pendenteQtd} contribuintes`;
-    }
-
-    let arrRecebidoVal = []; let arrRecebidoQtd = [];
-    let arrPendenteVal = []; let arrPendenteQtd = [];
-
-    function gerarGraficosComparativos() {
-        if(typeof Chart === 'undefined') return;
-
-        let ini = document.getElementById('dashGrafIni').value;
-        let fim = document.getElementById('dashGrafFim').value;
-        if(!ini || !fim) return;
-        if(fim < ini) { let temp=ini; ini=fim; fim=temp; }
-
-        let meses = getMesesRange(ini, fim);
-        let labelsArr = [];
-        arrRecebidoVal = []; arrRecebidoQtd = [];
-        arrPendenteVal = []; arrPendenteQtd = [];
-        let totalValRecPer = 0; let totalValPenPer = 0;
-
-        let currentRealMonth = getHojeSTR().substring(0,7);
-
-        meses.forEach(m => {
-            let p = m.split('-');
-            labelsArr.push(`${getAbrevMes(p[1])}/${p[0].substring(2)}`);
-            
-            let recVal = 0, recQtd = 0;
-            let penVal = 0, penQtd = 0;
-            
-            db.contribuintes.forEach(c => {
-                if(estaArquivadoContribuinte(c)) return;
-                let valEsp = calcularValorEsperado(c, m);
-                if(valEsp > 0) {
-                    if(isMesPago(c, m)) {
-                        recVal += valEsp;
-                        recQtd++;
-                    } else if(deveContarComoInadimplente(c, m)) {
-                        let valPen = calcularValorPendenteMes(c, m);
-                        if(valPen > 0) {
-                            penVal += valPen;
-                            penQtd++;
-                        }
-                    }
-                }
-            });
-
-            arrRecebidoVal.push(recVal);
-            arrRecebidoQtd.push(recQtd);
-            totalValRecPer += recVal;
-            
-            if (m > currentRealMonth) {
-                arrPendenteVal.push(null);
-                arrPendenteQtd.push(null);
-            } else {
-                arrPendenteVal.push(penVal);
-                arrPendenteQtd.push(penQtd);
-                totalValPenPer += penVal;
-            }
-        });
-
-        document.getElementById('dashResumoPeriodo').innerHTML = `Recebido (Período): <span style="color:#2E7D32;">R$ ${formatMoeda(totalValRecPer)}</span> <br> Pendente (Período): <span style="color:#D32F2F;">R$ ${formatMoeda(totalValPenPer)}</span>`;
-
-        let isLinha = document.getElementById('dashSwTipoGrafico').checked;
-        let isQtd = document.getElementById('dashSwTipoDado').checked;
-
-        let tipoGrafico = isLinha ? 'line' : 'bar';
-        let dataRec = isQtd ? arrRecebidoQtd : arrRecebidoVal;
-        let dataPen = isQtd ? arrPendenteQtd : arrPendenteVal;
-        let lblExt = isQtd ? '(Qtd)' : '(R$)';
-
-        let sharedOptions = {
-            responsive: true,
-            scales: { y: { ticks: { precision: isQtd ? 0 : undefined } } },
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            let idx = context.dataIndex;
-                            let isArrecadacao = context.dataset.label.includes('Arrecadação');
-                            
-                            let val = isArrecadacao ? arrRecebidoVal[idx] : arrPendenteVal[idx];
-                            let qtd = isArrecadacao ? arrRecebidoQtd[idx] : arrPendenteQtd[idx];
-                            
-                            if(!isArrecadacao && val === null) return 'N/A (Mês Futuro)';
-                            
-                            return `R$ ${formatMoeda(val)} (${qtd} contribuintes)`;
-                        }
-                    }
-                }
-            }
-        };
-
-        let ctxArr = document.getElementById('chartArrecadacao').getContext('2d');
-        if(chartArrecadacao) chartArrecadacao.destroy();
-        chartArrecadacao = new Chart(ctxArr, {
-            type: tipoGrafico,
-            data: {
-                labels: labelsArr,
-                datasets: [{ 
-                    label: `Arrecadação ${lblExt}`, 
-                    data: dataRec, 
-                    backgroundColor: '#2E7D32', 
-                    borderColor: '#2E7D32',
-                    borderWidth: 2,
-                    borderRadius: tipoGrafico === 'bar' ? 4 : 0,
-                    tension: 0.3
-                }]
-            },
-            options: { ...sharedOptions, plugins: { ...sharedOptions.plugins, title: { display: true, text: 'Evolução da Arrecadação' } } }
-        });
-
-        let ctxInad = document.getElementById('chartInadimplencia').getContext('2d');
-        if(chartInadimplencia) chartInadimplencia.destroy();
-        chartInadimplencia = new Chart(ctxInad, {
-            type: tipoGrafico,
-            data: {
-                labels: labelsArr,
-                datasets: [{ 
-                    label: `Inadimplência / Pendente ${lblExt}`, 
-                    data: dataPen, 
-                    backgroundColor: '#D32F2F', 
-                    borderColor: '#D32F2F',
-                    borderWidth: 2,
-                    borderRadius: tipoGrafico === 'bar' ? 4 : 0,
-                    tension: 0.3
-                }]
-            },
-            options: { ...sharedOptions, plugins: { ...sharedOptions.plugins, title: { display: true, text: 'Inadimplência por Mês' } } }
-        });
-    }
-
-    let isBuscaAberto = false;
-    function clickFiltroTodos() {
-        if(filtroViewAtual !== 'todos') {
-            setFiltroView('todos');
-        } else {
-            isBuscaAberto = !isBuscaAberto;
-            let input = document.getElementById('inputBuscaNome');
-            if(isBuscaAberto) {
-                input.style.display = 'inline-block';
-                input.focus();
-            } else {
-                input.style.display = 'none';
-                input.value = '';
-                renderizarLista();
-            }
-        }
-    }
-
-    function setFiltroView(view) {
-        filtroViewAtual = view;
-        document.getElementById('chipTodos').classList.remove('active');
-        document.getElementById('chipPendentes').classList.remove('active');
-        document.getElementById('chipPagamentosVencidos').classList.remove('active');
-        document.getElementById('chipVencimentos').classList.remove('active');
-        
-        if(view === 'todos') document.getElementById('chipTodos').classList.add('active');
-        if(view === 'aVencer' || view === 'pendentes') document.getElementById('chipPendentes').classList.add('active');
-        if(view === 'vencidos') document.getElementById('chipPagamentosVencidos').classList.add('active');
-        if(view === 'vencimentos') document.getElementById('chipVencimentos').classList.add('active');
-        renderizarLista();
-    }
-
-    function checarAlertasCarro(carro) {
-        let alertas = [];
-        if(!carro.ativo) return alertas;
-        let hoje = new Date();
-        hoje.setHours(0,0,0,0);
-        
-        let confAlertas = db.configGerais.alertas || {};
-        
-        let checkData = (dataStr, nome, confKey, genero) => {
-            if(!dataStr || !confAlertas[confKey] || !confAlertas[confKey].ativo) return;
-            if(!isDataISOValida(dataStr)) {
-                alertas.push(`<span class="alert-chip-home alert-expired">🚨${nome}: data inválida</span>`);
-                return;
-            }
-            let d = new Date(dataStr + "T00:00:00");
-            let diffDias = Math.ceil((d - hoje) / (1000 * 60 * 60 * 24));
-            let diasAviso = parseInt(confAlertas[confKey].dias) || 7;
-            if(diffDias < 0) {
-                let diasPassados = Math.abs(diffDias);
-                let labelDias = diasPassados === 1 ? 'dia' : 'dias';
-                alertas.push(`<span class="alert-chip-home alert-expired">🚨${nome}: há ${diasPassados} ${labelDias}</span>`);
-            } else if(diffDias === 0) {
-                alertas.push(`<span class="alert-chip-home alert-warning">⚠️${nome}: em 0 dias</span>`);
-            } else if(diffDias <= diasAviso) {
-                let labelDias = diffDias === 1 ? 'dia' : 'dias';
-                alertas.push(`<span class="alert-chip-home alert-warning">⚠️${nome}: em ${diffDias} ${labelDias}</span>`);
-            }
-        };
-        
-        checkData(carro.dataLaudo, "Laudo", "laudo", "o");
-        checkData(carro.dataSeguro, "Seguro", "seguro", "o");
-        checkData(carro.dataLicenca, "Licença", "licenca", "a");
-        if(carro.dataCadastro && !isDataISOValida(carro.dataCadastro)) {
-            alertas.push(`<span class="alert-chip-home alert-expired">🚨Cadastro: data inválida</span>`);
-        }
-        return alertas;
-    }
-
-    function isMesPago(c, mesRef) {
-        if(!c.pagamentos) return false;
-        if(c.pagamentos.some(p => !p.parcial && pagamentoRefereMes(p, mesRef))) return true;
-        let esperado = calcularValorEsperado(c, mesRef);
-        return esperado > 0 && calcularParciaisMes(c, mesRef) >= esperado;
-    }
-
-    function pagamentoRefereMes(p, mesRef) {
-        return (p.mesesRef && p.mesesRef.includes(mesRef)) || p.mesAno === mesRef;
-    }
-
-    function calcularParciaisMes(c, mesRef) {
-        if(!c.pagamentos) return 0;
-        return c.pagamentos
-            .filter(p => p.parcial && pagamentoRefereMes(p, mesRef))
-            .reduce((acc, p) => acc + (parseFloat(p.valorPago) || 0), 0);
-    }
-
-    function calcularValorPendenteMes(c, mesRef) {
-        if(isMesPago(c, mesRef)) return 0;
-        let esperado = calcularValorEsperado(c, mesRef);
-        let parciais = calcularParciaisMes(c, mesRef);
-        return Math.max(0, esperado - parciais);
-    }
-
-    function getStatusPagamentoMes(c, mesRef) {
-        const valorEsperado = calcularValorEsperado(c, mesRef);
-        const valorPendente = calcularValorPendenteMes(c, mesRef);
-        const pago = isMesPago(c, mesRef);
-        const labelDia = getLabelDiaVencimento(c, mesRef);
-        if(valorEsperado <= 0) {
-            return { tipo: 'neutral', html: `<span>Sem valor</span> <strong>${labelDia}</strong>`, valorPendente, pago };
-        }
-        if(pago) {
-            return { tipo: 'ok', html: `<span>Pago</span> <strong>${labelDia}</strong>`, valorPendente: 0, pago: true };
-        }
-        if(!isDataVencida(c, mesRef)) {
-            return { tipo: 'warning', html: `<span>Vence</span> <strong>${labelDia}</strong>`, valorPendente, pago: false };
-        }
-        return { tipo: 'pendente', html: `<span>Falta R$ ${formatMoeda(valorPendente)}</span> <strong>${labelDia}</strong>`, valorPendente, pago: false };
-    }
-
-    function temPendenciaMesesAnteriores(c) {
-        let earliestCar = null;
-        (c.carros || []).forEach(car => {
-            if(car.ativo) {
-                let dataBase = `${getMesCadastroCobranca(car)}-01`;
-                if(!earliestCar || dataBase < earliestCar) earliestCar = dataBase;
-            }
-        });
-        if(earliestCar) {
-            let startMes = earliestCar.substring(0,7);
-            let endMes = getPastMonthStr();
-            if(startMes <= endMes) {
-                let curr = new Date(startMes + '-01T00:00:00');
-                let end = new Date(endMes + '-01T00:00:00');
-                while(curr <= end) {
-                    let m = `${curr.getFullYear()}-${String(curr.getMonth()+1).padStart(2,'0')}`;
-                    if(calcularValorPendenteMes(c, m) > 0) return true;
-                    curr.setMonth(curr.getMonth() + 1);
-                }
-            }
-        }
-        return false;
-    }
-
-    function getAvatarColor(c, temAlerta, temPendenciaAnterior = temPendenciaMesesAnteriores(c)) {
-        if(temPendenciaAnterior) return '#D32F2F'; // Vermelho
-        if(temAlerta) return '#F9A825'; // Laranja claro
-        return 'var(--theme-base)'; // Verde
-    }
-
-    function renderizarLista() {
-        const lista = document.getElementById('listaPrincipal');
-        let html = '';
-        let mesRef = document.getElementById('filtroMesGeral').value;
-        let buscaNome = document.getElementById('inputBuscaNome').value.toLowerCase();
-
-        let contribs = [...db.contribuintes].sort((a,b) => (a.nome || '').localeCompare(b.nome || ''));
-        let lastLetra = '';
-
-        contribs.forEach(c => {
-            if(estaArquivadoContribuinte(c)) return;
-            let carrosAtivos = (c.carros || []).filter(car=>car.ativo).length;
-            if (carrosAtivos === 0) return; // Nao mostra se nao tem carro ativo
-
-            if (buscaNome && !(c.nome || '').toLowerCase().includes(buscaNome)) return;
-
-            let valorEsperado = calcularValorEsperado(c, mesRef);
-            let valorPendente = calcularValorPendenteMes(c, mesRef);
-            let statusMes = getStatusPagamentoMes(c, mesRef);
-            let pendente = valorPendente > 0;
-            let pagamentoVencido = pendente && isDataVencida(c, mesRef);
-            let pagamentoAVencer = pendente && !pagamentoVencido;
-
-            let alertasArr = [];
-            (c.carros || []).forEach(car => { alertasArr = alertasArr.concat(checarAlertasCarro(car)); });
-            let temAlerta = alertasArr.length > 0;
-
-            if((filtroViewAtual === 'aVencer' || filtroViewAtual === 'pendentes') && !pagamentoAVencer) return;
-            if(filtroViewAtual === 'vencidos' && !pagamentoVencido) return;
-            if(filtroViewAtual === 'vencimentos' && !temAlerta) return;
-
-            let temPendenciaAnterior = temPendenciaMesesAnteriores(c);
-            let avatarCor = getAvatarColor(c, temAlerta, temPendenciaAnterior);
-
-            let statusClasse = statusMes.tipo === 'ok' ? 'status-ok' : statusMes.tipo === 'warning' ? 'status-warning' : statusMes.tipo === 'pendente' ? 'status-pendente' : '';
-            let statusPgtoHtml = `<span class="status-badge ${statusClasse} status-payment-split">${statusMes.html}</span>`;
-            
-            let emojisCarros = '';
-            (c.carros || []).filter(car=>car.ativo).forEach(car => {
-                let catObj = db.categorias.find(x => x.nome === car.categoria);
-                let emojiCarro = catObj && catObj.emoji ? catObj.emoji : '🚗';
-                let tickAtualizado = car.cadastroAtualizado ? '<span class="vehicle-updated-tick">✅</span>' : '';
-                emojisCarros += `<span class="vehicle-emoji-wrap">${escapeHTML(emojiCarro)}${tickAtualizado}</span>`;
-            });
-            if(temPendenciaAnterior) {
-                emojisCarros += '<span class="past-debt-dot" title="Possui pendência em meses anteriores"></span>';
-            }
-            let subtitleText = carrosAtivos > 0 
-                ? `<div class="item-vehicles">${emojisCarros}</div>` 
-                : `<div class="item-subtitle" style="font-size:11px;">Nenhum veículo ativo</div>`;
-            
-            let alertasHtml = '';
-            if(temAlerta) alertasHtml = alertasArr.join('');
-            
-            let primeiraLetra = (c.nome || '?').charAt(0).toUpperCase();
-            let idLetra = '';
-            if(primeiraLetra !== lastLetra && buscaNome === '') {
-                idLetra = `id="letra-${primeiraLetra}"`;
-                lastLetra = primeiraLetra;
-            }
-
-            html += `<li class="item" onclick="abrirAcoesContribuinte('${c.id}')" ${idLetra}>
-                <div style="display: flex; align-items: center; width: 100%;">
-                    <div class="item-avatar" style="background-color:${avatarCor};">${primeiraLetra}</div>
-                    <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden; margin-right: 5px;">
-                        <div class="item-title">${escapeHTML(c.nome)}</div>
-                        ${subtitleText}
-                    </div>
-                    <div class="item-side-info">
-                        ${temAlerta ? `<div class="alert-home-box"><div class="alert-home-text">${alertasHtml}</div></div>` : ''}
-                        <div class="status-home-box">${statusPgtoHtml}</div>
-                    </div>
-                </div>
-            </li>`;
-        });
-
-        if(html === '') html = `<li style="padding: 20px; text-align: center; color: #999;">Nenhum contribuinte encontrado.</li>`;
-        lista.innerHTML = html;
-    }
-
-    function adicionarMeses(mesRef, qtd) {
-        let d = new Date(`${mesRef}-01T00:00:00`);
-        d.setMonth(d.getMonth() + qtd);
-        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    }
-
-    function formatMesManual(mesRef) {
-        const [ano, mes] = mesRef.split('-');
-        return `${getAbrevMes(mes)}/${String(ano).slice(2)}`;
-    }
-
-    function formatMesColunaManual(mesRef) {
-        const mes = String(mesRef || '').split('-')[1];
-        return getAbrevMes(mes);
-    }
-
-    function setLabelsRelatorioManual() {
-        let ini = document.getElementById('relManualIni').value;
-        let fim = document.getElementById('relManualFim').value;
-        if(ini) document.getElementById('lblRelManualIni').innerText = formatMesManual(ini);
-        if(fim) document.getElementById('lblRelManualFim').innerText = formatMesManual(fim);
-    }
-
-    function abrirRelatorioManual() {
-        const ini = getMesAtualSTR();
-        const fim = adicionarMeses(ini, 5);
-        document.getElementById('relManualIni').value = ini;
-        document.getElementById('relManualFim').value = fim;
-        setLabelsRelatorioManual();
-        gerarRelatorioManual();
-        abrirModal('modalRelatorioManual');
-    }
-
-    function gerarRelatorioManual() {
-        let ini = document.getElementById('relManualIni').value || getMesAtualSTR();
-        let fim = document.getElementById('relManualFim').value || ini;
-        if(fim < ini) {
-            fim = ini;
-            document.getElementById('relManualFim').value = fim;
-        }
-        let meses = getMesesRange(ini, fim);
-        if(meses.length > 12) {
-            meses = meses.slice(0, 12);
-            fim = meses[meses.length - 1];
-            document.getElementById('relManualFim').value = fim;
-        }
-        setLabelsRelatorioManual();
-
-        const contribs = [...db.contribuintes]
-            .filter(c => !estaArquivadoContribuinte(c) && (c.carros || []).some(car => car.ativo))
-            .sort((a,b) => (a.nome || '').localeCompare(b.nome || ''));
-        const cabecalhoMeses = meses.map(m => `<th class="pg-col">${escapeHTML(formatMesColunaManual(m))}</th>`).join('');
-        const linhas = contribs.map(c => {
-            const valorAPagar = calcularValorEsperado(c, ini);
-            return `
-            <tr>
-                <td class="manual-row-name">${escapeHTML(c.nome || 'Sem nome')}</td>
-                <td class="due-col">${String(getDiaVencimento(c)).padStart(2, '0')}</td>
-                ${meses.map(m => `<td class="manual-pg-cell">${isMesPago(c, m) ? 'PG' : ''}</td>`).join('')}
-                <td class="value-col">R$ ${formatMoeda(valorAPagar)}</td>
-            </tr>
-        `;
-        }).join('');
-
-        const colspanVazio = meses.length + 3;
-        document.getElementById('printRelatorioManual').innerHTML = `
-            <div class="manual-report-sheet">
-                <div class="manual-report-head">
-                    <h3>Lista de Acompanhamento</h3>
-                    <span>${escapeHTML(formatMesManual(ini))} a ${escapeHTML(formatMesManual(fim))}</span>
-                </div>
-                <table class="manual-report-table">
-                    <thead>
-                        <tr>
-                            <th class="name-col">Nome</th>
-                            <th class="due-col">Dia</th>
-                            ${cabecalhoMeses}
-                            <th class="value-col">Valor</th>
-                        </tr>
-                    </thead>
-                    <tbody>${linhas || `<tr><td colspan="${colspanVazio}">Nenhum contribuinte ativo.</td></tr>`}</tbody>
-                </table>
+          </div>
+        </section>
+
+        <section class="product-slide" data-slide-panel="fluxo">
+          <div class="slide-card">
+            <div class="slide-kicker">${escapeHTML(p.nome)}</div>
+            <h3>Fluxograma</h3>
+            <div class="timeline-list">${timelineHTML(p.fluxo)}</div>
+          </div>
+        </section>
+
+        <section class="product-slide" data-slide-panel="controle">
+          <div class="slide-card">
+            <div class="slide-kicker">${escapeHTML(categoryLabel || 'Roteiro')}</div>
+            <h3>Pontos de controle</h3>
+            <div class="control-grid">${(p.pontos || []).map(point => `<div class="control-point">${escapeHTML(point)}</div>`).join('')}</div>
+          </div>
+        </section>
+
+        <section class="product-slide" data-slide-panel="equipamentos">
+          <div class="slide-card">
+            <div class="slide-kicker">Preparação da bancada</div>
+            <h3>Equipamentos e utensílios</h3>
+            <div class="equipment-grid">${equipmentHTML(p.equipamentos)}</div>
+          </div>
+        </section>
+
+        <section class="product-slide" data-slide-panel="formulas">
+          <div class="slide-card">
+            <div class="slide-title-row">
+              <div>
+                <div class="slide-kicker">Cálculo e composição</div>
+                <h3>Formulações do produto</h3>
+              </div>
             </div>
-        `;
-    }
-
-    function getEstilosImpressaoRelatorioManual() {
-        return `<style>
-            @page { size: A4 portrait; margin: 8mm; }
-            * { box-sizing: border-box; }
-            html, body { margin: 0; padding: 0; background: #fff; color: #111; font-family: Arial, sans-serif; }
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .manual-report-sheet { width: 100%; color: #111; }
-            .manual-report-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-end; margin-bottom: 8px; }
-            .manual-report-head h3 { margin: 0; font-size: 16px; line-height: 1.1; text-transform: uppercase; }
-            .manual-report-head span { color: #333; font-size: 11px; font-weight: 800; white-space: nowrap; }
-            .manual-report-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 10.5px; page-break-inside: auto; }
-            .manual-report-table thead { display: table-header-group; }
-            .manual-report-table tfoot { display: table-footer-group; }
-            .manual-report-table tr { break-inside: avoid; page-break-inside: avoid; }
-            .manual-report-table th, .manual-report-table td { border: 1px solid #333; padding: 3px 2px; height: 22px; vertical-align: middle; }
-            .manual-report-table th { background: #eee; text-align: center; font-weight: 800; }
-            .manual-report-table .name-col { width: 52%; text-align: left; }
-            .manual-report-table .due-col { width: 26px; text-align: center; color: #111; font-weight: 900; }
-            .manual-report-table .pg-col { width: 28px; text-align: center; color: #111; }
-            .manual-report-table .value-col { width: 54px; text-align: center; color: #111; font-weight: 900; }
-            .manual-report-table .manual-row-name { font-weight: 700; white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.12; }
-            .manual-report-table .manual-pg-cell { background: #fff; text-align: center; font-weight: 900; }
-        </style>`;
-    }
-
-    function montarDocumentoImpressaoRelatorioManual(conteudo) {
-        return `<!doctype html>
-            <html lang="pt-BR">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Lista de Acompanhamento</title>
-                ${getEstilosImpressaoRelatorioManual()}
-            </head>
-            <body>${conteudo}</body>
-            </html>`;
-    }
-
-    function imprimirRelatorioManualNoApp() {
-        document.body.classList.add('printing-manual-report');
-        const limparModoImpressao = () => {
-            document.body.classList.remove('printing-manual-report');
-            window.removeEventListener('afterprint', limparModoImpressao);
-        };
-        window.addEventListener('afterprint', limparModoImpressao);
-        setTimeout(() => {
-            window.print();
-            setTimeout(limparModoImpressao, 1000);
-        }, 50);
-    }
-
-    function imprimirRelatorioManual() {
-        gerarRelatorioManual();
-        const area = document.getElementById('printRelatorioManual');
-        const conteudo = area ? area.innerHTML : '';
-        if(!conteudo.trim()) return alert("Não há lista para imprimir.");
-
-        const janela = window.open('', '_blank');
-        if(!janela) {
-            imprimirRelatorioManualNoApp();
-            return;
-        }
-
-        janela.document.open();
-        janela.document.write(montarDocumentoImpressaoRelatorioManual(conteudo));
-        janela.document.close();
-        setTimeout(() => {
-            janela.focus();
-            janela.print();
-        }, 500);
-    }
-
-    function abrirGerenciarContribuintes() {
-        fecharModal('modalPainelUnificado');
-        document.getElementById('tituloListagem').innerText = "Gerenciar Contribuintes";
-        document.getElementById('btnNovoListagem').onclick = () => abrirFormContribuinte(null);
-        document.getElementById('btnVoltarListagem').onclick = () => { fecharModal('modalListagem'); abrirModal('modalPainelUnificado'); };
-        document.getElementById('boxAcoesExtrasExcel').style.display = 'none';
-        document.getElementById('inputBuscaGerenciarContrib').style.display = 'block';
-        document.getElementById('inputBuscaGerenciarContrib').value = '';
-        renderGerenciarContribuintesLista();
-        abrirModal('modalListagem');
-    }
-
-    function renderGerenciarContribuintesLista() {
-        let busca = (document.getElementById('inputBuscaGerenciarContrib')?.value || '').toLowerCase();
-        let htmlLista = '';
-        let contribs = [...db.contribuintes].sort((a,b) => (a.nome || '').localeCompare(b.nome || ''));
-        contribs.forEach((c) => { 
-            if(busca && !(c.nome || '').toLowerCase().includes(busca)) return;
-            let carrosQtd = (c.carros || []).length;
-            let arquivado = estaArquivadoContribuinte(c);
-            htmlLista += `<div style="padding:10px; border-bottom:1px solid #ddd; display:flex; justify-content:space-between; align-items:center;">
-                <div style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><strong>${escapeHTML(c.nome || 'Sem Nome')}</strong><br><small style="color:#666;">${carrosQtd} Veículo(s) | Total Base: R$ ${escapeHTML(c.valorTotal || '0,00')}</small>${arquivado ? '<br><span class="archived-badge">Arquivado</span>' : ''}</div>
-                <div style="flex-shrink:0; margin-left:10px;">
-                    <button style="background:none; border:none; font-size:20px; cursor:pointer;" onclick="abrirFormContribuinte('${c.id}')">✏️</button>
-                    <button class="archive-btn" title="${arquivado ? 'Restaurar' : 'Arquivar'}" onclick="alternarArquivoContribuinte('${c.id}')">${arquivado ? '↩️' : '📦'}</button>
-                    <button class="delete-small-btn" title="Excluir" onclick="excluirContribuinte('${c.id}')">🗑️</button>
-                </div>
-            </div>`; 
-        });
-        document.getElementById('conteudoListagem').innerHTML = htmlLista || '<div style="padding:20px; text-align:center; color:#999;">Nenhum contribuinte encontrado.</div>';
-    }
-
-    let oldFecharModal = fecharModal;
-    fecharModal = function(id) {
-        if(id === 'modalListagem') {
-            document.getElementById('boxAcoesExtrasExcel').style.display = 'none';
-            document.getElementById('inputBuscaGerenciarContrib').style.display = 'none';
-        }
-        oldFecharModal(id);
-    }
-
-    function alternarArquivoContribuinte(id) {
-        let c = db.contribuintes.find(x => x.id === id);
-        if(!c) return;
-        let arquivar = !estaArquivadoContribuinte(c);
-        let msg = arquivar ? `Arquivar ${c.nome}? Ele deixará de aparecer na tela inicial.` : `Restaurar ${c.nome}?`;
-        if(!confirm(msg)) return;
-        c.arquivado = arquivar;
-        c.ativo = !arquivar;
-        tocarRegistro(c);
-        registrarAuditoria(arquivar ? 'Contribuinte arquivado' : 'Contribuinte restaurado', c.nome || id);
-        salvarBanco();
-        renderGerenciarContribuintesLista();
-        renderizarLista();
-    }
-
-    function excluirContribuinte(id) {
-        let c = db.contribuintes.find(x => x.id === id);
-        if(!c) return;
-        let frase = prompt(`Para excluir ${c.nome || 'este contribuinte'}, digite: quero excluir`);
-        if((frase || '').trim().toLowerCase() !== 'quero excluir') {
-            alert("Exclusão cancelada. A frase digitada não confere.");
-            return;
-        }
-        (c.pagamentos || []).forEach(pg => registrarExclusao('pagamentos', pg.id));
-        (c.carros || []).forEach(car => registrarExclusao('carros', car.id));
-        registrarExclusao('contribuintes', id);
-        db.contribuintes = db.contribuintes.filter(x => x.id !== id);
-        registrarAuditoria('Contribuinte excluído', c.nome || id);
-        salvarBanco();
-        renderGerenciarContribuintesLista();
-        renderizarLista();
-    }
-
-    function recalcularTotalContribuinteRegistro(c) {
-        if(!c) return;
-        let somaCarros = (c.carros || []).filter(car => car.ativo).reduce((acc, car) => acc + parseMoeda(car.valor), 0);
-        let desc = parseMoeda(c.desconto || "0");
-        c.valorTotal = formatMoeda(Math.max(0, somaCarros - desc));
-        tocarRegistro(c);
-    }
-
-    function abrirFormContribuinte(id, fromAcoes = false) {
-        fecharModal('modalListagem');
-        fecharModal('modalAcoesContribuinte');
-        
-        document.getElementById('contFromAcoes').value = fromAcoes ? 'true' : 'false';
-        tempTelefones = [];
-        tempCarros = [];
-        tempCarrosExcluidos = [];
-        
-        if(id) {
-            let c = db.contribuintes.find(x => x.id === id);
-            document.getElementById('contId').value = c.id;
-            document.getElementById('contNome').value = c.nome || '';
-            document.getElementById('contDiaVencimento').value = getDiaVencimento(c);
-            document.getElementById('contDesconto').value = c.desconto || '';
-            if(c.telefones) tempTelefones = [...c.telefones];
-            if(c.carros) tempCarros = JSON.parse(JSON.stringify(c.carros));
-        } else {
-            document.getElementById('contId').value = '';
-            document.getElementById('contNome').value = '';
-            document.getElementById('contDiaVencimento').value = DIA_VENCIMENTO_PADRAO;
-            document.getElementById('contDesconto').value = '';
-        }
-        carregarTelefonesFormulario(tempTelefones);
-        renderListaCarros();
-        abrirModal('modalFormContribuinte');
-    }
-
-    function cancelarFormContribuinte() {
-        fecharModal('modalFormContribuinte');
-        if(document.getElementById('contFromAcoes').value === 'true') {
-            abrirModal('modalAcoesContribuinte');
-        } else {
-            abrirGerenciarContribuintes();
-        }
-    }
-
-    function calcTotalContribuinte() {
-        let somaCarros = tempCarros.filter(c => c.ativo).reduce((acc, c) => acc + parseMoeda(c.valor), 0);
-        let desc = parseMoeda(document.getElementById('contDesconto').value);
-        document.getElementById('contValor').value = formatMoeda(Math.max(0, somaCarros - desc));
-    }
-
-    function validarDatasCarrosTemp() {
-        const campos = [
-            ['dataLaudo', 'Laudo'],
-            ['dataSeguro', 'Seguro'],
-            ['dataLicenca', 'Licença'],
-            ['dataCadastro', 'Cadastro']
-        ];
-        for(let car of tempCarros) {
-            for(let [chave, label] of campos) {
-                if(car[chave] && !isDataISOValida(car[chave])) {
-                    alert(`O veículo ${car.placa || 'sem placa'} está com Data ${label} inválida. Corrija antes de salvar.`);
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    function carregarTelefonesFormulario(telefones = []) {
-        const principal = document.getElementById('contTelefonePrincipal');
-        const alternativo = document.getElementById('contTelefoneAlternativo');
-        const boxAlternativo = document.getElementById('boxTelefoneAlternativo');
-        principal.value = telefones[0] || '';
-        alternativo.value = telefones[1] || '';
-        boxAlternativo.style.display = alternativo.value ? 'flex' : 'none';
-    }
-
-    function mostrarTelefoneAlternativo() {
-        const box = document.getElementById('boxTelefoneAlternativo');
-        box.style.display = 'flex';
-        setTimeout(() => document.getElementById('contTelefoneAlternativo').focus(), 30);
-    }
-
-    function removerTelefoneAlternativo() {
-        document.getElementById('contTelefoneAlternativo').value = '';
-        document.getElementById('boxTelefoneAlternativo').style.display = 'none';
-    }
-
-    function obterTelefonesFormulario() {
-        return [
-            document.getElementById('contTelefonePrincipal').value.trim(),
-            document.getElementById('contTelefoneAlternativo').value.trim()
-        ].filter(Boolean);
-    }
-
-    function salvarContribuinte() {
-        let nome = document.getElementById('contNome').value.trim();
-        if(!nome) return alert("Digite o nome.");
-        if(!validarDatasCarrosTemp()) return;
-        
-        let id = document.getElementById('contId').value || 'cont_' + Date.now();
-        const anterior = db.contribuintes.find(x=>x.id===id);
-        tempCarrosExcluidos.forEach(carId => registrarExclusao('carros', carId));
-        let novo = {
-            id: id,
-            nome: nome,
-            telefones: obterTelefonesFormulario(),
-            diaVencimento: normalizarDiaVencimento(document.getElementById('contDiaVencimento').value),
-            desconto: document.getElementById('contDesconto').value,
-            valorTotal: document.getElementById('contValor').value,
-            carros: tempCarros,
-            pagamentos: anterior?.pagamentos || [],
-            arquivado: anterior?.arquivado || false,
-            ativo: anterior ? anterior.ativo !== false : true,
-        };
-        tocarRegistro(novo);
-        
-        const idx = db.contribuintes.findIndex(x => x.id === id);
-        if(idx >= 0) db.contribuintes[idx] = novo; else db.contribuintes.push(novo);
-        registrarAuditoria(idx >= 0 ? 'Contribuinte alterado' : 'Contribuinte cadastrado', nome);
-        
-        salvarBanco();
-        
-        if(document.getElementById('contFromAcoes').value === 'true') {
-            fecharModal('modalFormContribuinte');
-            abrirAcoesContribuinte(id);
-        } else {
-            fecharModal('modalFormContribuinte');
-            abrirGerenciarContribuintes();
-        }
-        renderizarLista();
-    }
-
-    function renderListaCarros() {
-        const box = document.getElementById('listaCarros');
-        if(tempCarros.length === 0) { box.innerHTML = '<div style="color:#999; font-size:12px; text-align:center;">Nenhum carro vinculado.</div>'; calcTotalContribuinte(); return; }
-        let html = '';
-        tempCarros.forEach((c, i) => {
-            let catObj = db.categorias.find(x => x.nome === c.categoria);
-            let emj = catObj && catObj.emoji ? catObj.emoji : '🚗';
-            let badge = c.ativo ? '<span class="vehicle-status active">Ativo</span>' : '<span class="vehicle-status archived">Bloqueado</span>';
-            html += `<div class="list-item-config vehicle-temp-card">
-                <div class="vehicle-temp-main">
-                    <div class="vehicle-temp-title"><span style="font-size:16px;">${escapeHTML(emj)}</span> <strong>${escapeHTML(c.placa)}</strong> - ${escapeHTML(c.ano)}</div>
-                    <small>${escapeHTML(c.categoria)} | R$ ${escapeHTML(c.valor)}</small>
-                </div>
-                <div class="vehicle-temp-actions">${badge}<button class="btn-edit-small" onclick="abrirFormCarro(${i})">✏️</button></div>
-            </div>`;
-        });
-        box.innerHTML = html;
-        calcTotalContribuinte();
-    }
-
-    function abrirCarroFromAcoes(carIdx) {
-        let contId = document.getElementById('acoesContId').value;
-        let c = db.contribuintes.find(x => x.id === contId);
-        tempCarros = c.carros ? JSON.parse(JSON.stringify(c.carros)) : [];
-        tempCarrosExcluidos = [];
-        abrirFormCarro(carIdx);
-    }
-
-    function abrirFormCarro(idx) {
-        let selectCat = document.getElementById('carCategoria');
-        selectCat.innerHTML = '<option value="">-- Selecione --</option>';
-        db.categorias.forEach(c => selectCat.innerHTML += `<option value="${escapeHTML(c.nome)}">${escapeHTML(c.emoji || '🚗')} ${escapeHTML(c.nome)}</option>`);
-
-        if(idx !== null) {
-            let c = tempCarros[idx];
-            document.getElementById('carroEditId').value = idx;
-            document.getElementById('carPlaca').value = c.placa || '';
-            document.getElementById('carAno').value = c.ano || '';
-            document.getElementById('carCategoria').value = c.categoria || '';
-            document.getElementById('carValor').value = c.valor || '';
-            document.getElementById('carLaudo').value = c.dataLaudo || '';
-            document.getElementById('carSeguro').value = c.dataSeguro || '';
-            document.getElementById('carLicenca').value = c.dataLicenca || '';
-            document.getElementById('carCadastro').value = c.dataCadastro || getHojeSTR();
-            document.getElementById('carCadastroAtualizado').checked = !!c.cadastroAtualizado;
-            document.getElementById('carArquivado').checked = !c.ativo;
-            document.getElementById('carMotivo').value = c.motivoArquivamento || '';
-            let btnExcluirCarro = document.getElementById('btnExcluirCarro');
-            if(btnExcluirCarro) btnExcluirCarro.style.display = 'inline-flex';
-        } else {
-            document.getElementById('carroEditId').value = '';
-            document.getElementById('carPlaca').value = '';
-            document.getElementById('carAno').value = '';
-            document.getElementById('carCategoria').value = '';
-            document.getElementById('carValor').value = '';
-            document.getElementById('carLaudo').value = '';
-            document.getElementById('carSeguro').value = '';
-            document.getElementById('carLicenca').value = '';
-            document.getElementById('carCadastro').value = getHojeSTR();
-            document.getElementById('carCadastroAtualizado').checked = false;
-            document.getElementById('carArquivado').checked = false;
-            document.getElementById('carMotivo').value = '';
-            let btnExcluirCarro = document.getElementById('btnExcluirCarro');
-            if(btnExcluirCarro) btnExcluirCarro.style.display = 'none';
-        }
-        toggleMotivoArquivamento();
-        verificarDatasCarroUI();
-        abrirModal('modalFormCarro');
-    }
-
-    function verificarDatasCarroUI() {
-        let hoje = new Date();
-        hoje.setHours(0,0,0,0);
-        let confAlertas = db.configGerais.alertas || { laudo:{dias:7}, seguro:{dias:7}, licenca:{dias:7} };
-
-        let check = (inputId, avisoId, nome, confKey, genero) => {
-            let val = document.getElementById(inputId).value;
-            let avisoBox = document.getElementById(avisoId);
-            let inputEl = document.getElementById(inputId);
-            if(!val) {
-                avisoBox.style.display = 'none';
-                inputEl.style.color = 'inherit';
-                return;
-            }
-            if(!isDataISOValida(val)) {
-                avisoBox.innerHTML = `${nome}: data inválida`;
-                avisoBox.style.display = 'block';
-                inputEl.style.color = '#D32F2F';
-                return;
-            }
-            let d = new Date(val + "T00:00:00");
-            let diffDias = Math.ceil((d - hoje) / (1000 * 60 * 60 * 24));
-            let diasAviso = parseInt(confAlertas[confKey].dias) || 7;
-            let vencidoWord = genero === 'a' ? 'vencida' : 'vencido';
-
-            if(diffDias < 0) {
-                let diasPassados = Math.abs(diffDias);
-                avisoBox.innerHTML = `${nome} ${vencidoWord} há ${diasPassados} dias`;
-                avisoBox.style.display = 'block';
-                inputEl.style.color = '#D32F2F'; // Vermelho
-            } else if(diffDias === 0) {
-                avisoBox.innerHTML = `${nome} vence HOJE`;
-                avisoBox.style.display = 'block';
-                inputEl.style.color = '#E65100'; // Laranja
-            } else if(diffDias <= diasAviso) {
-                avisoBox.innerHTML = `${nome} vence em ${diffDias} dias`;
-                avisoBox.style.display = 'block';
-                inputEl.style.color = '#E65100';
-            } else {
-                avisoBox.style.display = 'none';
-                inputEl.style.color = 'inherit';
-            }
-        };
-
-        check('carLaudo', 'avisoCarLaudo', 'Laudo', 'laudo', 'o');
-        check('carSeguro', 'avisoCarSeguro', 'Seguro', 'seguro', 'o');
-        check('carLicenca', 'avisoCarLicenca', 'Licença', 'licenca', 'a');
-        let cadastroVal = document.getElementById('carCadastro').value;
-        let avisoCadastro = document.getElementById('avisoCarCadastro');
-        let inputCadastro = document.getElementById('carCadastro');
-        if(cadastroVal && !isDataISOValida(cadastroVal)) {
-            avisoCadastro.innerHTML = 'Cadastro: data inválida';
-            avisoCadastro.style.display = 'block';
-            inputCadastro.style.color = '#D32F2F';
-        } else {
-            avisoCadastro.style.display = 'none';
-            inputCadastro.style.color = 'inherit';
-        }
-    }
-
-    function toggleMotivoArquivamento() {
-        let isArq = document.getElementById('carArquivado').checked;
-        document.getElementById('boxMotivoArqv').style.display = isArq ? 'block' : 'none';
-    }
-
-    function autoFillValorCarro() {
-        let catNome = document.getElementById('carCategoria').value;
-        let cat = db.categorias.find(x => x.nome === catNome);
-        if(cat && cat.valor) {
-            document.getElementById('carValor').value = cat.valor;
-        }
-    }
-
-    function salvarCarroTemp() {
-        let placa = document.getElementById('carPlaca').value.trim().toUpperCase();
-        if(!placa) return alert("Digite a Placa.");
-        
-        let idx = document.getElementById('carroEditId').value;
-        let isArq = document.getElementById('carArquivado').checked;
-        let motivo = document.getElementById('carMotivo').value.trim();
-        
-        if(isArq && !motivo) return alert("Por favor, informe o motivo do bloqueio.");
-        if(!validarDataCampo('carLaudo', 'Laudo')) return;
-        if(!validarDataCampo('carSeguro', 'Seguro')) return;
-        if(!validarDataCampo('carLicenca', 'Licença')) return;
-        if(!validarDataCampo('carCadastro', 'Cadastro', true)) return;
-
-        let novoCar = {
-            id: (idx !== '' && tempCarros[idx].id) ? tempCarros[idx].id : 'car_'+Date.now(),
-            placa: placa,
-            ano: document.getElementById('carAno').value,
-            categoria: document.getElementById('carCategoria').value,
-            valor: document.getElementById('carValor').value,
-            dataLaudo: document.getElementById('carLaudo').value,
-            dataSeguro: document.getElementById('carSeguro').value,
-            dataLicenca: document.getElementById('carLicenca').value,
-            dataCadastro: document.getElementById('carCadastro').value,
-            cadastroAtualizado: document.getElementById('carCadastroAtualizado').checked,
-            ativo: !isArq,
-            motivoArquivamento: isArq ? motivo : ''
-        };
-        tocarRegistro(novoCar);
-
-        if(idx !== '') tempCarros[idx] = novoCar;
-        else tempCarros.push(novoCar);
-
-        let isFromAcoes = document.getElementById('modalAcoesContribuinte').style.display === 'flex';
-        if (isFromAcoes) {
-            let contId = document.getElementById('acoesContId').value;
-            let c = db.contribuintes.find(x => x.id === contId);
-            c.carros = tempCarros;
-            
-            let somaCarros = c.carros.filter(car => car.ativo).reduce((acc, car) => acc + parseMoeda(car.valor), 0);
-            let desc = parseMoeda(c.desconto || "0");
-            c.valorTotal = formatMoeda(Math.max(0, somaCarros - desc));
-            tocarRegistro(c);
-            registrarAuditoria(idx !== '' ? 'Veículo alterado' : 'Veículo cadastrado', `${c.nome || ''} - ${placa}`);
-
-            salvarBanco();
-            abrirAcoesContribuinte(contId); 
-        } else {
-            renderListaCarros();
-        }
-        
-        fecharModal('modalFormCarro');
-    }
-
-    // 6. PAGAMENTOS E AÇÕES
-    function enviarChavePixWhatsApp() {
-        let c = db.contribuintes.find(x => x.id === document.getElementById('acoesContId').value);
-        if(!c || !c.telefones || c.telefones.length === 0) return alert('O contribuinte não possui nenhum telefone (WhatsApp) cadastrado.');
-        if(!db.cooperativa.pixList || db.cooperativa.pixList.length === 0) return alert("Nenhuma chave cadastrada nos dados da Cooperativa!");
-
-        if(db.cooperativa.pixList.length === 1) {
-            enviarPixSelecionado(0);
-            return;
-        }
-
-        let box = document.getElementById('listaPixEnvio');
-        box.innerHTML = db.cooperativa.pixList.map((p, i) => `
-            <button class="pix-choice-card" onclick="enviarPixSelecionado(${i})">
-                <span>${escapeHTML(p.tipo)}</span>
-                <b>${escapeHTML(p.chave)}</b>
-                <small>Beneficiário: ${escapeHTML(p.beneficiario)}</small>
-            </button>
-        `).join('');
-        abrirModal('modalEscolherPix');
-    }
-
-    function enviarPixSelecionado(idx) {
-        let c = db.contribuintes.find(x => x.id === document.getElementById('acoesContId').value);
-        let p = db.cooperativa.pixList[idx];
-        if(!c || !p) return;
-
-        let num = c.telefones[0].replace(/\D/g, '');
-        let fan = db.cooperativa.fantasia || "Cooperativa";
-        let txt = `> PIX da *${fan}:*\n*Tipo:* ${p.tipo}\n*Chave:* ${p.chave}\n*Beneficiário:* ${p.beneficiario}`;
-        fecharModal('modalEscolherPix');
-        window.open(`https://wa.me/55${num}?text=${encodeURIComponent(txt)}`, '_blank');
-    }
-
-    function toggleMultiMes() {
-        let isMulti = document.getElementById('switchMultiMes').checked;
-        document.getElementById('boxSingleMes').classList.toggle('open', !isMulti);
-        document.getElementById('boxMultiMes').classList.toggle('open', isMulti);
-        document.getElementById('avisoErroMulti').style.display = 'none';
-        if(isMulti) calcPgtoMulti(false);
-    }
-
-    function atualizarStatusSingleAcoes() {
-        let id = document.getElementById('acoesContId').value;
-        let c = db.contribuintes.find(x => x.id === id);
-        let mesRef = document.getElementById('pgMesRefSingle').value; 
-        if(!mesRef) return;
-        
-        let partes = mesRef.split('-');
-        document.getElementById('lblMesAcoes').innerText = `${partes[1]}/${partes[0]}`;
-        
-        renderizarStatusPagamento(c, mesRef);
-    }
-
-    function abrirAcoesContribuinte(id) {
-        let c = db.contribuintes.find(x => x.id === id);
-        if(!c) return;
-        document.getElementById('acoesContId').value = id;
-        document.getElementById('tituloAcoesContribuinte').innerText = c.nome;
-        
-        // Render Botões Whatsapp
-        let waBox = document.getElementById('boxWAAcoes');
-        waBox.innerHTML = '';
-        if(c.telefones && c.telefones.length > 0) {
-            let primeiro = c.telefones[0];
-            let num = primeiro.replace(/\D/g, '');
-            waBox.innerHTML = `<button class="btn-whatsapp" onclick="window.open('https://wa.me/55${num}','_blank')">
-                <img src="whatsapp.png" style="width:30px; height:30px; filter:brightness(0) invert(1);"> Falar no WhatsApp
-            </button>`;
-        }
-
-        let mesRef = document.getElementById('filtroMesGeral').value;
-        let partes = mesRef.split('-');
-        document.getElementById('lblMesAcoes').innerText = `${partes[1]}/${partes[0]}`;
-        
-        document.getElementById('switchMultiMes').checked = false;
-        toggleMultiMes();
-
-        document.getElementById('pgDataSingle').value = getHojeSTR();
-        document.getElementById('pgMesRefSingle').value = mesRef;
-        document.getElementById('lblPgMesRefSingle').innerText = `${getExtensoMes(partes[1])} ${partes[0]}`;
-
-        document.getElementById('pgIni').value = mesRef;
-        document.getElementById('lblPgIni').innerText = `${getExtensoMes(partes[1])} ${partes[0]}`;
-        document.getElementById('pgFim').value = mesRef;
-        document.getElementById('lblPgFim').innerText = `${getExtensoMes(partes[1])} ${partes[0]}`;
-        
-        document.getElementById('pgDescontoMulti').value = '';
-        let inputDescPctMulti = document.getElementById('pgDescontoPctMulti');
-        if(inputDescPctMulti) inputDescPctMulti.value = '';
-        document.getElementById('pgDataMulti').value = getHojeSTR();
-        document.getElementById('avisoErroMulti').style.display = 'none';
-        
-        renderizarStatusPagamento(c, mesRef);
-        renderizarHistPagamentos(c);
-        renderListaCarrosAcoes(c);
-        
-        abrirModal('modalAcoesContribuinte');
-    }
-
-    function renderListaCarrosAcoes(c) {
-        let boxCarros = document.getElementById('listaCarrosAcoes');
-        boxCarros.innerHTML = '';
-        if(c.carros && c.carros.length > 0) {
-            c.carros.forEach((car, idx) => {
-                let catObj = db.categorias.find(x => x.nome === car.categoria);
-                let emj = catObj && catObj.emoji ? catObj.emoji : '🚗';
-                let alertas = checarAlertasCarro(car);
-                let status = car.ativo ? '<span class="vehicle-status active">Ativo</span>' : '<span class="vehicle-status archived">Bloqueado</span>';
-                boxCarros.innerHTML += `<button class="vehicle-action-card" onclick="abrirCarroFromAcoes(${idx})">
-                    <div class="vehicle-action-head">
-                        <span><b>${escapeHTML(emj)} ${escapeHTML(car.placa)}</b> ${escapeHTML(car.ano || '')}</span>
-                        ${status}
-                    </div>
-                    <div class="vehicle-action-meta">${escapeHTML(car.categoria || 'Sem categoria')} | R$ ${escapeHTML(car.valor || '0,00')}</div>
-                    ${alertas.length ? `<div class="vehicle-alerts">${alertas.join('')}</div>` : ''}
-                </button>`;
-            });
-        } else {
-            boxCarros.innerHTML = '<div style="color:#999; font-size:13px; text-align:center; width:100%;">Nenhum veículo vinculado.</div>';
-        }
-    }
-
-    function renderizarStatusPagamento(c, mesRef) {
-        let valorEsperado = calcularValorEsperado(c, mesRef);
-        let valorPendente = calcularValorPendenteMes(c, mesRef);
-        let pago = isMesPago(c, mesRef);
-        let statusMes = getStatusPagamentoMes(c, mesRef);
-        
-        let box = document.getElementById('boxStatusPagamento');
-        let pgSingle = document.getElementById('pgValorSingle');
-        let pgSingleBox = document.getElementById('pgValorSingleBox');
-        let btnSingle = document.getElementById('btnRegistrarSingle');
-        let vencimentoSingle = document.getElementById('pgVencimentoSingle');
-        let vencimentoMulti = document.getElementById('pgVencimentoMulti');
-        let labelVencimento = getLabelDiaVencimento(c, mesRef);
-        if(vencimentoSingle) vencimentoSingle.innerText = labelVencimento;
-        if(vencimentoMulti) vencimentoMulti.innerText = labelVencimento;
-        box.style.display = 'block';
-        box.innerHTML = `<div class="payment-status-value ${statusMes.tipo === 'ok' ? 'paid' : statusMes.tipo === 'warning' ? 'warning' : statusMes.tipo === 'pendente' ? 'pending' : 'neutral'}">${statusMes.html}</div>`;
-        pgSingle.classList.remove('amount-due-input', 'amount-paid-input', 'amount-neutral-input');
-        if(pgSingleBox) pgSingleBox.classList.remove('amount-due-affix', 'amount-paid-affix', 'amount-neutral-affix');
-        btnSingle.classList.remove('payment-disabled-btn');
-        btnSingle.disabled = false;
-
-        if(!pago && valorPendente > 0) {
-            pgSingle.classList.add('amount-due-input');
-            if(pgSingleBox) pgSingleBox.classList.add('amount-due-affix');
-            pgSingle.value = formatMoedaInput(valorPendente);
-            pgSingle.dataset.esperado = valorPendente;
-            pgSingle.readOnly = false;
-            btnSingle.innerHTML = '<span class="payment-btn-emoji">💲</span><span>Registrar Pagamento do Mês</span>';
-        } else if (pago) {
-            pgSingle.classList.add('amount-paid-input');
-            if(pgSingleBox) pgSingleBox.classList.add('amount-paid-affix');
-            pgSingle.value = formatMoedaInput(valorEsperado);
-            pgSingle.dataset.esperado = valorEsperado;
-            pgSingle.readOnly = true;
-            btnSingle.innerHTML = '<span class="payment-btn-emoji">✅</span><span>Mês já foi Pago</span>';
-            btnSingle.disabled = true;
-            btnSingle.classList.add('payment-disabled-btn');
-        } else {
-            pgSingle.classList.add('amount-neutral-input');
-            if(pgSingleBox) pgSingleBox.classList.add('amount-neutral-affix');
-            pgSingle.value = formatMoedaInput(0);
-            pgSingle.dataset.esperado = "0";
-            pgSingle.readOnly = true;
-            btnSingle.innerHTML = '<span>Sem valor a receber</span>';
-            btnSingle.disabled = true;
-            btnSingle.classList.add('payment-disabled-btn');
-        }
-        
-        // Mantem destravado para editar a data ref
-        document.getElementById('boxSingleMes').style.pointerEvents = 'auto';
-        document.getElementById('boxSingleMes').style.opacity = '1';
-    }
-
-    function salvarPagamentoSingle(id, c, mesRef, valorPago, dataPgto, opcoes = {}) {
-        if(!c.pagamentos) c.pagamentos = [];
-        c.pagamentos.push({
-            id: 'pg_' + Date.now(),
-            mesAno: mesRef,
-            mesesRef: [mesRef],
-            labelRef: buildLabelRef([mesRef]),
-            valorPago: valorPago,
-            valorOriginal: opcoes.valorOriginal || valorPago,
-            descontoConcedido: opcoes.descontoConcedido || 0,
-            parcial: opcoes.parcial || false,
-            tipoPagamento: opcoes.tipoPagamento || 'total',
-            dataPagamento: dataPgto
-        });
-        marcarRegistroPendente(c.pagamentos[c.pagamentos.length - 1]);
-        tocarRegistro(c);
-        registrarAuditoria('Pagamento registrado', `${c.nome || id} - ${buildLabelRef([mesRef])} - R$ ${formatMoeda(valorPago)}`);
-        salvarBanco();
-        abrirAcoesContribuinte(id);
-        renderizarLista();
-    }
-
-    function registrarPagamentoSingle() {
-        let id = document.getElementById('acoesContId').value;
-        let c = db.contribuintes.find(x => x.id === id);
-        let mesRef = document.getElementById('pgMesRefSingle').value; 
-        
-        let valorPagoStr = document.getElementById('pgValorSingle').value; 
-        let valorPago = parseMoeda(valorPagoStr);
-        let dataPgto = document.getElementById('pgDataSingle').value;
-        let valorEsperado = parseFloat(document.getElementById('pgValorSingle').dataset.esperado) || calcularValorPendenteMes(c, mesRef);
-        let valorOriginalMes = calcularValorEsperado(c, mesRef);
-        let jaTemParcial = calcularParciaisMes(c, mesRef) > 0;
-
-        if(!validarDataCampo('pgDataSingle', 'Pagamento', true)) return;
-        if(valorPago <= 0) return alert("Digite um valor válido para receber.");
-
-        if(isMesPago(c, mesRef)) return alert("Este mês já consta como pago!");
-
-        if(jaTemParcial) {
-            salvarPagamentoSingle(id, c, mesRef, valorPago, dataPgto, {
-                valorOriginal: valorOriginalMes,
-                parcial: true,
-                tipoPagamento: 'parcial'
-            });
-            return;
-        }
-
-        if(valorPago < valorEsperado) {
-            pagamentoMenorPendente = { id, mesRef, valorPago, dataPgto, valorEsperado };
-            document.getElementById('textoPagamentoMenor').innerHTML = `O valor previsto é <b>R$ ${formatMoeda(valorEsperado)}</b>, mas você informou <b>R$ ${formatMoeda(valorPago)}</b>. Como deseja registrar a diferença de <b>R$ ${formatMoeda(valorEsperado - valorPago)}</b>?`;
-            abrirModal('modalPagamentoMenor');
-            return;
-        }
-
-        salvarPagamentoSingle(id, c, mesRef, valorPago, dataPgto, { valorOriginal: valorEsperado });
-    }
-
-    function confirmarPagamentoMenor(tipo) {
-        if(!pagamentoMenorPendente) return fecharModal('modalPagamentoMenor');
-        let { id, mesRef, valorPago, dataPgto, valorEsperado } = pagamentoMenorPendente;
-        let c = db.contribuintes.find(x => x.id === id);
-        if(!c) return fecharModal('modalPagamentoMenor');
-
-        fecharModal('modalPagamentoMenor');
-        if(tipo === 'parcial') {
-            salvarPagamentoSingle(id, c, mesRef, valorPago, dataPgto, {
-                valorOriginal: valorEsperado,
-                parcial: true,
-                tipoPagamento: 'parcial'
-            });
-        } else {
-            salvarPagamentoSingle(id, c, mesRef, valorPago, dataPgto, {
-                valorOriginal: valorEsperado,
-                descontoConcedido: Math.max(0, valorEsperado - valorPago),
-                tipoPagamento: 'desconto'
-            });
-        }
-        pagamentoMenorPendente = null;
-    }
-
-    function getMesesRange(mIni, mFim) {
-        let res = [];
-        let curr = new Date(mIni + '-01T00:00:00');
-        let end = new Date(mFim + '-01T00:00:00');
-        while(curr <= end) {
-            res.push(`${curr.getFullYear()}-${String(curr.getMonth()+1).padStart(2,'0')}`);
-            curr.setMonth(curr.getMonth() + 1);
-        }
-        return res;
-    }
-
-    function sincronizarDescontoPeriodo(total, origem) {
-        let inputValor = document.getElementById('pgDescontoMulti');
-        let inputPct = document.getElementById('pgDescontoPctMulti');
-        let descValor = parseMoeda(inputValor.value);
-        let descPct = inputPct ? parsePercentual(inputPct.value) : 0;
-
-        if(origem === 'pct') {
-            descValor = total > 0 ? (total * descPct / 100) : 0;
-            inputValor.value = descValor > 0 ? formatMoedaInput(descValor) : '';
-            if(inputPct) inputPct.value = descPct > 0 ? `${formatPercentual(descPct)}%` : '';
-        } else {
-            if(descValor > total) {
-                descValor = total;
-                inputValor.value = total > 0 ? formatMoedaInput(total) : '';
-            }
-            descPct = total > 0 ? (descValor / total) * 100 : 0;
-            if(inputPct) inputPct.value = descValor > 0 ? `${formatPercentual(descPct)}%` : '';
-        }
-        return Math.min(descValor, total);
-    }
-
-    function calcPgtoMulti(mostrarErro = true, origemDesconto = null) {
-        let ini = document.getElementById('pgIni').value;
-        let fim = document.getElementById('pgFim').value;
-        if(!ini) return;
-        if(!fim || fim < ini) { 
-            fim = ini; 
-            document.getElementById('pgFim').value = ini;
-            let partes = ini.split('-');
-            document.getElementById('lblPgFim').innerText = `${getExtensoMes(partes[1])} ${partes[0]}`;
-        }
-        
-        let id = document.getElementById('acoesContId').value;
-        let c = db.contribuintes.find(x => x.id === id);
-        let vencimentoMulti = document.getElementById('pgVencimentoMulti');
-        if(vencimentoMulti && c) vencimentoMulti.innerText = getLabelDiaVencimento(c, ini);
-        let meses = getMesesRange(ini, fim);
-        
-        let total = 0;
-        let erro = null;
-        
-        meses.forEach(m => {
-            if(isMesPago(c, m)) erro = `Mês ${m.split('-').reverse().join('/')} já consta como pago!`;
-            else total += calcularValorPendenteMes(c, m);
-        });
-        
-        let iptValor = document.getElementById('pgValorMulti');
-        let descExtra = sincronizarDescontoPeriodo(total, origemDesconto);
-        let finalVal = Math.max(0, total - descExtra);
-
-        let boxAviso = document.getElementById('avisoErroMulti');
-
-        if(erro) {
-            iptValor.value = formatMoedaInput(0);
-            iptValor.dataset.esperado = 0;
-            boxAviso.innerHTML = `<span style="color:#D32F2F; font-size:13px; font-weight:bold;">⚠️ ${erro}</span>`;
-            if(mostrarErro) boxAviso.style.display = 'block';
-        } else {
-            iptValor.value = formatMoedaInput(finalVal);
-            iptValor.dataset.esperado = finalVal;
-            boxAviso.style.display = 'none';
-        }
-    }
-
-    function buildLabelRef(meses) {
-        if(meses.length === 1) {
-            let p = meses[0].split('-');
-            return `${p[1]}/${p[0]}`;
-        }
-        let mIni = meses[0].split('-');
-        let mFim = meses[meses.length-1].split('-');
-        if(mIni[0] === mFim[0]) {
-            return `${mIni[1]} a ${mFim[1]}/${mIni[0]}`;
-        } else {
-            return `${mIni[1]}/${mIni[0].substring(2)} a ${mFim[1]}/${mFim[0].substring(2)}`;
-        }
-    }
-
-    function registrarPagamentoMulti() {
-        let id = document.getElementById('acoesContId').value;
-        let c = db.contribuintes.find(x => x.id === id);
-        
-        let ini = document.getElementById('pgIni').value;
-        let fim = document.getElementById('pgFim').value;
-        let dataPgto = document.getElementById('pgDataMulti').value;
-        let esperadoFinal = parseFloat(document.getElementById('pgValorMulti').dataset.esperado) || 0;
-        
-        if(!ini) return alert("Preencha o mês de início.");
-        if(!validarDataCampo('pgDataMulti', 'Pagamento', true)) return;
-        if(esperadoFinal <= 0) return alert("Não há valor pendente ou válido para este período.");
-
-        let meses = getMesesRange(ini, fim);
-        
-        for(let m of meses) {
-            if(isMesPago(c, m)) return alert(`O mês ${m.split('-').reverse().join('/')} já consta como pago no histórico!`);
-        }
-
-        if(!c.pagamentos) c.pagamentos = [];
-        c.pagamentos.push({
-            id: 'pg_' + Date.now(),
-            mesAno: ini, 
-            mesesRef: meses,
-            labelRef: buildLabelRef(meses),
-            valorPago: esperadoFinal,
-            dataPagamento: dataPgto
-        });
-        marcarRegistroPendente(c.pagamentos[c.pagamentos.length - 1]);
-        tocarRegistro(c);
-        registrarAuditoria('Pagamento por período registrado', `${c.nome || id} - ${buildLabelRef(meses)} - R$ ${formatMoeda(esperadoFinal)}`);
-        
-        salvarBanco();
-        abrirAcoesContribuinte(id); 
-        renderizarLista(); 
-    }
-
-    function excluirPagamento(contId, pgId) {
-        if(!confirm("Remover este pagamento?")) return;
-        let c = db.contribuintes.find(x => x.id === contId);
-        registrarExclusao('pagamentos', pgId);
-        c.pagamentos = c.pagamentos.filter(p => p.id !== pgId);
-        tocarRegistro(c);
-        registrarAuditoria('Pagamento excluído', c.nome || contId);
-        salvarBanco();
-        abrirAcoesContribuinte(contId);
-        renderizarLista();
-    }
-
-    function getMesesPendentes(c) {
-        let pending = [];
-        let earliestCar = null;
-        (c.carros || []).forEach(car => {
-            if(car.ativo) {
-                let dataBase = `${getMesCadastroCobranca(car)}-01`;
-                if(!earliestCar || dataBase < earliestCar) earliestCar = dataBase;
-            }
-        });
-        if(!earliestCar) return pending;
-
-        let startMes = earliestCar.substring(0,7);
-        let endMes = getHojeSTR().substring(0,7); // Vai até o mes atual
-        
-        if(startMes <= endMes) {
-            let curr = new Date(startMes + '-01T00:00:00');
-            let end = new Date(endMes + '-01T00:00:00');
-            while(curr <= end) {
-                let m = `${curr.getFullYear()}-${String(curr.getMonth()+1).padStart(2,'0')}`;
-                if(calcularValorPendenteMes(c, m) > 0) {
-                    pending.push(m);
-                }
-                curr.setMonth(curr.getMonth() + 1);
-            }
-        }
-        return pending.sort((a,b) => b.localeCompare(a));
-    }
-
-    function renderizarHistPagamentos(c) {
-        let box = document.getElementById('listaHistoricoPagamentos');
-        
-        // Pendências Inteligentes
-        let pendentes = getMesesPendentes(c);
-        let pendentesHtml = '';
-        if(pendentes.length > 0) {
-            let pTags = pendentes.map(m => {
-                let parts = m.split('-');
-                return `<span class="pending-month">${parts[1]}/${parts[0]}</span>`;
-            }).join('');
-            pendentesHtml = `<div class="pending-box">
-                <div class="pending-title">Meses Pendentes</div>
-                ${pTags}
-            </div>`;
-        } else {
-            pendentesHtml = `<div class="pending-box ok">✅ Nenhuma pendência em aberto.</div>`;
-        }
-
-        if(!c.pagamentos || c.pagamentos.length === 0) { 
-            box.innerHTML = pendentesHtml + '<div class="empty-state">Nenhum pagamento registrado.</div>'; 
-            return; 
-        }
-        
-        let pgtos = [...c.pagamentos].sort((a,b) => b.mesAno.localeCompare(a.mesAno) || new Date(b.dataPagamento) - new Date(a.dataPagamento));
-        
-        let html3 = '';
-        let htmlRest = '';
-
-        pgtos.forEach((p, i) => {
-            let label = p.labelRef ? p.labelRef : p.mesAno.split('-').reverse().join('/');
-            let detalhe = '';
-            if(p.parcial) detalhe = '<span class="history-tag partial">Parcial</span>';
-            else if(p.descontoConcedido > 0) detalhe = `<span class="history-tag discount">Desconto R$ ${formatMoeda(p.descontoConcedido)}</span>`;
-            let row = `<div class="history-row">
-                <div><b>Ref: ${escapeHTML(label)}</b>${detalhe}<br><small>Pago em: ${formatDataBR(p.dataPagamento)}</small></div>
-                <div>
-                    <b>R$ ${formatMoeda(p.valorPago)}</b>
-                    <button onclick="excluirPagamento('${c.id}', '${p.id}')">X</button>
-                </div>
-            </div>`;
-            if(i < 3) html3 += row;
-            else htmlRest += row;
-        });
-
-        box.innerHTML = pendentesHtml + html3;
-        if(pgtos.length > 3) {
-            box.innerHTML += `<div id="histRestante" style="display:none;">${htmlRest}</div>
-            <button id="btnToggleHist" class="history-toggle" onclick="toggleHistoricoAcoes()">Ver Todo o Histórico</button>`;
-        }
-    }
-
-    function toggleHistoricoAcoes() {
-        let el = document.getElementById('histRestante');
-        let btn = document.getElementById('btnToggleHist');
-        if(el.style.display === 'none') {
-            el.style.display = 'block';
-            btn.innerText = 'Ocultar Histórico';
-        } else {
-            el.style.display = 'none';
-            btn.innerText = 'Ver Todo o Histórico';
-        }
-    }
-
-    // 7. CONFIGURAÇÕES GERAIS E COOPERATIVA
-    function abrirModalCooperativa() {
-        fecharModal('modalPainelUnificado');
-        document.getElementById('coopLogoBase64').value = db.cooperativa.logo || '';
-        document.getElementById('previewLogo').innerHTML = db.cooperativa.logo ? `<img src="${db.cooperativa.logo}" style="max-height:50px;">` : '';
-        document.getElementById('coopRazao').value = db.cooperativa.razao || '';
-        document.getElementById('coopFantasia').value = db.cooperativa.fantasia || '';
-        document.getElementById('coopCNPJ').value = db.cooperativa.cnpj || '';
-        
-        tempPixCoop = db.cooperativa.pixList ? JSON.parse(JSON.stringify(db.cooperativa.pixList)) : [];
-        renderListaPixCoop();
-
-        abrirModal('modalFormCooperativa');
-    }
-
-    function renderListaPixCoop() {
-        const box = document.getElementById('listaPixCoop');
-        if(tempPixCoop.length === 0) { box.innerHTML = '<div class="empty-state">Nenhuma chave PIX.</div>'; return; }
-        box.innerHTML = tempPixCoop.map((p, i) => `<div class="pix-card">
-            <div class="pix-card-main">
-                <div class="pix-key"><span>${escapeHTML(p.tipo)}</span><b>${escapeHTML(p.chave)}</b></div>
-                <div class="pix-beneficiario">Beneficiário: ${escapeHTML(p.beneficiario)}</div>
+            <div class="formula-work-list">
+              ${formulas.map(productFormulaHTML).join('') || emptyHTML('Nenhuma formulação cadastrada para este produto.')}
             </div>
-            <button type="button" onclick="removerPixCoop(${i})" aria-label="Remover chave PIX">X</button>
-        </div>`).join('');
+          </div>
+        </section>
+
+        <section class="product-slide" data-slide-panel="discussao">
+          <div class="slide-card">
+            <div class="slide-kicker">Relatório e debate</div>
+            <h3>Discussão da prática</h3>
+            <div class="discussion-list">${(p.perguntas || []).map((question, index) => `<div class="discussion-question"><span>${index + 1}</span>${escapeHTML(question)}</div>`).join('')}</div>
+          </div>
+        </section>
+
+        <section class="product-slide" data-slide-panel="referencias">
+          <div class="slide-card">
+            <div class="slide-kicker">Consulta de apoio</div>
+            <h3>Referências vinculadas</h3>
+            <div class="stack-list">${laws.map(lawCardHTML).join('') || emptyHTML('Nenhuma referência vinculada.')}</div>
+          </div>
+        </section>
+
+        <div class="slide-controls">
+          <button type="button" class="secondary-btn compact" data-slide-prev>Voltar</button>
+          <div class="slide-position" data-slide-position>1 / ${slides.length}</div>
+          <button type="button" class="primary-btn compact" data-slide-next>Avançar</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function productFormulaHTML(f) {
+  const analysis = analyzeFormula(f);
+  return `
+    <div class="formula-work-card ${f.bloqueada ? 'formula-locked' : ''}">
+      <div class="formula-work-head">
+        <div>
+          <h3>${escapeHTML(f.nome)}</h3>
+          <p class="item-subtitle">${escapeHTML(analysis.baseLabel)}: ${fmt(f.pesoReferencia)} g · massa estimada ${fmt(analysis.finalWeight)} g${f.rendimento !== '' ? ` · rendimento esperado ${fmt(f.rendimento)}%` : ''}</p>
+        </div>
+        <button type="button" class="formula-lock-btn ${f.bloqueada ? 'locked' : ''}" data-toggle-formula-lock="${escapeAttr(f.id)}" title="${f.bloqueada ? 'Destravar formulação' : 'Travar formulação'}">${f.bloqueada ? '🔒' : '🔓'}</button>
+      </div>
+      ${blendEditorHTML(f)}
+      ${inlineFormulaEditorHTML(f)}
+      ${analysisHTML(analysis)}
+      <div class="product-action-row">
+        <button type="button" class="secondary-btn compact" data-report-formula="${escapeAttr(f.id)}">Relatório</button>
+      </div>
+    </div>`;
+}
+
+function blendEditorHTML(f) {
+  const state = formulaBlendState(f);
+  const disabled = f.bloqueada ? ' disabled' : '';
+  const firstComponent = state.useBlend ? state.components[0] : state.singleComponent;
+  const secondComponent = state.components[1] || defaultSecondBlendComponent(f, state);
+  return `<div class="blend-editor">
+    <div class="blend-switch-row">
+      <div class="blend-toggle-group">
+        <button type="button" class="blend-toggle-button ${state.useBlend ? 'active' : ''}" data-toggle-blend-button="${escapeAttr(f.id)}" aria-pressed="${state.useBlend}"${disabled}>
+          <strong>Blend</strong><span class="switch-visual"><i></i></span>
+        </button>
+      </div>
+    </div>
+    <div class="blend-components">
+        ${blendComponentHTML(f, firstComponent, 0, { locked: f.bloqueada, label: state.useBlend ? 'Matéria-prima 1' : 'Matéria-prima', single: !state.useBlend })}
+        ${state.useBlend ? blendComponentHTML(f, secondComponent, 1, { locked: f.bloqueada, label: 'Matéria-prima 2' }) : ''}
+        ${state.useBlend ? `
+        <div class="blend-summary">
+          <div><span>Peso do blend</span><strong>${fmt(state.blendGrams)} g</strong></div>
+          <div><span>Gordura estimada</span><strong>${fmt(state.fatPct)}%</strong></div>
+        </div>` : ''}
+        <a href="${MEAT_CUTS_SOURCE_URL}" class="blend-source" target="_blank" rel="noopener">Referência de composição: TACO/NEPA/UNICAMP. Valores editáveis conforme a matéria-prima utilizada.</a>
+    </div>
+  </div>`;
+}
+
+function blendComponentHTML(formula, component, index, options = {}) {
+  const fat = blendComponentFat(component);
+  const source = blendComponentSource(component);
+  const cut = MEAT_CUTS.find(item => item.id === component.corteId) || MEAT_CUTS[MEAT_CUTS.length - 1];
+  const disabled = options.locked ? ' disabled' : '';
+  const cutAttr = options.single ? `data-single-cut="${escapeAttr(formula.id)}"` : `data-blend-cut="${escapeAttr(formula.id)}" data-blend-index="${index}"`;
+  const profileAttr = options.single ? `data-single-profile="${escapeAttr(formula.id)}"` : `data-blend-profile="${escapeAttr(formula.id)}" data-blend-index="${index}"`;
+  const gramsAttr = options.single ? `data-single-grams="${escapeAttr(formula.id)}"` : `data-blend-grams="${escapeAttr(formula.id)}" data-blend-index="${index}"`;
+  const fatAttr = options.single ? `data-single-fat="${escapeAttr(formula.id)}"` : `data-blend-fat="${escapeAttr(formula.id)}" data-blend-index="${index}"`;
+  return `<div class="blend-component-row ${options.single ? 'single-component' : ''}">
+    <div class="blend-component-main">
+      <div class="form-group">
+        <label>${escapeHTML(options.label || 'Matéria-prima')}</label>
+        <select ${cutAttr}${disabled}>
+          ${MEAT_CUTS.map(cut => `<option value="${escapeAttr(cut.id)}" ${cut.id === component.corteId ? 'selected' : ''}>${escapeHTML(cut.nome)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Perfil</label>
+        <select ${profileAttr}${disabled}>
+          ${meatProfileOptionsHTML(cut, component.perfil)}
+        </select>
+      </div>
+      <div class="form-group ${options.single ? 'single-meat-weight' : ''}">
+        <label>${options.single ? 'Carne/massa cárnea (g)' : 'Peso (g)'}</label>
+        <input type="number" min="${options.single ? '1' : '0'}" step="1" value="${escapeAttr(fmtInput(component.gramas))}" ${gramsAttr}${disabled}>
+      </div>
+      <div class="form-group">
+        <label>Gordura (%)</label>
+        <input type="number" min="0" max="100" step="0.1" value="${escapeAttr(fmtInput(fat))}" ${fatAttr}${disabled}>
+      </div>
+    </div>
+    <small>${escapeHTML(source)}</small>
+  </div>`;
+}
+
+function meatProfileOptionsHTML(cut, selected) {
+  const profiles = [
+    { value: 'com_gordura', label: 'Com gordura', available: cut.comGordura !== null && cut.comGordura !== undefined },
+    { value: 'sem_gordura', label: 'Sem gordura', available: cut.semGordura !== null && cut.semGordura !== undefined }
+  ];
+  return profiles.map(profile => `<option value="${profile.value}" ${profile.value === selected ? 'selected' : ''} ${profile.available ? '' : 'disabled'}>${profile.label}${profile.available ? '' : ' — sem dado TACO'}</option>`).join('');
+}
+
+function inlineFormulaEditorHTML(f) {
+  const editableItems = (f.itens || []).filter(item => !isBlendItem(item.insumoId, f));
+  const available = db.insumos.filter(ingredient =>
+    ingredient.usadoNaFormulacao !== false &&
+    !isMeatIngredient(ingredient) &&
+    !(f.itens || []).some(item => item.insumoId === ingredient.id)
+  );
+  const disabled = f.bloqueada ? ' disabled' : '';
+  return `<div class="inline-formula-editor">
+    <div class="inline-formula-head">
+      <span>Insumos da formulação</span>
+      <small>${f.bloqueada ? 'Formulação protegida.' : 'Ajuste os percentuais usados na prática.'}</small>
+    </div>
+    ${editableItems.length ? editableItems.map(item => inlineFormulaRowHTML(f, item)).join('') : '<div class="notice-card slim">Sem insumos adicionais nesta formulação.</div>'}
+    <div class="formula-add-row">
+      <select data-add-ingredient-select="${escapeAttr(f.id)}"${disabled}>
+        <option value="">Selecione um insumo cadastrado</option>
+        ${available.map(ingredient => `<option value="${escapeAttr(ingredient.id)}">${escapeHTML(ingredient.nome)}</option>`).join('')}
+      </select>
+      <button type="button" class="secondary-btn compact" data-add-ingredient-formula="${escapeAttr(f.id)}"${disabled}>Adicionar insumo</button>
+    </div>
+  </div>`;
+}
+
+function inlineFormulaRowHTML(f, item) {
+    const ing = findIngredient(item.insumoId);
+    const pct = toNumber(item.percentual);
+    const grams = formulaItemGrams(f, item);
+    const suggestion = ingredientSuggestion(ing);
+    const disabled = f.bloqueada ? ' disabled' : '';
+    const suggestionHTML = suggestion ? intensityScaleHTML(f, item, pct, suggestion) : '';
+    return `<div class="inline-formula-row">
+      <div class="inline-formula-name">
+        <button type="button" class="inline-link" data-open-ingredient="${escapeAttr(item.insumoId)}">${escapeHTML(ing?.nome || 'Insumo não encontrado')}</button>
+        <span>${escapeHTML(typeLabel(ing?.tipo || 'outro'))}</span>
+      </div>
+      <label class="pct-field">
+        <span>%</span>
+        <input type="number" min="0" step="0.1" value="${escapeAttr(fmtInput(pct))}" data-inline-pct-formula="${escapeAttr(f.id)}" data-inline-pct-insumo="${escapeAttr(item.insumoId)}"${disabled}>
+      </label>
+      <strong class="gram-pill">${fmt(grams)} g</strong>
+      <button type="button" class="tiny-btn formula-item-remove" data-remove-ingredient-formula="${escapeAttr(f.id)}" data-remove-ingredient-id="${escapeAttr(item.insumoId)}" title="Remover insumo"${disabled}>×</button>
+      ${suggestionHTML ? `<div class="suggestion-panel">${suggestionHTML}</div>` : ''}
+    </div>`;
+}
+
+function intensityScaleHTML(formula, item, current, suggestion) {
+  const levels = Array.from({ length: 5 }, (_, index) => suggestion.suave + (suggestion.acentuado - suggestion.suave) * index / 4);
+  const range = suggestion.acentuado - suggestion.suave;
+  const position = range > 0 ? Math.max(0, Math.min(100, (current - suggestion.suave) / range * 100)) : 0;
+  const endpointCorrection = position * 0.16;
+  const exactIndex = levels.findIndex(value => Math.abs(value - current) < 0.001);
+  return `<div class="intensity-scale">
+    <div class="intensity-labels"><span>Suave ${fmt(suggestion.suave)}%</span><span>Acentuado ${fmt(suggestion.acentuado)}%</span></div>
+    <div class="intensity-track">
+      ${levels.map((value, index) => `<button type="button" class="intensity-dot ${index === exactIndex ? 'selected' : ''}" data-suggestion-formula="${escapeAttr(formula.id)}" data-suggestion-insumo="${escapeAttr(item.insumoId)}" data-suggestion-value="${escapeAttr(fmtInput(value))}" title="${fmt(value)}%" ${formula.bloqueada ? 'disabled' : ''}></button>`).join('')}
+      <span class="intensity-current" style="left:calc(8px + ${position.toFixed(2)}% - ${endpointCorrection.toFixed(2)}px)" title="Valor atual: ${fmt(current)}%"><i>${fmt(current)}%</i></span>
+    </div>
+  </div>`;
+}
+
+function bindProductWorkspace(root) {
+  root.querySelector('[data-product-back]')?.addEventListener('click', closeProductWorkspace);
+  root.addEventListener('click', handleProductWorkspaceClick);
+  root.querySelectorAll('[data-report-formula]').forEach(btn => btn.addEventListener('click', () => showFormulaReport(btn.dataset.reportFormula)));
+  root.querySelectorAll('[data-open-ingredient]').forEach(btn => btn.addEventListener('click', () => openIngredientView(btn.dataset.openIngredient)));
+  root.querySelectorAll('[data-inline-weight]').forEach(input => {
+    input.addEventListener('input', () => queueInlineFormulaEdit(() => updateFormulaWeight(input.dataset.inlineWeight, input.value, { silent: true })));
+    input.addEventListener('change', () => updateFormulaWeight(input.dataset.inlineWeight, input.value));
+  });
+  root.querySelectorAll('[data-inline-pct-formula]').forEach(input => {
+    input.addEventListener('input', () => queueInlineFormulaEdit(() => updateFormulaItemPercent(input.dataset.inlinePctFormula, input.dataset.inlinePctInsumo, input.value, { silent: true })));
+    input.addEventListener('change', () => updateFormulaItemPercent(input.dataset.inlinePctFormula, input.dataset.inlinePctInsumo, input.value));
+  });
+  root.querySelectorAll('[data-blend-cut]').forEach(input => input.addEventListener('change', () => updateBlendComponent(input.dataset.blendCut, Number(input.dataset.blendIndex), { corteId: input.value, gorduraCustom: '' })));
+  root.querySelectorAll('[data-blend-profile]').forEach(input => input.addEventListener('change', () => updateBlendComponent(input.dataset.blendProfile, Number(input.dataset.blendIndex), { perfil: input.value, gorduraCustom: '' })));
+  root.querySelectorAll('[data-blend-grams]').forEach(input => {
+    input.addEventListener('input', () => queueInlineFormulaEdit(() => updateBlendComponent(input.dataset.blendGrams, Number(input.dataset.blendIndex), { gramas: input.value }, { silent: true })));
+    input.addEventListener('change', () => updateBlendComponent(input.dataset.blendGrams, Number(input.dataset.blendIndex), { gramas: input.value }));
+  });
+  root.querySelectorAll('[data-blend-fat]').forEach(input => input.addEventListener('change', () => updateBlendComponent(input.dataset.blendFat, Number(input.dataset.blendIndex), { gorduraCustom: input.value })));
+  root.querySelectorAll('[data-single-cut]').forEach(input => input.addEventListener('change', () => updateSingleMaterial(input.dataset.singleCut, { corteId: input.value, gorduraCustom: '' })));
+  root.querySelectorAll('[data-single-profile]').forEach(input => input.addEventListener('change', () => updateSingleMaterial(input.dataset.singleProfile, { perfil: input.value, gorduraCustom: '' })));
+  root.querySelectorAll('[data-single-grams]').forEach(input => {
+    input.addEventListener('input', () => queueInlineFormulaEdit(() => updateSingleMaterial(input.dataset.singleGrams, { gramas: input.value }, { silent: true })));
+    input.addEventListener('change', () => updateSingleMaterial(input.dataset.singleGrams, { gramas: input.value }));
+  });
+  root.querySelectorAll('[data-single-fat]').forEach(input => input.addEventListener('change', () => updateSingleMaterial(input.dataset.singleFat, { gorduraCustom: input.value })));
+  root.querySelectorAll('[data-equipment-check]').forEach(btn => btn.addEventListener('click', () => toggleEquipmentCheck(btn)));
+  bindProductSlides(root);
+  bindLawLinks(root);
+}
+
+function handleProductWorkspaceClick(event) {
+  const target = event.target.closest('button');
+  if (!target) return;
+  if (target.dataset.toggleFormulaLock) {
+    toggleFormulaLock(target.dataset.toggleFormulaLock);
+    return;
+  }
+  if (target.dataset.toggleBlendButton) {
+    const formula = findFormula(target.dataset.toggleBlendButton);
+    if (!formula || formula.bloqueada) return;
+    updateFormulaBlend(formula.id, { useBlend: formula.usarBlend !== true });
+    return;
+  }
+  if (target.dataset.suggestionFormula) {
+    updateFormulaItemPercent(target.dataset.suggestionFormula, target.dataset.suggestionInsumo, target.dataset.suggestionValue);
+    return;
+  }
+  if (target.dataset.addIngredientFormula) {
+    const card = target.closest('.formula-work-card');
+    const select = card?.querySelector('[data-add-ingredient-select]');
+    if (!select?.value) return toast('Selecione um insumo.');
+    addFormulaItemInline(target.dataset.addIngredientFormula, select.value);
+    return;
+  }
+  if (target.dataset.removeIngredientFormula) {
+    requestFormulaItemRemoval(target.dataset.removeIngredientFormula, target.dataset.removeIngredientId);
+  }
+}
+
+function bindProductSlides(root) {
+  const panels = Array.from(root.querySelectorAll('[data-slide-panel]'));
+  const jumps = Array.from(root.querySelectorAll('[data-product-slide]'));
+  const summary = root.querySelector('.product-slide-summary');
+  const position = root.querySelector('[data-slide-position]');
+  let index = Math.max(0, panels.findIndex(panel => panel.dataset.slidePanel === activeProductSlideId));
+  const show = (nextIndex) => {
+    index = Math.max(0, Math.min(panels.length - 1, nextIndex));
+    activeProductSlideId = panels[index]?.dataset.slidePanel || 'visao';
+    panels.forEach((panel, panelIndex) => panel.classList.toggle('active', panelIndex === index));
+    jumps.forEach((jump, jumpIndex) => jump.classList.toggle('active', jumpIndex === index));
+    if (position) position.textContent = `${index + 1} / ${panels.length}`;
+    const activeJump = jumps[index];
+    if (activeJump && summary && summary.scrollWidth > summary.clientWidth) {
+      activeJump.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
-    
-    function addPixCoop() { 
-        let tipo = document.getElementById('novoPixTipoCoop').value; 
-        let chv = document.getElementById('novoPixInputCoop').value.trim(); 
-        let ben = document.getElementById('novoPixBenCoop').value.trim();
-        if(tipo === 'E-mail') { chv = chv.toLowerCase(); if(!chv.includes('@') || !chv.includes('.')) return alert('E-mail inválido.'); }
-        if(chv && ben) {
-            tempPixCoop.push(marcarRegistroPendente({ id: 'pix_' + Date.now(), tipo: tipo, chave: chv, beneficiario: ben, principal: tempPixCoop.length === 0 }));
-            document.getElementById('novoPixInputCoop').value = ''; 
-            document.getElementById('novoPixBenCoop').value = ''; 
-            renderListaPixCoop(); 
-        } else {
-            alert('Preencha a chave e o nome do beneficiário.');
-        }
-    }
-    function removerPixCoop(idx) { if(tempPixCoop[idx]?.id) registrarExclusao('pix', tempPixCoop[idx].id); tempPixCoop.splice(idx, 1); if(tempPixCoop.length > 0 && !tempPixCoop.some(p => p.principal)) marcarRegistroPendente(tempPixCoop[0]).principal = true; renderListaPixCoop(); }
-    function setPixPrincipal(idx) { tempPixCoop.forEach((p, i) => { p.principal = (i === idx); marcarRegistroPendente(p); }); }
-
-    function salvarCooperativa() {
-        db.cooperativa.logo = document.getElementById('coopLogoBase64').value;
-        db.cooperativa.razao = document.getElementById('coopRazao').value;
-        db.cooperativa.fantasia = document.getElementById('coopFantasia').value;
-        db.cooperativa.cnpj = document.getElementById('coopCNPJ').value;
-        db.cooperativa.pixList = tempPixCoop;
-        tocarRegistro(db.cooperativa);
-        registrarAuditoria('Dados da cooperativa alterados', db.cooperativa.fantasia || db.cooperativa.razao || 'Cooperativa');
-        salvarBanco();
-        renderizarCabecalhoPrincipal();
-        fecharModal('modalFormCooperativa');
-        abrirModal('modalPainelUnificado');
-    }
-
-    function abrirModalConfigGerais() {
-        fecharModal('modalPainelUnificado');
-        
-        let confAlertas = db.configGerais.alertas || { laudo: {ativo:true, dias:7}, seguro: {ativo:true, dias:7}, licenca: {ativo:true, dias:7} };
-        
-        document.getElementById('confCorTema').value = db.configGerais.corTema || '#008C4A';
-        document.getElementById('confCorSub').value = db.configGerais.corSubHeader || '#ffffff';
-
-        document.getElementById('confAlertaLaudo').checked = confAlertas.laudo.ativo;
-        document.getElementById('confDiasLaudo').value = confAlertas.laudo.dias;
-        toggleConfAlerta('Laudo');
-
-        document.getElementById('confAlertaSeguro').checked = confAlertas.seguro.ativo;
-        document.getElementById('confDiasSeguro').value = confAlertas.seguro.dias;
-        toggleConfAlerta('Seguro');
-
-        document.getElementById('confAlertaLicenca').checked = confAlertas.licenca.ativo;
-        document.getElementById('confDiasLicenca').value = confAlertas.licenca.dias;
-        toggleConfAlerta('Licenca');
-
-        let resetCadastro = getConfigResetCadastroAtualizado();
-        document.getElementById('confResetCadastroDia').value = parseInt(resetCadastro.dia, 10);
-        document.getElementById('confResetCadastroMes').value = parseInt(resetCadastro.mes, 10);
-
-        tempCategorias = db.categorias ? JSON.parse(JSON.stringify(db.categorias)) : [];
-        renderListasCategorias();
-        cancelarEditCategoria();
-        abrirModal('modalConfigGerais');
-    }
-
-    function toggleConfAlerta(nome) {
-        let isAtivo = document.getElementById(`confAlerta${nome}`).checked;
-        document.getElementById(`boxDias${nome}`).style.display = isAtivo ? 'flex' : 'none';
-    }
-
-    function renderListasCategorias() {
-        const list = document.getElementById('listaCategorias');
-        list.innerHTML = tempCategorias.length ? tempCategorias.map((c, i) => `<div class="list-item-config">
-            <span><b>${escapeHTML(c.emoji || '🚗')} ${escapeHTML(c.nome)}</b> - R$ ${escapeHTML(c.valor)}</span>
-            <div><button class="btn-edit-small" onclick="editarCategoria(${i})">✏️</button><button onclick="removerCategoria(${i})">X</button></div>
-        </div>`).join('') : '<div style="color:#999; font-size:12px; text-align:center;">Nenhuma categoria.</div>';
-    }
-
-    function addCategoria() {
-        let e = document.getElementById('novaCatEmoji').value;
-        let n = document.getElementById('novaCatNome').value.trim();
-        let v = document.getElementById('novaCatValor').value.trim();
-        let editIdx = document.getElementById('editIdxCat').value;
-        if(n && v) {
-            if(editIdx !== "") { 
-                tempCategorias[editIdx] = marcarRegistroPendente({ ...tempCategorias[editIdx], emoji: e, nome: n, valor: v }); 
-            } else { 
-                tempCategorias.push(marcarRegistroPendente({ id: 'cat_' + Date.now(), emoji: e, nome: n, valor: v })); 
-            }
-            cancelarEditCategoria();
-            renderListasCategorias();
-        }
-    }
-    
-    function editarCategoria(idx) {
-        let c = tempCategorias[idx];
-        document.getElementById('novaCatEmoji').value = c.emoji || '🚗';
-        document.getElementById('novaCatNome').value = c.nome;
-        document.getElementById('novaCatValor').value = c.valor;
-        document.getElementById('editIdxCat').value = idx;
-        
-        let box = document.getElementById('boxEditCat');
-        box.style.background = "var(--theme-light)";
-        box.style.borderColor = "var(--theme-base)";
-        document.getElementById('lblModoCat').innerText = "Editando Categoria";
-        document.getElementById('btnSalvarCat').innerText = "OK";
-        document.getElementById('btnCancelarEditCat').style.display = "flex";
-    }
-
-    function cancelarEditCategoria() {
-        document.getElementById('novaCatEmoji').value = '🚗';
-        document.getElementById('novaCatNome').value = '';
-        document.getElementById('novaCatValor').value = '';
-        document.getElementById('editIdxCat').value = '';
-        
-        let box = document.getElementById('boxEditCat');
-        box.style.background = "#f9f9f9";
-        box.style.borderColor = "#ccc";
-        document.getElementById('lblModoCat').innerText = "Adicionar Nova Categoria";
-        document.getElementById('btnSalvarCat').innerText = "+";
-        document.getElementById('btnCancelarEditCat').style.display = "none";
-    }
-
-    function removerCategoria(idx) {
-        let cat = tempCategorias[idx];
-        if(!cat) return;
-        document.getElementById('idxCategoriaExcluir').value = idx;
-        document.getElementById('nomeCategoriaExcluir').innerText = cat.nome || 'sem nome';
-        document.getElementById('fraseExcluirCategoria').value = '';
-        document.getElementById('senhaExcluirCategoria').value = '';
-        abrirModal('modalExcluirCategoria');
-        setTimeout(() => document.getElementById('fraseExcluirCategoria').focus(), 80);
-    }
-
-    function confirmarExclusaoCategoria() {
-        let frase = document.getElementById('fraseExcluirCategoria').value.trim().toLowerCase();
-        let senha = document.getElementById('senhaExcluirCategoria').value.trim();
-        let idx = parseInt(document.getElementById('idxCategoriaExcluir').value, 10);
-        if(frase !== 'eu quero apagar essa categoria') return alert("Digite a frase exata para confirmar.");
-        if(senha !== String(db.configs.senhaAdmin || '1999')) return alert("Senha do painel avançado incorreta.");
-        let cat = tempCategorias[idx];
-        if(!cat) return fecharModal('modalExcluirCategoria');
-        registrarExclusao('categorias', cat?.id || cat?.nome);
-        tempCategorias.splice(idx, 1);
-        registrarAuditoria('Categoria excluída', cat.nome || '');
-        fecharModal('modalExcluirCategoria');
-        renderListasCategorias();
-    }
-
-    function salvarConfigGerais() {
-        db.configGerais.corTema = document.getElementById('confCorTema').value;
-        db.configGerais.corSubHeader = document.getElementById('confCorSub').value;
-        db.configGerais.alertas = {
-            laudo: { ativo: document.getElementById('confAlertaLaudo').checked, dias: document.getElementById('confDiasLaudo').value || 7 },
-            seguro: { ativo: document.getElementById('confAlertaSeguro').checked, dias: document.getElementById('confDiasSeguro').value || 7 },
-            licenca: { ativo: document.getElementById('confAlertaLicenca').checked, dias: document.getElementById('confDiasLicenca').value || 7 }
-        };
-        const resetCadastro = normalizarDiaMesResetCadastro(
-            document.getElementById('confResetCadastroDia').value,
-            document.getElementById('confResetCadastroMes').value
-        );
-        db.configGerais.cadastroAtualizadoReset = {
-            ...getConfigResetCadastroAtualizado(),
-            ...resetCadastro
-        };
-        db.categorias = tempCategorias;
-        tocarRegistro(db.configGerais);
-        registrarAuditoria('Configurações gerais alteradas', 'Tema, alertas, categorias ou reset de cadastro atualizado');
-        salvarBanco();
-        aplicarTema();
-        fecharModal('modalConfigGerais');
-        abrirModal('modalPainelUnificado');
-        renderizarLista(); 
-    }
-
-    function abrirGerenciar(tipo) {
-        if(tipo === 'administradores') {
-            fecharModal('modalPainelUnificado');
-            document.getElementById('tituloListagem').innerText = "Usuários";
-            document.getElementById('btnNovoListagem').onclick = () => abrirFormAdmin(null);
-            document.getElementById('btnVoltarListagem').onclick = () => { fecharModal('modalListagem'); abrirModal('modalPainelUnificado'); };
-            document.getElementById('boxAcoesExtrasExcel').style.display = 'none';
-            document.getElementById('inputBuscaGerenciarContrib').style.display = 'none';
-            let htmlLista = '';
-            db.administradores.forEach((a) => {
-                let tipoUsuario = a.isAdmin === false ? 'Usuário' : 'Administrador';
-                htmlLista += `<div style="padding:10px; border-bottom:1px solid #ddd; display:flex; justify-content:space-between; align-items:center;">
-                    <div><strong>${escapeHTML(a.nome)}</strong><br><small style="color:#666;">${tipoUsuario}</small></div>
-                    <div>
-                        <button style="background:none; border:none; font-size:20px; cursor:pointer;" onclick="abrirFormAdmin('${a.id}')">✏️</button>
-                        <button style="background:none; border:none; font-size:20px; cursor:pointer; color:#d32f2f;" onclick="excluirUsuario('${a.id}')">🗑️</button>
-                    </div>
-                </div>`;
-            });
-            document.getElementById('conteudoListagem').innerHTML = htmlLista;
-            abrirModal('modalListagem');
-        }
-    }
-
-    function solicitarExclusaoCarroTemp() {
-        let idx = document.getElementById('carroEditId').value;
-        if(idx === '' || !tempCarros[idx]) return;
-        let car = tempCarros[idx];
-        let frase = prompt(`Para excluir o veículo ${car.placa || ''}, digite: quero excluir`);
-        if((frase || '').trim().toLowerCase() !== 'quero excluir') {
-            alert("Exclusão cancelada. A frase digitada não confere.");
-            return;
-        }
-
-        let isFromAcoes = document.getElementById('modalAcoesContribuinte').style.display === 'flex';
-        if(isFromAcoes && car.id) registrarExclusao('carros', car.id);
-        if(!isFromAcoes && car.id) tempCarrosExcluidos.push(car.id);
-        tempCarros.splice(parseInt(idx, 10), 1);
-        fecharModal('modalFormCarro');
-
-        if(isFromAcoes) {
-            let contId = document.getElementById('acoesContId').value;
-            let c = db.contribuintes.find(x => x.id === contId);
-            if(!c) return;
-            c.carros = tempCarros;
-            recalcularTotalContribuinteRegistro(c);
-            registrarAuditoria('Veículo excluído', `${c.nome || ''} - ${car.placa || ''}`);
-            salvarBanco();
-            abrirAcoesContribuinte(contId);
-            renderizarLista();
-        } else {
-            renderListaCarros();
-        }
-    }
-
-    function togglePermissoesUsuario() {
-        document.getElementById('boxPermissoesUsuario').style.display = document.getElementById('adminIsAdmin').checked ? 'none' : 'flex';
-    }
-
-    function abrirFormAdmin(id) {
-        fecharModal('modalListagem');
-        if(id) {
-            let a = db.administradores.find(x => x.id === id);
-            document.getElementById('adminId').value = a.id;
-            document.getElementById('adminNome').value = a.nome;
-            document.getElementById('adminSenha').value = a.senha;
-            document.getElementById('adminForcarTrocaSenha').checked = !!a.forcarTrocaSenha;
-            document.getElementById('adminIsAdmin').checked = a.isAdmin !== false;
-            let perms = getPermissoesUsuario(a);
-            document.getElementById('permCooperativa').checked = !!perms.cooperativa;
-            document.getElementById('permConfigGerais').checked = !!perms.configGerais;
-            document.getElementById('permUsuarios').checked = !!perms.usuarios;
-        } else {
-            document.getElementById('adminId').value = '';
-            document.getElementById('adminNome').value = '';
-            document.getElementById('adminSenha').value = '';
-            document.getElementById('adminForcarTrocaSenha').checked = true;
-            document.getElementById('adminIsAdmin').checked = db.administradores.length === 0;
-            document.getElementById('permCooperativa').checked = false;
-            document.getElementById('permConfigGerais').checked = false;
-            document.getElementById('permUsuarios').checked = false;
-        }
-        togglePermissoesUsuario();
-        abrirModal('modalFormAdmin');
-    }
-
-    function salvarAdmin() {
-        let id = document.getElementById('adminId').value || 'adm_' + Date.now();
-        let nome = document.getElementById('adminNome').value.trim();
-        let senha = document.getElementById('adminSenha').value.trim();
-        if(!nome) return alert("Informe o nome do perfil.");
-        if(!senha) return alert("Informe a senha do perfil.");
-        if(!/^\d+$/.test(senha)) return alert("A senha deve conter apenas números.");
-
-        let isAdmin = document.getElementById('adminIsAdmin').checked;
-        const idx = db.administradores.findIndex(x => x.id === id);
-        const anterior = idx >= 0 ? db.administradores[idx] : {};
-        let novo = {
-            ...anterior,
-            id: id,
-            nome: nome,
-            senha: senha,
-            isAdmin: isAdmin,
-            forcarTrocaSenha: document.getElementById('adminForcarTrocaSenha').checked,
-            permissoes: {
-                cooperativa: isAdmin || document.getElementById('permCooperativa').checked,
-                configGerais: isAdmin || document.getElementById('permConfigGerais').checked,
-                usuarios: isAdmin || document.getElementById('permUsuarios').checked
-            }
-        };
-        tocarRegistro(novo);
-        if(idx >= 0) db.administradores[idx] = novo; else db.administradores.push(novo);
-        if(adminLogado && adminLogado.id === id) {
-            adminLogado.nome = nome;
-            adminLogado.isAdmin = novo.isAdmin;
-            adminLogado.permissoes = novo.permissoes;
-            adminLogado.forcarTrocaSenha = novo.forcarTrocaSenha;
-            atualizarPerfilAdminUI();
-        }
-        registrarAuditoria(idx >= 0 ? 'Usuário alterado' : 'Usuário cadastrado', nome);
-        salvarBanco(); fecharModal('modalFormAdmin'); abrirGerenciar('administradores');
-    }
-
-    function excluirUsuario(id) {
-        let user = db.administradores.find(a => a.id === id);
-        if(!user) return;
-        if(adminLogado && adminLogado.id === id) return alert("Você não pode excluir o usuário que está em uso agora.");
-        if(!confirm(`Excluir o usuário ${user.nome}?`)) return;
-        registrarExclusao('administradores', id);
-        db.administradores = db.administradores.filter(a => a.id !== id);
-        registrarAuditoria('Usuário excluído', user.nome || id);
-        salvarBanco();
-        abrirGerenciar('administradores');
-    }
-
-    let colunasExcelMeses = Array.from({ length: 6 }, (_, i) => `${String(i + 1).padStart(2, '0')}-26`);
-    const colunasExcelFixas = ["Nome", "Placa", "Ano", "Categoria", "Data Laudo", "Data Seguro", "Data Licença", "Desconto Base (R$)"];
-
-    function colunaValorMesExcel(mes) { return `${mes} (R$)`; }
-    function colunaStatusMesExcel(mes) { return `Status ${mes}`; }
-
-    function montarCabecalhoExcel() {
-        let headers = [...colunasExcelFixas];
-        colunasExcelMeses.forEach(mes => {
-            headers.push(colunaValorMesExcel(mes), "Data Pagamento", colunaStatusMesExcel(mes));
-        });
-        return headers;
-    }
-
-    function refMesFromColunaExcel(col) {
-        let match = String(col || '').match(/(\d{2})-(\d{2})/);
-        if(!match) return "";
-        return `20${match[2]}-${match[1]}`;
-    }
-
-    function normalizarHeaderExcel(valor) {
-        return String(valor || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    }
-
-    function indexHeaderExcel(headers, nome) {
-        let alvo = normalizarHeaderExcel(nome);
-        return headers.findIndex(h => normalizarHeaderExcel(h) === alvo);
-    }
-
-    function getCellExcel(row, idx) {
-        return idx >= 0 && idx < row.length ? row[idx] : "";
-    }
-
-    function montarMapaMesesImportacao(headers) {
-        return colunasExcelMeses.map(mes => {
-            let valorIdx = headers.findIndex(h => {
-                let txt = normalizarHeaderExcel(h);
-                return txt === normalizarHeaderExcel(colunaValorMesExcel(mes)) || txt === normalizarHeaderExcel(mes);
-            });
-
-            let dataIdx = -1;
-            if(valorIdx >= 0 && normalizarHeaderExcel(headers[valorIdx + 1]).startsWith('data pagamento')) {
-                dataIdx = valorIdx + 1;
-            }
-
-            let statusIdx = indexHeaderExcel(headers, colunaStatusMesExcel(mes));
-            if(statusIdx < 0 && valorIdx >= 0 && normalizarHeaderExcel(headers[valorIdx + 2]).startsWith('status')) {
-                statusIdx = valorIdx + 2;
-            }
-
-            return { mes, ref: refMesFromColunaExcel(mes), valorIdx, dataIdx, statusIdx };
-        }).filter(meta => meta.valorIdx >= 0);
-    }
-
-    function carExcelKey(car, idx) {
-        return car.id || `${car.placa || 'sem_placa'}_${idx}`;
-    }
-
-    function arredondar2(valor) {
-        return Math.round((parseFloat(valor) || 0) * 100) / 100;
-    }
-
-    function somaPagamentosMes(c, mesRef) {
-        return (c.pagamentos || [])
-            .filter(p => pagamentoRefereMes(p, mesRef))
-            .reduce((acc, p) => acc + (parseFloat(p.valorPago) || 0), 0);
-    }
-
-    function getInfoPagamentoMes(c, mesRef) {
-        let pagamentos = (c.pagamentos || []).filter(p => pagamentoRefereMes(p, mesRef));
-        let valor = pagamentos.reduce((acc, p) => acc + (parseFloat(p.valorPago) || 0), 0);
-        let dataPagamento = pagamentos
-            .map(p => p.dataPagamento || "")
-            .filter(Boolean)
-            .sort()
-            .pop() || "";
-        return { valor: arredondar2(valor), dataPagamento };
-    }
-
-    function parseValorExcel(raw) {
-        if(raw === null || raw === undefined || raw === '') return 0;
-        if(typeof raw === 'number') return raw > 0 ? raw : 0;
-        let str = String(raw).trim();
-        if(!str) return 0;
-        str = str.replace(/\s/g, '').replace(/R\$/gi, '');
-        if(str.includes(',') && str.includes('.')) str = str.replace(/\./g, '').replace(',', '.');
-        else if(str.includes(',')) str = str.replace(',', '.');
-        else if(str.includes('.')) {
-            let partes = str.split('.');
-            if(partes.length > 2 || partes[partes.length - 1].length === 3) str = str.replace(/\./g, '');
-        }
-        let valor = parseFloat(str.replace(/[^\d.-]/g, ''));
-        return isNaN(valor) || valor <= 0 ? 0 : valor;
-    }
-
-    function formatValorExcel(valor) {
-        valor = arredondar2(valor);
-        return valor > 0 ? valor : '';
-    }
-
-    function parseDataExcel(dRaw) {
-        if(!dRaw) return "";
-        if(dRaw instanceof Date && !isNaN(dRaw)) {
-            return `${dRaw.getFullYear()}-${String(dRaw.getMonth() + 1).padStart(2, '0')}-${String(dRaw.getDate()).padStart(2, '0')}`;
-        }
-        if(typeof dRaw === 'number' && window.XLSX && XLSX.SSF && XLSX.SSF.parse_date_code) {
-            let parsed = XLSX.SSF.parse_date_code(dRaw);
-            if(parsed) return `${parsed.y}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
-        }
-
-        let str = String(dRaw).trim();
-        if(!str) return "";
-        if(/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
-        if(str.includes('/')) {
-            let p = str.split('/');
-            if(p.length === 3) return `${p[2].padStart(4, '20')}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
-        }
-        return str;
-    }
-
-    function parseDiaPagamentoExcel(raw, mesRef) {
-        if(raw === null || raw === undefined || raw === '') return "";
-        if(raw instanceof Date && !isNaN(raw)) {
-            return `${raw.getFullYear()}-${String(raw.getMonth() + 1).padStart(2, '0')}-${String(raw.getDate()).padStart(2, '0')}`;
-        }
-
-        let dia = null;
-        if(typeof raw === 'number') dia = Math.trunc(raw);
-        else {
-            let str = String(raw).trim();
-            if(!str) return "";
-            if(/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
-            if(str.includes('/')) {
-                let p = str.split('/');
-                if(p.length === 3) return `${p[2].padStart(4, '20')}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
-                dia = parseInt(p[0], 10);
-            } else {
-                dia = parseInt(str.replace(/\D/g, ''), 10);
-            }
-        }
-
-        let partes = mesRef.split('-');
-        let ultimoDia = new Date(parseInt(partes[0]), parseInt(partes[1]), 0).getDate();
-        if(!dia || dia < 1 || dia > ultimoDia) return "";
-        return `${mesRef}-${String(dia).padStart(2, '0')}`;
-    }
-
-    function getDiaPagamentoExcel(dataStr) {
-        if(!dataStr) return "";
-        let partes = String(dataStr).split('-');
-        if(partes.length === 3) return parseInt(partes[2], 10);
-        return "";
-    }
-
-    function statusExcelPermiteImportar(rawStatus, valorPago) {
-        if(valorPago <= 0) return false;
-        let status = normalizarHeaderExcel(rawStatus);
-        if(!status) return true;
-        if(status.includes('nao') || status.includes('pendente') || status.includes('aberto')) return false;
-        return status.includes('pago') || status.includes('sim') || status.includes('ok') || status.includes('regular') || status.includes('quitado') || status.includes('parcial') || valorPago > 0;
-    }
-
-    function calcularValoresExcelPorCarro(c, mesRef) {
-        let totalPago = arredondar2(somaPagamentosMes(c, mesRef));
-        let mapa = new Map();
-        if(totalPago <= 0) return mapa;
-
-        let carrosAtivos = (c.carros || [])
-            .map((car, idx) => ({ car, idx }))
-            .filter(item => item.car.ativo && getMesCadastroCobranca(item.car) <= mesRef);
-        let totalBase = carrosAtivos.reduce((acc, item) => acc + parseMoeda(item.car.valor), 0);
-        if(carrosAtivos.length === 0 || totalBase <= 0) return mapa;
-
-        let acumulado = 0;
-        carrosAtivos.forEach((item, pos) => {
-            let valor = pos === carrosAtivos.length - 1
-                ? arredondar2(totalPago - acumulado)
-                : arredondar2(totalPago * (parseMoeda(item.car.valor) / totalBase));
-            acumulado = arredondar2(acumulado + valor);
-            mapa.set(carExcelKey(item.car, item.idx), valor);
-        });
-        return mapa;
-    }
-
-    function montarLinhaExcel(c, car = null, idx = -1) {
-        let linha = [
-            c.nome || "",
-            car ? (car.placa || "") : "",
-            car ? (car.ano || "") : "",
-            car ? (car.categoria || "") : "",
-            car && car.dataLaudo ? formatDataBR(car.dataLaudo) : "",
-            car && car.dataSeguro ? formatDataBR(car.dataSeguro) : "",
-            car && car.dataLicenca ? formatDataBR(car.dataLicenca) : "",
-            formatValorExcel(parseMoeda(c.desconto || "0"))
-        ];
-
-        colunasExcelMeses.forEach(mes => {
-            let mesRef = refMesFromColunaExcel(mes);
-            let info = getInfoPagamentoMes(c, mesRef);
-            let valor = info.valor;
-            if(car) {
-                let mapaMes = calcularValoresExcelPorCarro(c, mesRef);
-                valor = mapaMes.get(carExcelKey(car, idx)) || 0;
-            }
-            linha.push(formatValorExcel(valor), valor > 0 ? getDiaPagamentoExcel(info.dataPagamento) : "", valor > 0 ? "Pago" : "Não Pago");
-        });
-
-        return linha;
-    }
-
-    function aplicarLargurasExcel(ws, headers) {
-        ws['!cols'] = headers.map(h => {
-            if(h === 'Nome') return { wch: 24 };
-            if(['Placa', 'Categoria'].includes(h)) return { wch: 14 };
-            if(h === 'Desconto Base (R$)') return { wch: 18 };
-            if(h.startsWith('Data') || h.startsWith('Status')) return { wch: 16 };
-            return { wch: 12 };
-        });
-    }
-
-    function exportarExcel() {
-        if(!window.XLSX) return alert("A biblioteca do Excel não foi carregada. Verifique sua conexão com a internet.");
-        let headers = montarCabecalhoExcel();
-        let aoa = [headers];
-
-        db.contribuintes.forEach(c => {
-            if(!c.carros || c.carros.length === 0) {
-                aoa.push(montarLinhaExcel(c));
-            } else {
-                c.carros.forEach((car, idx) => aoa.push(montarLinhaExcel(c, car, idx)));
-            }
-        });
-
-        let ws = XLSX.utils.aoa_to_sheet(aoa);
-        aplicarLargurasExcel(ws, headers);
-        let wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Contribuintes");
-        XLSX.writeFile(wb, "Contribuintes_" + getHojeSTR() + ".xlsx");
-    }
-
-    function baixarModeloExcel() {
-        if(!window.XLSX) return alert("A biblioteca do Excel não foi carregada. Verifique sua conexão com a internet.");
-        let headers = montarCabecalhoExcel();
-        let rowsModelo = [
-            ["João Silva", "ABC1D23", "2020", "Van", "20/04/2026", "20/04/2026", "20/04/2026", 20],
-            ["João Silva", "XYZ9A87", "2022", "Carro", "20/04/2026", "20/04/2026", "20/04/2026", 20]
-        ];
-
-        rowsModelo.forEach((linha, idx) => {
-            colunasExcelMeses.forEach(mes => {
-                let valor = (mes === '02-26' || mes === '03-26') ? (idx === 0 ? 100 : 80) : '';
-                linha.push(valor, valor ? 10 : '', valor ? 'Pago' : 'Não Pago');
-            });
-        });
-
-        let ws = XLSX.utils.aoa_to_sheet([headers, ...rowsModelo]);
-        aplicarLargurasExcel(ws, headers);
-        let wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Modelo");
-        XLSX.writeFile(wb, "Modelo_Importacao.xlsx");
-    }
-
-    function importarExcel(e) {
-        if(!window.XLSX) return alert("A biblioteca do Excel não foi carregada. Verifique sua conexão com a internet.");
-        let file = e.target.files[0];
-        if(!file) return;
-        
-        let reader = new FileReader();
-        reader.onload = function(evt) {
-            try {
-                let data = new Uint8Array(evt.target.result);
-                let workbook = XLSX.read(data, {type: 'array'});
-                let firstSheet = workbook.SheetNames[0];
-                let matriz = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheet], { header: 1, defval: '' });
-                if(matriz.length < 2) throw new Error("Planilha vazia.");
-
-                let headers = matriz[0].map(h => String(h || '').trim());
-                let idxNome = indexHeaderExcel(headers, "Nome");
-                let idxPlaca = indexHeaderExcel(headers, "Placa");
-                let idxAno = indexHeaderExcel(headers, "Ano");
-                let idxCategoria = indexHeaderExcel(headers, "Categoria");
-                let idxDataLaudo = indexHeaderExcel(headers, "Data Laudo");
-                let idxDataSeguro = indexHeaderExcel(headers, "Data Seguro");
-                let idxDataLicenca = indexHeaderExcel(headers, "Data Licença");
-                let idxDescontoBase = indexHeaderExcel(headers, "Desconto Base (R$)");
-                let mesesImportacao = montarMapaMesesImportacao(headers);
-
-                if(idxNome < 0 || mesesImportacao.length === 0) throw new Error("Cabeçalho incompatível.");
-
-                let agrupado = {};
-                matriz.slice(1).forEach(row => {
-                    let nome = String(getCellExcel(row, idxNome) || '').trim();
-                    if(!nome) return;
-                    if(!agrupado[nome]) agrupado[nome] = { telefones: [], desconto: "", carros: [], pagamentosPorMes: {} };
-
-                    let descontoBase = parseValorExcel(getCellExcel(row, idxDescontoBase));
-                    if(descontoBase > 0) agrupado[nome].desconto = formatMoeda(descontoBase);
-
-                    let pagamentosLinha = [];
-                    mesesImportacao.forEach(meta => {
-                        let valorPago = parseValorExcel(getCellExcel(row, meta.valorIdx));
-                        let status = getCellExcel(row, meta.statusIdx);
-                        if(statusExcelPermiteImportar(status, valorPago)) {
-                            let dataPagamento = parseDiaPagamentoExcel(getCellExcel(row, meta.dataIdx), meta.ref) || `${meta.ref}-01`;
-                            pagamentosLinha.push({ ref: meta.ref, valor: valorPago, data: dataPagamento });
-                            if(!agrupado[nome].pagamentosPorMes[meta.ref]) {
-                                agrupado[nome].pagamentosPorMes[meta.ref] = { ref: meta.ref, valor: 0, data: dataPagamento };
-                            }
-                            agrupado[nome].pagamentosPorMes[meta.ref].valor = arredondar2(agrupado[nome].pagamentosPorMes[meta.ref].valor + valorPago);
-                            if(dataPagamento > agrupado[nome].pagamentosPorMes[meta.ref].data) {
-                                agrupado[nome].pagamentosPorMes[meta.ref].data = dataPagamento;
-                            }
-                        }
-                    });
-                    
-                    let placa = String(getCellExcel(row, idxPlaca) || '').trim();
-                    if(placa) {
-                        let primeiroPagamentoLinha = pagamentosLinha.length > 0 ? pagamentosLinha[0].ref : null;
-
-                        agrupado[nome].carros.push({
-                            id: 'car_'+Date.now()+Math.random(),
-                            placa: placa.toUpperCase(),
-                            ano: getCellExcel(row, idxAno) ? String(getCellExcel(row, idxAno)) : "", 
-                            categoria: getCellExcel(row, idxCategoria) || "",
-                            valor: "0,00",
-                            dataLaudo: parseDataExcel(getCellExcel(row, idxDataLaudo)),
-                            dataSeguro: parseDataExcel(getCellExcel(row, idxDataSeguro)),
-                            dataLicenca: parseDataExcel(getCellExcel(row, idxDataLicenca)),
-                            dataCadastro: primeiroPagamentoLinha ? `${primeiroPagamentoLinha}-01` : getHojeSTR(),
-                            ativo: true
-                        });
-                    }
-                });
-
-                Object.keys(agrupado).forEach(nome => {
-                    let d = agrupado[nome];
-                    let cExistente = db.contribuintes.find(c => (c.nome || '').toLowerCase() === nome.toLowerCase());
-                    
-                    d.carros.forEach(car => {
-                        let cat = db.categorias.find(x => x.nome === car.categoria);
-                        if(cat && cat.valor) car.valor = cat.valor;
-                        marcarRegistroPendente(car);
-                    });
-
-                    if(cExistente) {
-                        cExistente.carros = d.carros;
-                        if(d.desconto) cExistente.desconto = d.desconto;
-                    } else {
-                        cExistente = { id: 'cont_'+Date.now()+Math.random(), nome: nome, telefones: [], desconto: d.desconto || "0,00", carros: d.carros, pagamentos: [] };
-                        db.contribuintes.push(cExistente);
-                    }
-                    if(!cExistente.pagamentos) cExistente.pagamentos = [];
-
-                    Object.values(d.pagamentosPorMes).forEach(pTmp => {
-                        let pgExiste = cExistente.pagamentos.some(pg => pagamentoRefereMes(pg, pTmp.ref));
-                        if(!pgExiste) {
-                            let valEsperado = calcularValorEsperado(cExistente, pTmp.ref);
-                            let valorPago = arredondar2(pTmp.valor);
-                            cExistente.pagamentos.push(marcarRegistroPendente({
-                                id: 'pg_' + Date.now() + Math.random(),
-                                mesAno: pTmp.ref,
-                                mesesRef: [pTmp.ref],
-                                labelRef: buildLabelRef([pTmp.ref]),
-                                valorPago: valorPago,
-                                valorOriginal: valEsperado > 0 ? valEsperado : valorPago,
-                                parcial: valEsperado > 0 && valorPago < valEsperado,
-                                tipoPagamento: valEsperado > 0 && valorPago < valEsperado ? 'parcial' : 'total',
-                                dataPagamento: pTmp.data
-                            }));
-                        }
-                    });
-                    tocarRegistro(cExistente);
-                });
-                
-                registrarAuditoria('Importação de planilha concluída', `${Object.keys(agrupado).length} contribuinte(s) importado(s)`);
-                salvarBanco();
-                alert("Importação concluída com sucesso!");
-                abrirGerenciarContribuintes();
-                renderizarLista();
-            } catch(err) {
-                console.error(err);
-                alert("Ocorreu um erro ao importar. Verifique o formato do arquivo.");
-            }
-        };
-        reader.readAsArrayBuffer(file);
-        e.target.value = ''; 
-    }
-
-    function solicitarAcessoAvancado() { fecharModal('modalPainelUnificado'); document.getElementById('senhaAvancada').value = ''; abrirModal('modalSenhaAvancada'); setTimeout(()=>document.getElementById('senhaAvancada').focus(), 100); }
-    document.getElementById('senhaAvancada').addEventListener('input', function(e) { if(this.value === db.configs.senhaAdmin) { this.blur(); this.value = ''; fecharModal('modalSenhaAvancada'); document.getElementById('configUrlApp').value = db.configs.url || ''; abrirModal('modalConfigAvancadas'); } });
-    document.getElementById('loginAdminSenha').addEventListener('keydown', function(e) { if(e.key === 'Enter') { e.preventDefault(); entrarAdmin(); } });
-    document.getElementById('loginAdminUsuario').addEventListener('change', function() { document.getElementById('loginAdminSenha').value = ''; limparErroLogin('loginAdminErro'); setTimeout(() => document.getElementById('loginAdminSenha').focus(), 30); });
-    document.getElementById('setupUrlApp').addEventListener('keydown', function(e) { if(e.key === 'Enter') { e.preventDefault(); salvarURLInicial(); } });
-    ['trocaSenhaAtual', 'trocaSenhaNova', 'trocaSenhaNova2'].forEach(id => {
-        document.getElementById(id).addEventListener('keydown', function(e) { if(e.key === 'Enter') { e.preventDefault(); salvarTrocaSenhaPerfil(); } });
+  };
+  jumps.forEach((jump, jumpIndex) => jump.addEventListener('click', () => show(jumpIndex)));
+  root.querySelector('[data-slide-prev]')?.addEventListener('click', () => show(index - 1));
+  root.querySelector('[data-slide-next]')?.addEventListener('click', () => show(index + 1));
+  show(index);
+}
+
+function renderInsumos() {
+  renderIngredientFilters();
+  const term = ($('#searchInsumos')?.value || '').toLowerCase().trim();
+  const list = db.insumos.filter(i => {
+    const okFilter = selectedIngredientFilter === 'todos' || i.tipo === selectedIngredientFilter;
+    const okSearch = [i.nome, i.categoria, typeLabel(i.tipo), i.subtipo, i.funcao, i.obs].join(' ').toLowerCase().includes(term);
+    return okFilter && okSearch;
+  });
+  $('#insumosList').innerHTML = list.map(ingredientHTML).join('') || emptyHTML('Nenhum insumo encontrado.');
+  $('#insumosList').querySelectorAll('[data-edit-ingredient]').forEach(el => el.addEventListener('click', () => openIngredientModal(el.dataset.editIngredient)));
+}
+
+function renderIngredientFilters() {
+  const chips = [{ value: 'todos', label: 'Todos' }, ...TYPES];
+  $('#ingredientTypeFilters').innerHTML = chips.map(c => `<button type="button" class="chip ${selectedIngredientFilter === c.value ? 'active' : ''}" data-filter="${escapeAttr(c.value)}">${escapeHTML(c.label)}</button>`).join('');
+  $('#ingredientTypeFilters').querySelectorAll('[data-filter]').forEach(chip => chip.addEventListener('click', () => {
+    selectedIngredientFilter = chip.dataset.filter;
+    db.configs.filtroInsumo = selectedIngredientFilter;
+    saveDB();
+    renderInsumos();
+  }));
+}
+
+function ingredientHTML(i) {
+  const avatar = i.foto ? `<img src="${escapeAttr(i.foto)}" alt="">` : escapeHTML(ingredientIcon(i.tipo));
+  return `
+    <button type="button" class="item-card" data-edit-ingredient="${escapeAttr(i.id)}">
+      <div class="item-avatar">${avatar}</div>
+      <div>
+        <div class="item-title">${escapeHTML(i.nome)}</div>
+        <div class="item-subtitle">${escapeHTML(i.funcao || 'Sem função tecnológica cadastrada')}</div>
+        <div class="item-meta">
+          <span class="badge info">${escapeHTML(typeLabel(i.tipo))}</span>
+          ${i.subtipo ? `<span class="badge">${escapeHTML(capitalizeFirst(i.subtipo))}</span>` : ''}
+          ${i.usadoNaFormulacao === false ? '<span class="badge">Fora da formulação</span>' : ''}
+          ${i.proteinaNaoCarnea ? '<span class="badge warn">proteína agregada</span>' : ''}
+          ${i.alergeno ? '<span class="badge danger">alérgeno</span>' : ''}
+          <span class="badge">G ${fmt(i.gordura)}% · P ${fmt(i.proteina)}% · C ${fmt(i.carboidrato)}%</span>
+        </div>
+      </div>
+    </button>`;
+}
+
+function renderFormulaFilters() {
+  const currentFormulaProduct = $('#formulaProduto')?.value || db.produtos[0]?.id || '';
+  $('#formulaProduto').innerHTML = db.produtos.map(p => `<option value="${escapeAttr(p.id)}">${escapeHTML(p.nome)}</option>`).join('');
+  if (db.produtos.some(p => p.id === currentFormulaProduct)) $('#formulaProduto').value = currentFormulaProduct;
+}
+
+function renderFormulas() {
+  if (!$('#formulasList')) return;
+  renderFormulaFilters();
+  const filter = 'todos';
+  const formulas = db.formulacoes.filter(f => filter === 'todos' || f.produtoId === filter);
+  $('#formulasList').innerHTML = formulas.map(formulaHTML).join('') || emptyHTML('Nenhuma formulação cadastrada.');
+  $('#formulasList').querySelectorAll('[data-edit-formula]').forEach(el => el.addEventListener('click', () => openFormulaModal(el.dataset.editFormula)));
+}
+
+function formulaHTML(f) {
+  const product = findProduct(f.produtoId);
+  const analysis = analyzeFormula(f);
+  const danger = analysis.alerts.some(a => a.type === 'danger');
+  const warn = analysis.alerts.some(a => a.type === 'warn');
+  return `
+    <button type="button" class="item-card" data-edit-formula="${escapeAttr(f.id)}">
+      <div class="item-avatar">∑</div>
+      <div>
+        <div class="item-title">${escapeHTML(f.nome)}</div>
+        <div class="item-subtitle">${escapeHTML(product?.nome || 'Produto não encontrado')}</div>
+        <div class="item-meta">
+          <span class="badge ${limitBadge(analysis.fatPct, product?.parametros?.gorduraMax, 'max')}">Gordura ${fmt(analysis.fatPct)}%</span>
+          <span class="badge ${danger ? 'danger' : warn ? 'warn' : 'ok'}">${danger ? 'corrigir' : warn ? 'atenção' : 'ok'}</span>
+        </div>
+      </div>
+    </button>`;
+}
+
+function renderRules() {
+  const root = $('#rulesGrid');
+  if (!root) return;
+  const rules = normalizeLabRules(db.configs.regrasLaboratorio);
+  root.innerHTML = rules.map(ruleCardHTML).join('') || emptyHTML('Nenhuma regra cadastrada.');
+}
+
+function ruleCardHTML(rule, index) {
+  return `<article class="rule-card">
+    <span>${escapeHTML(rule.numero || String(index + 1).padStart(2, '0'))}</span>
+    <strong>${escapeHTML(rule.titulo || 'Regra')}</strong>
+    <p>${escapeHTML(rule.texto || '')}</p>
+  </article>`;
+}
+
+function renderCronograma() {
+  const root = $('#cronogramaContent');
+  if (!root) return;
+  const period = getActivePeriod();
+  const schedule = getSchedule();
+  root.innerHTML = `
+    ${period ? `<div class="period-banner">
+      <strong>${escapeHTML(period.nome)}</strong>
+      <span>${periodDateLabel(period)}</span>
+    </div>` : ''}
+    <div class="calendar-list">
+      ${schedule.length ? schedule.map(scheduleCardHTML).join('') : emptyHTML('Nenhuma aula cadastrada para este período.')}
+    </div>
+    <div class="notice-card">
+      O cronograma pode ser ajustado conforme a oferta da disciplina. Os roteiros e as aulas teóricas permanecem conectados para consulta rápida durante a prática.
+    </div>`;
+  bindInternalLinks(root);
+  root.querySelectorAll('[data-open-category]').forEach(btn => btn.addEventListener('click', () => setPage('Aulas')));
+}
+
+function scheduleCardHTML(item, index) {
+  const categoryChips = (item.categorias || []).map(id => {
+    const content = getTheoryContent(id);
+    return content ? `<button type="button" class="link-chip soft" data-open-category="${escapeAttr(id)}">${escapeHTML(content.titulo)}</button>` : '';
+  }).join('');
+  const date = scheduleDateParts(item.dia);
+  return `<article class="calendar-card">
+    <div class="calendar-index ${item.dia ? 'has-date' : ''}">
+      ${item.dia ? `<span>${escapeHTML(date.weekday)}</span><strong>${escapeHTML(date.day)}</strong><b>${escapeHTML(date.month)}</b><em>${escapeHTML(date.year)}</em>` : '<span>DATA</span><strong>--</strong><b>---</b><em>A definir</em>'}
+    </div>
+    <div class="calendar-body">
+      <h3 class="calendar-lesson-title"><span>${lessonNumberLabel(index)}:</span> ${escapeHTML(item.tema)}</h3>
+      <p>${escapeHTML(item.foco)}</p>
+      ${item.local ? `<div class="calendar-local">${escapeHTML(item.local)}</div>` : ''}
+      ${item.observacao ? `<div class="calendar-note">${escapeHTML(item.observacao)}</div>` : ''}
+      <div class="linked-block">
+        <div class="linked-title">Roteiros da aula</div>
+        ${linkedProductsHTML(item.produtos || [])}
+      </div>
+      <div class="linked-block">
+        <div class="linked-title">Teoria relacionada</div>
+        <div class="link-chip-row">${categoryChips}</div>
+      </div>
+    </div>
+  </article>`;
+}
+
+function getSchedulePeriods() {
+  if (!Array.isArray(db.configs.periodos) || !db.configs.periodos.length) {
+    db.configs.periodos = normalizeSchedulePeriods([], db.configs.cronograma);
+  }
+  if (!db.configs.periodos.some(period => period.id === db.configs.periodoAtivoId)) {
+    db.configs.periodoAtivoId = (db.configs.periodos.find(period => !period.arquivado) || db.configs.periodos[0])?.id || '';
+  }
+  return db.configs.periodos;
+}
+
+function getPeriodById(periods, id) {
+  return (periods || []).find(period => period.id === id);
+}
+
+function getActivePeriod() {
+  const periods = getSchedulePeriods();
+  return getPeriodById(periods, db.configs.periodoAtivoId) || periods[0] || null;
+}
+
+function getSchedule() {
+  const period = getActivePeriod();
+  if (!period) return [];
+  period.aulas = normalizeSchedule(period.aulas || [], false);
+  db.configs.cronograma = period.aulas;
+  return period.aulas;
+}
+
+function normalizeSchedulePeriods(source = [], legacySchedule = []) {
+  const hasSourcePeriods = Array.isArray(source) && source.length;
+  const current = hasSourcePeriods ? source : [{
+    id: 'periodo_demo',
+    nome: 'Período atual',
+    inicio: '',
+    fim: '',
+    arquivado: false,
+    aulas: legacySchedule
+  }];
+  return current.map((period, index) => ({
+    id: period.id || uid('periodo'),
+    nome: period.nome || period.titulo || `Período ${index + 1}`,
+    inicio: period.inicio || '',
+    fim: period.fim || '',
+    arquivado: Boolean(period.arquivado),
+    aulas: normalizeSchedule(period.aulas || period.cronograma || (index === 0 ? legacySchedule : []), !hasSourcePeriods && index === 0)
+  }));
+}
+
+function normalizeSchedule(source = [], fillDefaults = true) {
+  const current = Array.isArray(source) ? source : [];
+  if (fillDefaults) {
+    return CLASS_SCHEDULE.map((item, index) => normalizeScheduleItem(current.find(row => row.id === item.id) || current[index] || {}, item, index));
+  }
+  return current.map((item, index) => normalizeScheduleItem(item, {}, index));
+}
+
+function normalizeScheduleItem(saved = {}, fallback = {}, index = 0) {
+  const item = {
+    id: saved.id || fallback.id || uid('aula'),
+    aula: saved.aula || fallback.aula || `Aula ${index + 1}`,
+    dia: saved.dia || fallback.dia || '',
+    tema: saved.tema || fallback.tema || '',
+    foco: saved.foco || fallback.foco || '',
+    local: saved.local || fallback.local || '',
+    observacao: saved.observacao || fallback.observacao || '',
+    produtos: Array.isArray(saved.produtos) ? saved.produtos : clone(fallback.produtos || []),
+    categorias: Array.isArray(saved.categorias) ? saved.categorias : clone(fallback.categorias || [])
+  };
+  item.conteudo = normalizeLessonContent(saved.conteudo || saved.conteudoTeorico, fallback.conteudo, item);
+  return item;
+}
+
+function normalizeLessonContent(source = {}, fallback = {}, lesson = {}) {
+  const content = source && typeof source === 'object' ? source : {};
+  const base = fallback && typeof fallback === 'object' ? fallback : {};
+  return {
+    modo: content.modo === 'slides' ? 'slides' : 'texto',
+    titulo: content.titulo || base.titulo || lesson.tema || '',
+    texto: content.texto || content.corpo || base.texto || '',
+    imagens: Array.isArray(content.imagens) ? content.imagens : clone(base.imagens || [])
+  };
+}
+
+function normalizeTheoryContents(source = [], periods = []) {
+  const saved = Array.isArray(source) ? source : [];
+  const legacyLessons = (Array.isArray(periods) ? periods : []).flatMap(period => Array.isArray(period?.aulas) ? period.aulas : []);
+  const defaults = PRODUCT_CATEGORIES.map(category => {
+    const current = saved.find(item => item.id === category.id) || {};
+    const legacy = legacyLessons.find(lesson => (lesson.categorias || []).includes(category.id) && (lesson.conteudo?.texto || lesson.conteudo?.imagens?.length))?.conteudo || {};
+    return {
+      id: category.id,
+      titulo: current.titulo || category.titulo,
+      resumo: current.resumo || legacy.texto || category.resumo,
+      topicos: Array.isArray(current.topicos) ? current.topicos : clone(category.topicos || []),
+      perguntas: Array.isArray(current.perguntas) ? current.perguntas : clone(category.perguntas || []),
+      modo: current.modo === 'slides' || legacy.modo === 'slides' ? 'slides' : 'texto',
+      imagens: Array.isArray(current.imagens) ? current.imagens : clone(legacy.imagens || []),
+      produtos: Array.isArray(current.produtos) ? current.produtos : clone(category.produtos || []),
+      insumos: Array.isArray(current.insumos) ? current.insumos : clone(category.insumos || []),
+      padrao: true
+    };
+  });
+  const custom = saved.filter(item => !PRODUCT_CATEGORIES.some(category => category.id === item.id)).map(item => ({
+    id: item.id || uid('conteudo'),
+    titulo: item.titulo || 'Novo conteúdo',
+    resumo: item.resumo || '',
+    topicos: Array.isArray(item.topicos) ? item.topicos : [],
+    perguntas: Array.isArray(item.perguntas) ? item.perguntas : [],
+    modo: item.modo === 'slides' ? 'slides' : 'texto',
+    imagens: Array.isArray(item.imagens) ? item.imagens : [],
+    produtos: Array.isArray(item.produtos) ? item.produtos : [],
+    insumos: Array.isArray(item.insumos) ? item.insumos : [],
+    padrao: false
+  }));
+  return [...defaults, ...custom];
+}
+
+function getTheoryContents() {
+  db.configs.conteudosTeoricos = normalizeTheoryContents(db.configs.conteudosTeoricos, db.configs.periodos);
+  return db.configs.conteudosTeoricos;
+}
+
+function getTheoryContent(id) {
+  return getTheoryContents().find(item => item.id === id);
+}
+
+function normalizeLabRules(source = []) {
+  const list = Array.isArray(source) && source.length ? source : DEFAULT_RULES;
+  return list.map((rule, index) => ({
+    id: rule.id || uid('regra'),
+    numero: rule.numero || String(index + 1).padStart(2, '0'),
+    titulo: rule.titulo || rule.nome || `Regra ${index + 1}`,
+    texto: rule.texto || rule.descricao || ''
+  }));
+}
+
+function renderScheduleConfig() {
+  const root = $('#configCronogramaList');
+  if (!root) return;
+  const period = getActivePeriod();
+  renderPeriodControls(period);
+  const schedule = getSchedule();
+  root.innerHTML = schedule.map(scheduleConfigHTML).join('') || emptyHTML('Nenhuma aula cadastrada neste período.');
+  root.querySelectorAll('[data-schedule-field]').forEach(input => input.addEventListener('change', () => saveScheduleField(input)));
+  root.querySelectorAll('[data-schedule-product]').forEach(input => input.addEventListener('change', () => saveScheduleLinkField(input, 'produtos')));
+  root.querySelectorAll('[data-schedule-category]').forEach(input => input.addEventListener('change', () => saveScheduleLinkField(input, 'categorias')));
+  root.querySelectorAll('[data-delete-schedule]').forEach(btn => btn.addEventListener('click', () => deleteScheduleLesson(Number(btn.dataset.deleteSchedule))));
+}
+
+function renderContentConfig() {
+  const root = $('#configConteudosList');
+  if (!root) return;
+  root.innerHTML = getTheoryContents().map(contentConfigHTML).join('') || emptyHTML('Nenhum conteúdo cadastrado.');
+  root.querySelectorAll('[data-edit-content]').forEach(btn => btn.addEventListener('click', () => openTheoryContentModal(btn.dataset.editContent)));
+}
+
+function contentConfigHTML(content) {
+  const format = content.modo === 'slides' ? `${content.imagens.length} slide(s)` : `${content.topicos.length} tópico(s)`;
+  return `<button type="button" class="content-list-card" data-edit-content="${escapeAttr(content.id)}">
+    <div>
+      <strong>${escapeHTML(content.titulo)}</strong>
+      <span>${escapeHTML(format)} · ${(content.produtos || []).length} produto(s)</span>
+    </div>
+    <b>›</b>
+  </button>`;
+}
+
+function openTheoryContentModal(id = '') {
+  const content = id ? getTheoryContent(id) : null;
+  $('#conteudoId').value = content?.id || '';
+  $('#conteudoTitulo').value = content?.titulo || '';
+  $('#conteudoModo').value = content?.modo || 'texto';
+  $('#conteudoResumo').value = content?.resumo || '';
+  $('#conteudoTopicos').value = (content?.topicos || []).join('\n');
+  $('#conteudoPerguntas').value = (content?.perguntas || []).join('\n');
+  tempTheoryImages = clone(content?.imagens || []);
+  $('#conteudoImagens').value = '';
+  renderTheoryContentLinks(content);
+  renderTheoryContentImages();
+  updateTheoryContentMode();
+  $('#btnExcluirConteudo').style.display = content && !content.padrao ? 'inline-flex' : 'none';
+  openModal('modalConteudoEditor');
+}
+
+function updateTheoryContentMode() {
+  const fields = $('#conteudoTextoFields');
+  if (fields) fields.hidden = $('#conteudoModo')?.value === 'slides';
+}
+
+function renderTheoryContentLinks(content) {
+  const selectedProducts = new Set(content?.produtos || []);
+  const selectedIngredients = new Set(content?.insumos || []);
+  $('#conteudoProdutos').innerHTML = db.produtos.map(product => `<label class="check-pill"><input type="checkbox" value="${escapeAttr(product.id)}" ${selectedProducts.has(product.id) ? 'checked' : ''}><span>${escapeHTML(product.nome)}</span></label>`).join('');
+  $('#conteudoInsumos').innerHTML = db.insumos.map(ingredient => `<label class="check-pill"><input type="checkbox" value="${escapeAttr(ingredient.id)}" ${selectedIngredients.has(ingredient.id) ? 'checked' : ''}><span>${escapeHTML(ingredient.nome)}</span></label>`).join('');
+}
+
+async function handleTheoryContentImages(ev) {
+  const files = Array.from(ev.target.files || []).filter(file => file.type.startsWith('image/'));
+  try {
+    for (const file of files) tempTheoryImages.push(await fileToDataURL(file, 1280, 0.72));
+  } catch (err) {
+    console.error(err);
+    toast('Não foi possível preparar uma das imagens.');
+  }
+  ev.target.value = '';
+  renderTheoryContentImages();
+}
+
+function renderTheoryContentImages() {
+  const root = $('#conteudoImagensPreview');
+  root.innerHTML = tempTheoryImages.map((src, index) => `<div class="photo-wrap content-photo-wrap">
+    <img class="content-photo-thumb" src="${escapeAttr(src)}" alt="Slide ${index + 1}">
+    <button type="button" class="photo-remove" data-remove-theory-image="${index}" aria-label="Remover imagem">×</button>
+  </div>`).join('');
+  root.querySelectorAll('[data-remove-theory-image]').forEach(btn => btn.addEventListener('click', () => {
+    tempTheoryImages.splice(Number(btn.dataset.removeTheoryImage), 1);
+    renderTheoryContentImages();
+  }));
+}
+
+function saveTheoryContent() {
+  const id = $('#conteudoId').value || uid('conteudo');
+  const existing = getTheoryContent(id);
+  const content = {
+    id,
+    titulo: $('#conteudoTitulo').value.trim(),
+    modo: $('#conteudoModo').value === 'slides' ? 'slides' : 'texto',
+    resumo: $('#conteudoResumo').value.trim(),
+    topicos: linesFrom($('#conteudoTopicos').value),
+    perguntas: linesFrom($('#conteudoPerguntas').value),
+    imagens: clone(tempTheoryImages),
+    produtos: Array.from($('#conteudoProdutos').querySelectorAll('input:checked')).map(input => input.value),
+    insumos: Array.from($('#conteudoInsumos').querySelectorAll('input:checked')).map(input => input.value),
+    padrao: Boolean(existing?.padrao)
+  };
+  if (!content.titulo) return toast('Informe o nome do conteúdo.');
+  db.configs.conteudosTeoricos = getTheoryContents();
+  const previousContents = clone(db.configs.conteudosTeoricos);
+  const index = db.configs.conteudosTeoricos.findIndex(item => item.id === id);
+  if (index >= 0) db.configs.conteudosTeoricos[index] = content; else db.configs.conteudosTeoricos.push(content);
+  if (!saveDB()) {
+    db.configs.conteudosTeoricos = previousContents;
+    return;
+  }
+  closeModal('modalConteudoEditor');
+  renderContentConfig();
+  renderScheduleConfig();
+  renderAulas();
+  renderCronograma();
+  renderProdutos();
+  toast('Conteúdo salvo.');
+}
+
+function deleteTheoryContent() {
+  const id = $('#conteudoId').value;
+  const content = getTheoryContent(id);
+  if (!content || content.padrao) return;
+  openConfirmation({
+    title: 'Excluir conteúdo',
+    message: `Deseja excluir "${content.titulo}"? Esta ação também remove o vínculo desse assunto com o cronograma.`,
+    confirmLabel: 'Excluir',
+    action: () => performTheoryContentDeletion(id)
+  });
+}
+
+function performTheoryContentDeletion(id) {
+  db.configs.conteudosTeoricos = db.configs.conteudosTeoricos.filter(item => item.id !== id);
+  getSchedulePeriods().forEach(period => period.aulas.forEach(lesson => {
+    lesson.categorias = (lesson.categorias || []).filter(contentId => contentId !== id);
+  }));
+  saveDB();
+  closeModal('modalConteudoEditor');
+  renderContentConfig();
+  renderScheduleConfig();
+  renderAulas();
+  renderCronograma();
+  toast('Conteúdo excluído.');
+}
+
+function renderPeriodControls(period) {
+  const select = $('#periodoAtivoSelect');
+  if (!select || !period) return;
+  const periods = getSchedulePeriods();
+  select.innerHTML = periods.map(p => `<option value="${escapeAttr(p.id)}" ${p.id === period.id ? 'selected' : ''}>${escapeHTML(p.nome)}${p.arquivado ? ' (arquivado)' : ''}</option>`).join('');
+  $('#periodoNome').value = period.nome || '';
+  $('#periodoInicio').value = period.inicio || '';
+  $('#periodoFim').value = period.fim || '';
+  const archiveBtn = $('#btnArquivarPeriodo');
+  if (archiveBtn) archiveBtn.textContent = period.arquivado ? 'Reativar período' : 'Arquivar período';
+}
+
+function scheduleConfigHTML(item, index) {
+  return `<article class="config-schedule-card">
+    <div class="config-schedule-head">
+      <strong>${lessonNumberLabel(index)}</strong>
+      <button type="button" class="tiny-btn" data-delete-schedule="${index}" title="Excluir aula">×</button>
+    </div>
+    <div class="form-grid two-cols">
+      <div class="form-group">
+        <label>Tema</label>
+        <input type="text" value="${escapeAttr(item.tema || '')}" data-schedule-field="tema" data-schedule-index="${index}">
+      </div>
+      <div class="form-group">
+        <label>Dia da aula</label>
+        <input type="date" value="${escapeAttr(item.dia || '')}" data-schedule-field="dia" data-schedule-index="${index}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Local</label>
+      <input type="text" value="${escapeAttr(item.local || '')}" data-schedule-field="local" data-schedule-index="${index}" placeholder="Ex: Laboratório">
+    </div>
+    <div class="form-group">
+      <label>Foco da aula</label>
+      <textarea rows="2" data-schedule-field="foco" data-schedule-index="${index}">${escapeHTML(item.foco || '')}</textarea>
+    </div>
+    <div class="form-group">
+      <label>Observação</label>
+      <textarea rows="2" data-schedule-field="observacao" data-schedule-index="${index}" placeholder="Opcional">${escapeHTML(item.observacao || '')}</textarea>
+    </div>
+    <div class="schedule-link-grid">
+      <div>
+        <div class="linked-title">Produtos vinculados</div>
+        <div class="check-pill-grid">${scheduleProductChecks(item, index)}</div>
+      </div>
+      <div>
+        <div class="linked-title">Aulas teóricas vinculadas</div>
+        <div class="check-pill-grid">${scheduleCategoryChecks(item, index)}</div>
+      </div>
+    </div>
+  </article>`;
+}
+
+function scheduleProductChecks(item, index) {
+  const selected = new Set(item.produtos || []);
+  return db.produtos.map(p => `<label class="check-pill"><input type="checkbox" ${selected.has(p.id) ? 'checked' : ''} data-schedule-product="${escapeAttr(p.id)}" data-schedule-index="${index}"><span>${escapeHTML(p.nome)}</span></label>`).join('');
+}
+
+function scheduleCategoryChecks(item, index) {
+  const selected = new Set(item.categorias || []);
+  return getTheoryContents().map(content => `<label class="check-pill"><input type="checkbox" ${selected.has(content.id) ? 'checked' : ''} data-schedule-category="${escapeAttr(content.id)}" data-schedule-index="${index}"><span>${escapeHTML(content.titulo)}</span></label>`).join('');
+}
+
+function renderRulesConfig() {
+  const root = $('#configRulesList');
+  if (!root) return;
+  db.configs.regrasLaboratorio = normalizeLabRules(db.configs.regrasLaboratorio);
+  root.innerHTML = db.configs.regrasLaboratorio.map(labRuleConfigHTML).join('') || emptyHTML('Nenhuma regra cadastrada.');
+  root.querySelectorAll('[data-rule-field]').forEach(input => input.addEventListener('change', () => saveLabRuleField(input)));
+  root.querySelectorAll('[data-delete-rule]').forEach(btn => btn.addEventListener('click', () => deleteLabRule(btn.dataset.deleteRule)));
+}
+
+function labRuleConfigHTML(rule, index) {
+  return `<article class="config-rule-card">
+    <div class="config-schedule-head">
+      <strong>${escapeHTML(rule.numero || String(index + 1).padStart(2, '0'))} · ${escapeHTML(rule.titulo || 'Regra')}</strong>
+      <button type="button" class="tiny-btn" data-delete-rule="${escapeAttr(rule.id)}" title="Excluir regra">×</button>
+    </div>
+    <div class="form-grid two-cols">
+      <div class="form-group">
+        <label>Número</label>
+        <input type="text" value="${escapeAttr(rule.numero || '')}" data-rule-field="numero" data-rule-id="${escapeAttr(rule.id)}">
+      </div>
+      <div class="form-group">
+        <label>Título</label>
+        <input type="text" value="${escapeAttr(rule.titulo || '')}" data-rule-field="titulo" data-rule-id="${escapeAttr(rule.id)}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Texto da regra</label>
+      <textarea rows="3" data-rule-field="texto" data-rule-id="${escapeAttr(rule.id)}">${escapeHTML(rule.texto || '')}</textarea>
+    </div>
+  </article>`;
+}
+
+function saveLabRuleField(input) {
+  const rule = db.configs.regrasLaboratorio.find(item => item.id === input.dataset.ruleId);
+  if (!rule) return;
+  rule[input.dataset.ruleField] = input.value;
+  saveDB();
+  renderRules();
+  renderRulesConfig();
+  toast('Regra atualizada.');
+}
+
+function addLabRule() {
+  db.configs.regrasLaboratorio = normalizeLabRules(db.configs.regrasLaboratorio);
+  const next = db.configs.regrasLaboratorio.length + 1;
+  db.configs.regrasLaboratorio.push({ id: uid('regra'), numero: String(next).padStart(2, '0'), titulo: 'Nova regra', texto: '' });
+  saveDB();
+  renderRules();
+  renderRulesConfig();
+  toast('Regra adicionada.');
+}
+
+function deleteLabRule(id) {
+  if (!id) return;
+  if (!confirm('Excluir esta regra?')) return;
+  db.configs.regrasLaboratorio = db.configs.regrasLaboratorio.filter(rule => rule.id !== id);
+  saveDB();
+  renderRules();
+  renderRulesConfig();
+  toast('Regra excluída.');
+}
+
+function saveScheduleField(input) {
+  const index = Number(input.dataset.scheduleIndex);
+  const field = input.dataset.scheduleField;
+  const schedule = getSchedule();
+  if (!schedule[index] || !field) return;
+  schedule[index][field] = input.value;
+  saveDB();
+  renderCronograma();
+  renderContentConfig();
+  renderAulas();
+  toast('Cronograma atualizado.');
+}
+
+function saveScheduleLinkField(input, field) {
+  const index = Number(input.dataset.scheduleIndex);
+  const schedule = getSchedule();
+  if (!schedule[index]) return;
+  const selector = field === 'produtos' ? `[data-schedule-product][data-schedule-index="${index}"]` : `[data-schedule-category][data-schedule-index="${index}"]`;
+  const attr = field === 'produtos' ? 'scheduleProduct' : 'scheduleCategory';
+  schedule[index][field] = $$(selector).filter(el => el.checked).map(el => el.dataset[attr]);
+  saveDB();
+  renderCronograma();
+  renderAulas();
+  toast('Vínculo atualizado.');
+}
+
+function setActivePeriod(id) {
+  if (!getSchedulePeriods().some(period => period.id === id)) return;
+  db.configs.periodoAtivoId = id;
+  saveDB();
+  renderActivePeriodLabel();
+  renderScheduleConfig();
+  renderContentConfig();
+  renderCronograma();
+  renderAulas();
+}
+
+function savePeriodField(field, value) {
+  const period = getActivePeriod();
+  if (!period) return;
+  period[field] = value;
+  saveDB();
+  renderActivePeriodLabel();
+  renderCronograma();
+  renderScheduleConfig();
+  toast('Período atualizado.');
+}
+
+function createPeriod(archiveCurrent = false) {
+  const current = getActivePeriod();
+  if (archiveCurrent && current) current.arquivado = true;
+  const year = new Date().getFullYear();
+  const period = { id: uid('periodo'), nome: `Novo período ${year}`, inicio: '', fim: '', arquivado: false, aulas: [] };
+  getSchedulePeriods().push(period);
+  db.configs.periodoAtivoId = period.id;
+  saveDB();
+  renderActivePeriodLabel();
+  renderScheduleConfig();
+  renderContentConfig();
+  renderCronograma();
+  renderAulas();
+  toast(archiveCurrent ? 'Período arquivado e novo período criado.' : 'Novo período criado.');
+}
+
+function archiveActivePeriod() {
+  const period = getActivePeriod();
+  if (!period) return;
+  period.arquivado = !period.arquivado;
+  saveDB();
+  renderActivePeriodLabel();
+  renderScheduleConfig();
+  renderContentConfig();
+  renderCronograma();
+  renderAulas();
+  toast(period.arquivado ? 'Período arquivado.' : 'Período reativado.');
+}
+
+function addScheduleLesson() {
+  const period = getActivePeriod();
+  if (!period) return;
+  period.aulas.push(normalizeScheduleItem({ aula: lessonNumberLabel(period.aulas.length), tema: '', foco: '', produtos: [], categorias: [] }, {}, period.aulas.length));
+  saveDB();
+  renderScheduleConfig();
+  renderContentConfig();
+  renderAulas();
+  renderCronograma();
+  toast('Aula adicionada.');
+}
+
+function deleteScheduleLesson(index) {
+  const period = getActivePeriod();
+  if (!period?.aulas?.[index]) return;
+  if (!confirm('Excluir esta aula do cronograma?')) return;
+  period.aulas.splice(index, 1);
+  saveDB();
+  renderScheduleConfig();
+  renderContentConfig();
+  renderAulas();
+  renderCronograma();
+  toast('Aula excluída.');
+}
+
+function periodDateLabel(period) {
+  const start = formatScheduleDate(period?.inicio);
+  const end = formatScheduleDate(period?.fim);
+  if (start && end) return `${start} a ${end}${period.arquivado ? ' · arquivado' : ''}`;
+  if (start) return `Início ${start}${period.arquivado ? ' · arquivado' : ''}`;
+  if (period?.arquivado) return 'Arquivado';
+  return 'Período ativo';
+}
+
+function formatScheduleDate(value) {
+  if (!value) return '';
+  const [year, month, day] = String(value).split('-');
+  if (year && month && day) return `${day}/${month}/${year}`;
+  return value;
+}
+
+function scheduleDateParts(value) {
+  if (!value) return { day: '--', weekday: 'DATA', month: '---', year: 'A definir' };
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return { day: value, weekday: 'DATA', month: '', year: '' };
+  return {
+    day: String(date.getDate()).padStart(2, '0'),
+    weekday: date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').toUpperCase(),
+    month: date.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase(),
+    year: String(date.getFullYear())
+  };
+}
+
+function lessonNumberLabel(index) {
+  return `Aula ${String(Number(index) + 1).padStart(2, '0')}`;
+}
+
+function renderAulaSelect() {
+  if (!$('#aulaProdutoSelect')) return;
+  $('#aulaProdutoSelect').innerHTML = db.produtos.map(p => `<option value="${escapeAttr(p.id)}">${escapeHTML(p.nome)}</option>`).join('');
+  if (db.configs.ultimoProdutoAula && db.produtos.some(p => p.id === db.configs.ultimoProdutoAula)) $('#aulaProdutoSelect').value = db.configs.ultimoProdutoAula;
+}
+
+function renderAulas() {
+  const root = $('#aulaContent');
+  const schedule = getSchedule();
+  if (!schedule.length) {
+    root.innerHTML = emptyHTML('Nenhuma aula cadastrada no período ativo.');
+    return;
+  }
+  activeTheoryLessonIndex = Math.max(0, Math.min(schedule.length - 1, activeTheoryLessonIndex));
+  root.innerHTML = `
+    <div class="lesson-tabs" role="tablist">
+      ${schedule.map((item, index) => `<button type="button" class="lesson-tab ${index === activeTheoryLessonIndex ? 'active' : ''}" data-theory-lesson="${index}">${lessonNumberLabel(index)}</button>`).join('')}
+    </div>
+    <div class="theory-lesson-list">
+      ${schedule.map((item, index) => theoryScheduleLessonHTML(item, index)).join('')}
+    </div>
+    <div class="notice-card">
+      <strong>Uso didático.</strong> As referências legais ficam aqui como apoio às aulas. Para registro, rotulagem oficial ou inspeção, confira sempre a norma vigente no órgão competente.
+    </div>
+    <div class="section-header"><div><h2>Referências legais</h2></div></div>
+    <div class="stack-list">${db.legislacoes.map(lawCardHTML).join('')}</div>`;
+  root.querySelectorAll('[data-theory-lesson]').forEach(btn => btn.addEventListener('click', () => {
+    activeTheoryLessonIndex = Number(btn.dataset.theoryLesson);
+    activeTheoryImageIndex = 0;
+    renderAulas();
+  }));
+  bindTheorySlides(root);
+  root.querySelectorAll('[data-view-theory-content]').forEach(btn => btn.addEventListener('click', () => openTheoryContentView(btn.dataset.viewTheoryContent)));
+  bindInternalLinks(root);
+  bindLawLinks(root);
+}
+
+function theoryScheduleLessonHTML(item, index) {
+  const categories = (item.categorias || []).map(getTheoryContent).filter(Boolean);
+  return `<article class="theory-lesson-panel ${index === activeTheoryLessonIndex ? 'active' : ''}" data-theory-panel="${index}">
+    <header class="theory-lesson-header">
+      <div>
+        <span>${lessonNumberLabel(index)}${item.dia ? ` · ${escapeHTML(formatScheduleDate(item.dia))}` : ''}</span>
+        <h3>${escapeHTML(item.tema || lessonNumberLabel(index))}</h3>
+      </div>
+    </header>
+    <div class="theory-subject-list">
+      ${categories.map(theorySubjectListHTML).join('') || '<div class="notice-card slim">Nenhum assunto teórico vinculado a esta aula.</div>'}
+    </div>
+    <div class="lesson-links">
+      ${(item.produtos || []).length ? `<div class="linked-block"><div class="linked-title">Roteiros desta aula</div>${linkedProductsHTML(item.produtos)}</div>` : ''}
+    </div>
+  </article>`;
+}
+
+function theorySubjectListHTML(content) {
+  const format = content.modo === 'slides' ? `${content.imagens?.length || 0} slide(s)` : `${content.topicos?.length || 0} tópico(s)`;
+  return `<button type="button" class="theory-subject-button" data-view-theory-content="${escapeAttr(content.id)}">
+    <div>
+      <strong>${escapeHTML(content.titulo)}</strong>
+      <span>${escapeHTML(format)}</span>
+    </div>
+    <b>›</b>
+  </button>`;
+}
+
+function openTheoryContentView(id) {
+  const content = getTheoryContent(id);
+  if (!content) return toast('Conteúdo não encontrado.');
+  $('#conteudoViewTitle').textContent = content.titulo;
+  $('#conteudoViewBody').innerHTML = theoryLessonHTML(content);
+  bindTheorySlides($('#conteudoViewBody'));
+  bindInternalLinks($('#conteudoViewBody'));
+  openModal('modalConteudoView');
+}
+
+function theorySlidesHTML(images) {
+  const index = 0;
+  return `<div class="theory-slides" data-theory-slides>
+    <div class="theory-slide-frame">
+      ${images.map((src, imageIndex) => `<img src="${escapeAttr(src)}" alt="Slide ${imageIndex + 1}" class="${imageIndex === index ? 'active' : ''}" data-theory-image="${imageIndex}">`).join('')}
+    </div>
+    <div class="theory-slide-controls">
+      <button type="button" class="secondary-btn compact" data-theory-slide-prev>Voltar</button>
+      <strong data-theory-slide-position>${index + 1} / ${images.length}</strong>
+      <button type="button" class="primary-btn compact" data-theory-slide-next>Avançar</button>
+    </div>
+  </div>`;
+}
+
+function bindTheorySlides(root) {
+  root.querySelectorAll('[data-theory-slides]').forEach(wrap => {
+    const images = Array.from(wrap.querySelectorAll('[data-theory-image]'));
+    const position = wrap.querySelector('[data-theory-slide-position]');
+    let index = 0;
+    const show = next => {
+      index = Math.max(0, Math.min(images.length - 1, next));
+      images.forEach((image, imageIndex) => image.classList.toggle('active', imageIndex === index));
+      if (position) position.textContent = `${index + 1} / ${images.length}`;
+    };
+    wrap.querySelector('[data-theory-slide-prev]')?.addEventListener('click', () => show(index - 1));
+    wrap.querySelector('[data-theory-slide-next]')?.addEventListener('click', () => show(index + 1));
+  });
+}
+
+function renderLegislacao() {
+  if (!$('#legislacaoList')) return;
+  $('#legislacaoList').innerHTML = db.legislacoes.map(lawCardHTML).join('') || emptyHTML('Nenhuma referência legal cadastrada.');
+  bindLawLinks($('#legislacaoList'));
+}
+
+function theoryLessonHTML(lesson) {
+  const content = getTheoryContent(lesson.id) || lesson;
+  const showSlides = content.modo === 'slides' && content.imagens?.length;
+  return `<article class="theory-card">
+    <h3>${escapeHTML(content.titulo)}</h3>
+    ${showSlides ? theorySlidesHTML(content.imagens) : `
+      <p>${escapeHTML(content.resumo)}</p>
+      <div class="theory-columns">
+        <div>
+          <h4>Tópicos</h4>
+          ${unorderedList(content.topicos)}
+        </div>
+        <div>
+          <h4>Perguntas</h4>
+          ${unorderedList(content.perguntas)}
+        </div>
+      </div>`}
+    <div class="linked-block">
+      <div class="linked-title">Roteiros disponíveis</div>
+      ${linkedProductsHTML(content.produtos || [])}
+    </div>
+    <div class="linked-block">
+      <div class="linked-title">Insumos citados</div>
+      ${linkedIngredientsHTML(content.insumos || [])}
+    </div>
+  </article>`;
+}
+
+function linkedProductsHTML(ids) {
+  return `<div class="link-chip-row">${ids.map(id => {
+    const p = findProduct(id);
+    return p ? `<button type="button" class="link-chip" data-open-product="${escapeAttr(id)}">${escapeHTML(p.nome)}</button>` : '';
+  }).join('')}</div>`;
+}
+
+function linkedIngredientsHTML(ids) {
+  return `<div class="link-chip-row">${ids.map(id => {
+    const i = findIngredient(id);
+    return i ? `<button type="button" class="link-chip" data-open-ingredient="${escapeAttr(id)}">${escapeHTML(i.nome)}</button>` : '';
+  }).join('')}</div>`;
+}
+
+function bindInternalLinks(root) {
+  root?.querySelectorAll('[data-open-product]').forEach(btn => btn.addEventListener('click', () => openProductWorkspace(btn.dataset.openProduct)));
+  root?.querySelectorAll('[data-open-ingredient]').forEach(btn => btn.addEventListener('click', () => openIngredientView(btn.dataset.openIngredient)));
+}
+
+function lawCardHTML(law) {
+  const product = law.produtoId ? findProduct(law.produtoId) : null;
+  return `<details class="law-card">
+    <summary class="law-summary">
+      <h3>${escapeHTML(lawDisplayTitle(law))}</h3>
+      <p>${escapeHTML(law.resumo || '')}</p>
+      <span aria-hidden="true">+</span>
+    </summary>
+    <div class="law-details">
+      <div class="item-subtitle">${escapeHTML(law.orgao || '')}${product ? ' · ' + escapeHTML(product.nome) : ' · Geral'}</div>
+      ${unorderedList(law.pontos || [])}
+      ${law.url ? `<button type="button" class="secondary-btn full" data-open-url="${escapeAttr(law.url)}">Abrir referência</button>` : ''}
+    </div>
+  </details>`;
+}
+
+function lawDisplayTitle(law) {
+  const labels = {
+    leg_hamburguer_724_2022: 'Portaria SDA/MAPA nº 724/2022 - RTIQ do hambúrguer',
+    leg_linguica_in4_2000: 'IN SDA/MAPA nº 4/2000 - RTIQ de linguiça',
+    leg_salsicha_in4_2000: 'IN SDA/MAPA nº 4/2000 - RTIQ de salsicha',
+    leg_riispoa_9013: 'Decreto nº 9.013/2017 - RIISPOA',
+    leg_rotulagem_anvisa: 'RDC nº 429/2020 e IN nº 75/2020 - Rotulagem nutricional'
+  };
+  return labels[law.id] || law.titulo || 'Referência legal';
+}
+
+function bindLawLinks(root) {
+  root?.querySelectorAll('[data-open-url]').forEach(btn => btn.addEventListener('click', () => window.open(btn.dataset.openUrl, '_blank', 'noopener')));
+}
+
+function openProductModal(id = null) {
+  const p = id ? findProduct(id) : null;
+  $('#produtoId').value = p?.id || '';
+  $('#produtoNome').value = p?.nome || '';
+  $('#produtoCategoria').value = p?.categoria || '';
+  setMultiSelectValues($('#produtoCategoriaDidatica'), normalizeCategoryIds(p));
+  $('#produtoDescricao').value = p?.descricao || '';
+  $('#produtoObjetivo').value = p?.objetivo || '';
+  $('#paramGorduraMax').value = p?.parametros?.gorduraMax ?? '';
+  $('#paramProteinaMin').value = p?.parametros?.proteinaMin ?? '';
+  $('#paramCarbMax').value = p?.parametros?.carbMax ?? '';
+  $('#paramPncMax').value = p?.parametros?.proteinaNaoCarneaMax ?? '';
+  $('#paramProibePnc').checked = Boolean(p?.parametros?.proibeProteinaNaoCarnea);
+  $('#paramMostrarValidacao').checked = p?.parametros?.mostrarValidacao !== false;
+  $('#produtoFluxo').value = (p?.fluxo || []).join('\n');
+  $('#produtoPontos').value = (p?.pontos || []).join('\n');
+  $('#produtoEquipamentos').value = (p?.equipamentos || []).join('\n');
+  $('#produtoPerguntas').value = (p?.perguntas || []).join('\n');
+  tempProductPhotos = clone(p?.fotos || []);
+  $('#produtoFotos').value = '';
+  renderProductPhotoPreview();
+  $('#btnExcluirProduto').style.display = p ? 'inline-flex' : 'none';
+  openModal('modalProduto');
+}
+
+async function handleProductPhotos(ev) {
+  const files = Array.from(ev.target.files || []);
+  for (const file of files) {
+    if (!file.type.startsWith('image/')) continue;
+    const dataUrl = await fileToDataURL(file, 1200, 0.82);
+    tempProductPhotos.push(dataUrl);
+  }
+  renderProductPhotoPreview();
+}
+
+function renderProductPhotoPreview() {
+  const wrap = $('#produtoFotosPreview');
+  wrap.innerHTML = tempProductPhotos.map((src, index) => `
+    <div class="photo-wrap"><img class="photo-thumb" src="${escapeAttr(src)}" alt="Foto"><button type="button" class="photo-remove" data-remove-photo="${index}">×</button></div>
+  `).join('');
+  wrap.querySelectorAll('[data-remove-photo]').forEach(btn => btn.addEventListener('click', () => {
+    tempProductPhotos.splice(Number(btn.dataset.removePhoto), 1);
+    renderProductPhotoPreview();
+  }));
+}
+
+function saveProductFromModal() {
+  const id = $('#produtoId').value || uid('prod');
+  const categoriaIds = multiSelectValues($('#produtoCategoriaDidatica'));
+  const product = {
+    id,
+    nome: $('#produtoNome').value.trim(),
+    categoria: $('#produtoCategoria').value.trim(),
+    categoriaId: categoriaIds[0] || '',
+    categoriaIds,
+    especie: findProduct(id)?.especie || '',
+    tipo: findProduct(id)?.tipo || inferProductTypeFromName($('#produtoNome').value),
+    descricao: $('#produtoDescricao').value.trim(),
+    objetivo: $('#produtoObjetivo').value.trim(),
+    parametros: {
+      gorduraMax: numberOrBlank($('#paramGorduraMax').value),
+      proteinaMin: numberOrBlank($('#paramProteinaMin').value),
+      carbMax: numberOrBlank($('#paramCarbMax').value),
+      proteinaNaoCarneaMax: numberOrBlank($('#paramPncMax').value),
+      proibeProteinaNaoCarnea: $('#paramProibePnc').checked,
+      mostrarValidacao: $('#paramMostrarValidacao').checked
+    },
+    fotos: tempProductPhotos,
+    fluxo: linesFrom($('#produtoFluxo').value),
+    pontos: linesFrom($('#produtoPontos').value),
+    equipamentos: linesFrom($('#produtoEquipamentos').value),
+    perguntas: linesFrom($('#produtoPerguntas').value)
+  };
+  if (!product.nome) return toast('Informe o nome do produto.');
+  product.categoriaIds = product.categoriaIds.length ? product.categoriaIds : inferProductCategoryIds(product);
+  product.categoriaId = product.categoriaIds[0] || inferProductCategoryId(product);
+  const idx = db.produtos.findIndex(p => p.id === id);
+  if (idx >= 0) db.produtos[idx] = product; else db.produtos.push(product);
+  activeProductId = id;
+  db.configs.ultimoProdutoAula = id;
+  db.configs.produtoSelecionado = id;
+  saveDB();
+  closeModal('modalProduto');
+  renderAll();
+  toast('Produto salvo.');
+}
+
+function deleteProductFromModal() {
+  const id = $('#produtoId').value;
+  if (!id) return;
+  const used = db.formulacoes.some(f => f.produtoId === id);
+  if (used && !confirm('Este produto possui formulações. Excluir mesmo assim?')) return;
+  db.produtos = db.produtos.filter(p => p.id !== id);
+  db.formulacoes = db.formulacoes.filter(f => f.produtoId !== id);
+  db.legislacoes.forEach(l => { if (l.produtoId === id) l.produtoId = null; });
+  activeProductId = '';
+  db.configs.produtoSelecionado = '';
+  saveDB();
+  closeModal('modalProduto');
+  renderAll();
+  toast('Produto excluído.');
+}
+
+function populateTypeOptions() {
+  $('#insumoTipo').innerHTML = TYPES.map(t => `<option value="${escapeAttr(t.value)}">${escapeHTML(t.label)}</option>`).join('');
+  populateSubtypeOptions($('#insumoTipo')?.value || TYPES[0]?.value);
+}
+
+function populateSubtypeOptions(type, selected = '') {
+  const select = $('#insumoSubtipo');
+  if (!select) return;
+  const options = ingredientSubtypes(type);
+  select.innerHTML = [`<option value="">Sem subdivisão</option>`, ...options.map(value => `<option value="${escapeAttr(value)}">${escapeHTML(capitalizeFirst(value))}</option>`)].join('');
+  if (selected && options.includes(selected)) select.value = selected;
+}
+
+function populateProductCategoryOptions() {
+  const select = $('#produtoCategoriaDidatica');
+  if (!select) return;
+  select.innerHTML = PRODUCT_CATEGORIES.map(category => `<option value="${escapeAttr(category.id)}">${escapeHTML(theoryTitle(category.id))}</option>`).join('');
+}
+
+function openIngredientModal(id = null) {
+  const i = id ? findIngredient(id) : null;
+  $('#insumoId').value = i?.id || '';
+  $('#insumoNome').value = i?.nome || '';
+  $('#insumoTipo').value = i ? normalizeIngredientType(i) : TYPES[0].value;
+  populateSubtypeOptions($('#insumoTipo').value, i?.subtipo || '');
+  $('#insumoFuncao').value = i?.funcao || '';
+  $('#insumoObs').value = i?.obs || '';
+  $('#insumoGordura').value = i?.gordura ?? 0;
+  $('#insumoProteina').value = i?.proteina ?? 0;
+  $('#insumoCarbo').value = i?.carboidrato ?? 0;
+  $('#insumoCusto').value = i?.custo ?? 0;
+  $('#insumoUsadoSim').checked = i ? i.usadoNaFormulacao !== false : true;
+  $('#insumoUsadoNao').checked = i ? i.usadoNaFormulacao === false : false;
+  $('#insumoPnc').checked = Boolean(i?.proteinaNaoCarnea);
+  $('#insumoAlergeno').checked = Boolean(i?.alergeno);
+  tempIngredientPhoto = i?.foto || '';
+  $('#insumoFoto').value = '';
+  renderIngredientPhotoPreview();
+  $('#btnExcluirInsumo').style.display = i ? 'inline-flex' : 'none';
+  openModal('modalInsumo');
+}
+
+async function handleIngredientPhoto(ev) {
+  const file = Array.from(ev.target.files || []).find(item => item.type.startsWith('image/'));
+  if (!file) return;
+  tempIngredientPhoto = await fileToDataURL(file, 1000, 0.82);
+  renderIngredientPhotoPreview();
+}
+
+function renderIngredientPhotoPreview() {
+  const wrap = $('#insumoFotoPreview');
+  if (!wrap) return;
+  wrap.innerHTML = tempIngredientPhoto ? `
+    <div class="photo-wrap"><img class="photo-thumb" src="${escapeAttr(tempIngredientPhoto)}" alt="Foto"><button type="button" class="photo-remove" data-remove-ingredient-photo>×</button></div>
+  ` : '';
+  wrap.querySelector('[data-remove-ingredient-photo]')?.addEventListener('click', () => {
+    tempIngredientPhoto = '';
+    $('#insumoFoto').value = '';
+    renderIngredientPhotoPreview();
+  });
+}
+
+function openIngredientView(id = null) {
+  const i = findIngredient(id);
+  if (!i) return toast('Insumo não encontrado.');
+  $('#insumoViewTitle').textContent = i.nome;
+  $('#insumoViewContent').innerHTML = `
+    <div class="ingredient-view-card">
+      ${i.foto ? `<img class="ingredient-view-photo" src="${escapeAttr(i.foto)}" alt="">` : ''}
+      <div class="item-meta">
+        <span class="badge info">${escapeHTML(typeLabel(i.tipo))}</span>
+        ${i.subtipo ? `<span class="badge">${escapeHTML(capitalizeFirst(i.subtipo))}</span>` : ''}
+        ${i.usadoNaFormulacao === false ? '<span class="badge">Fora da formulação</span>' : ''}
+        ${i.alergeno ? '<span class="badge danger">alérgeno</span>' : ''}
+        ${i.proteinaNaoCarnea ? '<span class="badge warn">proteína agregada</span>' : ''}
+      </div>
+      <div class="ingredient-view-section">
+        <h3>Função tecnológica</h3>
+        <p>${escapeHTML(i.funcao || 'Função não cadastrada.')}</p>
+      </div>
+      ${i.obs ? `<div class="ingredient-view-section"><h3>Observação</h3><p>${escapeHTML(i.obs)}</p></div>` : ''}
+      <div class="analysis-grid ingredient-metrics">
+        <div class="analysis-metric"><strong>${fmt(i.gordura)}%</strong><span>Gordura</span></div>
+        <div class="analysis-metric"><strong>${fmt(i.proteina)}%</strong><span>Proteína</span></div>
+        <div class="analysis-metric"><strong>${fmt(i.carboidrato)}%</strong><span>Carboidrato</span></div>
+      </div>
+    </div>`;
+  openModal('modalInsumoView');
+}
+
+function saveIngredientFromModal() {
+  const id = $('#insumoId').value || uid('ing');
+  const ingredient = {
+    id,
+    nome: $('#insumoNome').value.trim(),
+    categoria: typeLabel($('#insumoTipo').value),
+    tipo: $('#insumoTipo').value,
+    subtipo: $('#insumoSubtipo').value,
+    funcao: $('#insumoFuncao').value.trim(),
+    obs: $('#insumoObs').value.trim(),
+    gordura: toNumber($('#insumoGordura').value),
+    proteina: toNumber($('#insumoProteina').value),
+    carboidrato: toNumber($('#insumoCarbo').value),
+    custo: toNumber($('#insumoCusto').value),
+    usadoNaFormulacao: $('#insumoUsadoSim').checked,
+    proteinaNaoCarnea: $('#insumoPnc').checked || isFunctionalProtein({ tipo: $('#insumoTipo').value, subtipo: $('#insumoSubtipo').value, nome: $('#insumoNome').value }),
+    alergeno: $('#insumoAlergeno').checked,
+    foto: tempIngredientPhoto
+  };
+  if (!ingredient.nome) return toast('Informe o nome do insumo.');
+  const idx = db.insumos.findIndex(i => i.id === id);
+  if (idx >= 0) db.insumos[idx] = ingredient; else db.insumos.push(ingredient);
+  saveDB();
+  closeModal('modalInsumo');
+  renderAll();
+  if ($('#modalFormula')?.classList.contains('show')) {
+    renderFormulaFilters();
+    renderFormulaItems();
+  }
+  toast('Insumo salvo.');
+}
+
+function deleteIngredientFromModal() {
+  const id = $('#insumoId').value;
+  if (!id) return;
+  const used = db.formulacoes.some(f => f.itens.some(item => item.insumoId === id));
+  if (used) return toast('Este insumo está em uma formulação. Remova-o da formulação antes de excluir.');
+  db.insumos = db.insumos.filter(i => i.id !== id);
+  saveDB();
+  closeModal('modalInsumo');
+  renderAll();
+  toast('Insumo excluído.');
+}
+
+function openFormulaModal(id = null, productId = null) {
+  renderFormulaFilters();
+  const f = id ? findFormula(id) : null;
+  const selectedProduct = productId || activeProductId || db.produtos[0]?.id || '';
+  const product = findProduct(f?.produtoId || selectedProduct);
+  $('#formulaId').value = f?.id || '';
+  $('#formulaProduto').value = f?.produtoId || selectedProduct;
+  $('#formulaNome').value = f?.nome || '';
+  $('#formulaPeso').value = f?.pesoReferencia || 1000;
+  $('#formulaBaseCalculo').value = f?.baseCalculo || defaultFormulaBase(product);
+  $('#formulaRendimento').value = f?.rendimento ?? '';
+  $('#formulaObs').value = f?.observacoes || '';
+  formulaDraftItems = clone(f?.itens || [{ insumoId: formulaEligibleIngredients()[0]?.id || '', percentual: 100 }]);
+  $('#btnExcluirFormula').style.display = f ? 'inline-flex' : 'none';
+  renderFormulaItems();
+  openModal('modalFormula');
+}
+
+function renderFormulaItems() {
+  const draft = getFormulaFromModal(false);
+  $('#formulaItens').innerHTML = formulaDraftItems.map((item, idx) => {
+    const grams = formulaItemGrams(draft, item);
+    const options = formulaEligibleIngredients(item.insumoId);
+    return `<tr>
+      <td><select data-row-insumo="${idx}">${options.map(i => `<option value="${escapeAttr(i.id)}" ${i.id === item.insumoId ? 'selected' : ''}>${escapeHTML(i.nome)}</option>`).join('')}</select></td>
+      <td><input type="number" step="0.1" data-row-pct="${idx}" value="${escapeAttr(item.percentual)}"></td>
+      <td><strong data-row-grams="${idx}">${fmt(grams)} g</strong></td>
+      <td><button type="button" class="tiny-btn" data-row-del="${idx}" title="Remover">×</button></td>
+    </tr>`;
+  }).join('');
+  $('#formulaItens').querySelectorAll('[data-row-insumo]').forEach(el => el.addEventListener('change', () => {
+    formulaDraftItems[Number(el.dataset.rowInsumo)].insumoId = el.value;
+    renderFormulaSummary();
+  }));
+  $('#formulaItens').querySelectorAll('[data-row-pct]').forEach(el => el.addEventListener('input', () => {
+    const idx = Number(el.dataset.rowPct);
+    formulaDraftItems[idx].percentual = toNumber(el.value);
+    const draft = getFormulaFromModal(false);
+    const grams = formulaItemGrams(draft, formulaDraftItems[idx]);
+    const gramsCell = $(`[data-row-grams="${idx}"]`);
+    if (gramsCell) gramsCell.textContent = `${fmt(grams)} g`;
+    renderFormulaSummary();
+  }));
+  $('#formulaItens').querySelectorAll('[data-row-del]').forEach(el => el.addEventListener('click', () => {
+    formulaDraftItems.splice(Number(el.dataset.rowDel), 1);
+    renderFormulaItems();
+  }));
+  renderFormulaSummary();
+}
+
+function formulaEligibleIngredients(currentId = '') {
+  return db.insumos.filter(ingredient => ingredient.usadoNaFormulacao !== false || ingredient.id === currentId);
+}
+
+function renderFormulaSummary() {
+  const draft = getFormulaFromModal(false);
+  $('#formulaResumo').innerHTML = analysisHTML(analyzeFormula(draft));
+}
+
+function getFormulaFromModal(requireName = true) {
+  const existing = findFormula($('#formulaId').value);
+  return {
+    id: $('#formulaId').value || uid('form'),
+    produtoId: $('#formulaProduto').value,
+    nome: $('#formulaNome').value.trim() || (requireName ? '' : 'Formulação em edição'),
+    pesoReferencia: toNumber($('#formulaPeso').value) || 1000,
+    baseCalculo: $('#formulaBaseCalculo').value || defaultFormulaBase(findProduct($('#formulaProduto').value)),
+    rendimento: numberOrBlank($('#formulaRendimento').value),
+    itens: formulaDraftItems.map(item => ({ insumoId: item.insumoId, percentual: toNumber(item.percentual) })).filter(item => item.insumoId),
+    observacoes: $('#formulaObs').value.trim(),
+    usarBlend: existing?.usarBlend === true,
+    blendComponentes: clone(existing?.blendComponentes || []),
+    materiaPrimaUnica: clone(existing?.materiaPrimaUnica || null),
+    bloqueada: Boolean(existing?.bloqueada)
+  };
+}
+
+function saveFormulaFromModal() {
+  const formula = getFormulaFromModal(true);
+  if (!formula.produtoId) return toast('Selecione um produto.');
+  if (!formula.nome) return toast('Informe o nome da formulação.');
+  if (!formula.itens.length) return toast('Adicione ao menos um insumo.');
+  const idx = db.formulacoes.findIndex(f => f.id === formula.id);
+  if (idx >= 0) db.formulacoes[idx] = formula; else db.formulacoes.push(formula);
+  activeProductId = formula.produtoId;
+  db.configs.produtoSelecionado = formula.produtoId;
+  db.configs.ultimoProdutoAula = formula.produtoId;
+  saveDB();
+  closeModal('modalFormula');
+  renderAll();
+  toast('Formulação salva.');
+}
+
+function deleteFormulaFromModal() {
+  const id = $('#formulaId').value;
+  if (!id) return;
+  if (!confirm('Excluir esta formulação?')) return;
+  db.formulacoes = db.formulacoes.filter(f => f.id !== id);
+  saveDB();
+  closeModal('modalFormula');
+  renderAll();
+  toast('Formulação excluída.');
+}
+
+function updateFormulaWeight(formulaId, value, options = {}) {
+  const formula = findFormula(formulaId);
+  if (!formula) return;
+  formula.pesoReferencia = Math.max(1, toNumber(value) || 1);
+  saveInlineFormulaEdit('Peso atualizado.', options);
+}
+
+function updateFormulaBase(formulaId, value, options = {}) {
+  const formula = findFormula(formulaId);
+  if (!formula) return;
+  formula.baseCalculo = value === 'produto_final' ? 'produto_final' : 'massa_carnea';
+  saveInlineFormulaEdit('Base de cálculo atualizada.', options);
+}
+
+function updateFormulaItemPercent(formulaId, insumoId, value, options = {}) {
+  const formula = findFormula(formulaId);
+  if (!formula || !insumoId || formula.bloqueada) return;
+  const item = ensureFormulaItem(formula, insumoId);
+  item.percentual = Math.max(0, toNumber(value));
+  saveInlineFormulaEdit('Percentual atualizado.', options);
+}
+
+function addFormulaItemInline(formulaId, insumoId) {
+  const formula = findFormula(formulaId);
+  const ingredient = findIngredient(insumoId);
+  if (!formula || !ingredient || formula.bloqueada) return;
+  if ((formula.itens || []).some(item => item.insumoId === insumoId)) return toast('Esse insumo já está na formulação.');
+  const suggestion = ingredientSuggestion(ingredient);
+  formula.itens.push({ insumoId, percentual: suggestion?.suave ?? 0.1 });
+  saveInlineFormulaEdit('Insumo adicionado.');
+}
+
+function removeFormulaItemInline(formulaId, insumoId) {
+  const formula = findFormula(formulaId);
+  if (!formula || formula.bloqueada) return;
+  formula.itens = (formula.itens || []).filter(item => item.insumoId !== insumoId);
+  saveInlineFormulaEdit('Insumo removido.');
+}
+
+function requestFormulaItemRemoval(formulaId, insumoId) {
+  const formula = findFormula(formulaId);
+  if (!formula || formula.bloqueada) return;
+  const ingredient = findIngredient(insumoId);
+  openConfirmation({
+    title: 'Excluir insumo',
+    message: `Deseja excluir "${ingredient?.nome || 'este insumo'}" desta formulação?`,
+    confirmLabel: 'Excluir',
+    action: () => removeFormulaItemInline(formulaId, insumoId)
+  });
+}
+
+function toggleFormulaLock(formulaId) {
+  const formula = findFormula(formulaId);
+  if (!formula) return;
+  formula.bloqueada = !formula.bloqueada;
+  saveInlineFormulaEdit(formula.bloqueada ? 'Formulação travada.' : 'Formulação destravada.');
+}
+
+function updateFormulaBlend(formulaId, changes = {}, options = {}) {
+  const formula = findFormula(formulaId);
+  if (!formula || formula.bloqueada) return;
+  const previous = formulaBlendState(formula);
+  const useBlend = changes.useBlend ?? previous.useBlend;
+
+  if (!useBlend) {
+    const first = previous.components[0] || previous.singleComponent;
+    const total = Math.max(1, toNumber(previous.blendGrams ?? changes.blendGrams ?? formula.pesoReferencia) || 1);
+    formula.usarBlend = false;
+    formula.materiaPrimaUnica = {
+      id: formula.materiaPrimaUnica?.id || uid('materia'),
+      corteId: first?.corteId || 'acem',
+      perfil: first?.perfil || normalizeMeatProfile('', first?.corteId || 'acem'),
+      gramas: total,
+      gorduraCustom: first?.gorduraCustom ?? ''
+    };
+    setFormulaWeightFromBlendTotal(formula, total);
+    saveInlineFormulaEdit('Blend atualizado.', options);
+    return;
+  }
+
+  formula.usarBlend = true;
+  const single = normalizeSingleMaterial(formula.materiaPrimaUnica, formula);
+  formula.blendComponentes = normalizeBlendComponents(formula.blendComponentes, formula);
+  if (formula.blendComponentes.length < 2) {
+    formula.blendComponentes[0] = { ...single, id: formula.blendComponentes[0]?.id || uid('blend') };
+    formula.blendComponentes.push(defaultSecondBlendComponent(formula, { singleComponent: single }));
+  }
+  saveInlineFormulaEdit('Blend atualizado.', options);
+}
+
+function defaultSecondBlendComponent(formula, state = {}) {
+  const first = state.singleComponent || state.components?.[0] || normalizeSingleMaterial(formula.materiaPrimaUnica, formula);
+  const isPork = first.corteId.includes('suino');
+  return {
+    id: uid('blend'),
+    corteId: isPork ? 'toucinho_suino' : 'gordura_bovina',
+    perfil: 'com_gordura',
+    gramas: 0,
+    gorduraCustom: ''
+  };
+}
+
+function updateBlendComponent(formulaId, index, changes = {}, options = {}) {
+  const formula = findFormula(formulaId);
+  if (!formula || formula.bloqueada) return;
+  formula.blendComponentes = normalizeBlendComponents(formula.blendComponentes, formula);
+  const component = formula.blendComponentes[index];
+  if (!component) return;
+  if (Object.prototype.hasOwnProperty.call(changes, 'corteId')) {
+    component.corteId = MEAT_CUTS.some(cut => cut.id === changes.corteId) ? changes.corteId : 'outro';
+    component.perfil = normalizeMeatProfile(component.perfil, component.corteId);
+  }
+  if (Object.prototype.hasOwnProperty.call(changes, 'perfil')) component.perfil = normalizeMeatProfile(changes.perfil, component.corteId);
+  if (Object.prototype.hasOwnProperty.call(changes, 'gramas')) component.gramas = Math.max(0, toNumber(changes.gramas));
+  if (Object.prototype.hasOwnProperty.call(changes, 'gorduraCustom')) component.gorduraCustom = changes.gorduraCustom === '' ? '' : Math.max(0, Math.min(100, toNumber(changes.gorduraCustom)));
+  formula.usarBlend = true;
+  const total = formula.blendComponentes.reduce((sum, item) => sum + toNumber(item.gramas), 0);
+  if (total > 0) setFormulaWeightFromBlendTotal(formula, total);
+  saveInlineFormulaEdit('Blend atualizado.', options);
+}
+
+function addBlendComponent(formulaId) {
+  const formula = findFormula(formulaId);
+  if (!formula || formula.bloqueada) return;
+  formula.blendComponentes = normalizeBlendComponents(formula.blendComponentes, formula);
+  formula.blendComponentes.push({ id: uid('blend'), corteId: 'acem', perfil: 'sem_gordura', gramas: 0, gorduraCustom: '' });
+  formula.usarBlend = true;
+  saveInlineFormulaEdit('Componente adicionado.');
+}
+
+function removeBlendComponent(formulaId, index) {
+  const formula = findFormula(formulaId);
+  if (!formula || formula.bloqueada) return;
+  formula.blendComponentes = normalizeBlendComponents(formula.blendComponentes, formula);
+  if (formula.blendComponentes.length <= 1) return toast('O blend precisa manter ao menos um componente.');
+  formula.blendComponentes.splice(index, 1);
+  const total = formula.blendComponentes.reduce((sum, item) => sum + toNumber(item.gramas), 0);
+  if (total > 0) setFormulaWeightFromBlendTotal(formula, total);
+  saveInlineFormulaEdit('Componente removido.');
+}
+
+function updateSingleMaterial(formulaId, changes = {}, options = {}) {
+  const formula = findFormula(formulaId);
+  if (!formula || formula.bloqueada) return;
+  formula.materiaPrimaUnica = normalizeSingleMaterial(formula.materiaPrimaUnica, formula);
+  const component = formula.materiaPrimaUnica;
+  if (Object.prototype.hasOwnProperty.call(changes, 'corteId')) {
+    component.corteId = MEAT_CUTS.some(cut => cut.id === changes.corteId) ? changes.corteId : 'outro';
+    component.perfil = normalizeMeatProfile(component.perfil, component.corteId);
+  }
+  if (Object.prototype.hasOwnProperty.call(changes, 'perfil')) component.perfil = normalizeMeatProfile(changes.perfil, component.corteId);
+  if (Object.prototype.hasOwnProperty.call(changes, 'gramas')) component.gramas = Math.max(1, toNumber(changes.gramas) || 1);
+  if (Object.prototype.hasOwnProperty.call(changes, 'gorduraCustom')) component.gorduraCustom = changes.gorduraCustom === '' ? '' : Math.max(0, Math.min(100, toNumber(changes.gorduraCustom)));
+  formula.usarBlend = false;
+  setFormulaWeightFromBlendTotal(formula, component.gramas);
+  saveInlineFormulaEdit('Matéria-prima atualizada.', options);
+}
+
+function queueInlineFormulaEdit(callback) {
+  clearTimeout(inlineEditTimer);
+  inlineEditTimer = setTimeout(callback, 650);
+}
+
+function saveInlineFormulaEdit(message, options = {}) {
+  const currentSlide = $('#produtoWorkspace .product-slide.active')?.dataset.slidePanel;
+  if (currentSlide) activeProductSlideId = currentSlide;
+  saveDB();
+  renderProdutos();
+  if (currentSlide) $('#produtoWorkspace [data-product-slide="' + cssEscape(currentSlide) + '"]')?.click();
+  if (!options.silent) toast(message);
+}
+
+function ensureFormulaItem(formula, insumoId) {
+  formula.itens = Array.isArray(formula.itens) ? formula.itens : [];
+  let item = formula.itens.find(row => row.insumoId === insumoId);
+  if (!item) {
+    item = { insumoId, percentual: 0 };
+    formula.itens.push(item);
+  }
+  return item;
+}
+
+function formulaBlendSourceItems(formula, ingredients = db.insumos) {
+  return (formula?.itens || []).filter(item => isMeatIngredient((ingredients || []).find(ingredient => ingredient.id === item.insumoId)));
+}
+
+function setFormulaWeightFromBlendTotal(formula, blendTotal) {
+  const meatPct = formulaBlendSourceItems(formula).reduce((sum, item) => sum + toNumber(item.percentual), 0);
+  if (formulaBaseMode(formula) === 'produto_final' && meatPct > 0 && meatPct < 100) {
+    formula.pesoReferencia = Math.max(1, blendTotal / (meatPct / 100));
+    return;
+  }
+  formula.pesoReferencia = Math.max(1, blendTotal);
+}
+
+function isBlendItem(insumoId, formula) {
+  const item = (formula?.itens || []).find(row => row.insumoId === insumoId);
+  return Boolean(item && isMeatIngredient(findIngredient(insumoId)));
+}
+
+function formulaBlendState(formula) {
+  const useBlend = formula.usarBlend === true;
+  const components = normalizeBlendComponents(formula.blendComponentes, formula).map(component => ({
+    ...component,
+    cut: MEAT_CUTS.find(cut => cut.id === component.corteId) || MEAT_CUTS[MEAT_CUTS.length - 1]
+  }));
+  const singleComponent = normalizeSingleMaterial(formula.materiaPrimaUnica, formula);
+  const blendGrams = components.reduce((sum, item) => sum + toNumber(item.gramas), 0) || toNumber(formula.pesoReferencia);
+  const fatGrams = components.reduce((sum, item) => sum + toNumber(item.gramas) * blendComponentFat(item) / 100, 0);
+  const activeComponents = useBlend ? components : [singleComponent];
+  const activeGrams = useBlend ? blendGrams : toNumber(singleComponent.gramas);
+  const activeFatGrams = activeComponents.reduce((sum, item) => sum + toNumber(item.gramas) * blendComponentFat(item) / 100, 0);
+  return {
+    useBlend,
+    components,
+    singleComponent,
+    blendGrams: activeGrams || toNumber(formula.pesoReferencia),
+    fatGrams: activeFatGrams,
+    fatPct: activeGrams ? activeFatGrams / activeGrams * 100 : 0
+  };
+}
+
+function normalizeSingleMaterial(source, formula, ingredients = db.insumos) {
+  if (source && typeof source === 'object') {
+    const corteId = MEAT_CUTS.some(cut => cut.id === source.corteId) ? source.corteId : 'outro';
+    return {
+      id: source.id || uid('materia'),
+      corteId,
+      perfil: normalizeMeatProfile(source.perfil, corteId),
+      gramas: Math.max(1, toNumber(source.gramas) || toNumber(formula?.pesoReferencia) || 1000),
+      gorduraCustom: source.gorduraCustom === '' || source.gorduraCustom === undefined ? '' : Math.max(0, Math.min(100, toNumber(source.gorduraCustom)))
+    };
+  }
+  const inferred = normalizeBlendComponents(formula?.blendComponentes, formula, ingredients)[0];
+  return {
+    id: uid('materia'),
+    corteId: inferred?.corteId || 'acem',
+    perfil: inferred?.perfil || normalizeMeatProfile('', inferred?.corteId || 'acem'),
+    gramas: toNumber(formula?.pesoReferencia) || 1000,
+    gorduraCustom: inferred?.gorduraCustom ?? ''
+  };
+}
+
+function normalizeBlendComponents(source, formula, ingredients = db.insumos) {
+  if (Array.isArray(source) && source.length) {
+    return source.map(component => {
+      const corteId = MEAT_CUTS.some(cut => cut.id === component.corteId) ? component.corteId : 'outro';
+      return {
+        id: component.id || uid('blend'),
+        corteId,
+        perfil: normalizeMeatProfile(component.perfil, corteId),
+        gramas: Math.max(0, toNumber(component.gramas)),
+        gorduraCustom: component.gorduraCustom === '' || component.gorduraCustom === undefined ? '' : Math.max(0, Math.min(100, toNumber(component.gorduraCustom)))
+      };
     });
-    
-    async function salvarURLComValor(inputUrl, origem = 'avancada') {
-        inputUrl = String(inputUrl || '').trim();
-        if(!inputUrl) {
-            if(origem === 'inicial') exibirErroLogin('setupUrlErro', 'Digite a URL do back-end.');
-            else alert("Digite a URL!");
-            return false;
-        }
-        if(origem === 'inicial') limparErroLogin('setupUrlErro');
-        document.getElementById('loadingOverlay').style.display = 'flex';
-        try {
-            let fetchUrl = inputUrl + (inputUrl.includes('?') ? '&' : '?') + 'nocache=' + Date.now();
-            let res = await fetch(fetchUrl, { redirect: "follow", cache: "no-store" });
-            if(!res.ok) throw new Error("Falha ao buscar dados da nuvem");
+  }
+  const inferred = formulaBlendSourceItems(formula, ingredients).map(item => {
+    const ingredient = (ingredients || []).find(row => row.id === item.insumoId);
+    const mapping = {
+      ing_carne_bovina_magra: 'acem',
+      ing_gordura_bovina: 'gordura_bovina',
+      ing_pernil_suino: 'pernil_suino',
+      ing_toucinho_suino: 'toucinho_suino'
+    };
+    return {
+      id: uid('blend'),
+      corteId: mapping[item.insumoId] || 'outro',
+      perfil: normalizeMeatProfile('sem_gordura', mapping[item.insumoId] || 'outro'),
+      gramas: formulaItemGrams(formula, item),
+      gorduraCustom: mapping[item.insumoId] ? '' : toNumber(ingredient?.gordura)
+    };
+  });
+  return inferred.length ? inferred : [{ id: uid('blend'), corteId: 'acem', perfil: 'sem_gordura', gramas: toNumber(formula?.pesoReferencia) || 1000, gorduraCustom: '' }];
+}
 
-            let dadosNuvem = await res.json();
-            if(!validarBancoImportado(dadosNuvem)) {
-                if(origem === 'inicial') exibirErroLogin('setupUrlErro', 'Dados incompatíveis com o Cooptrans.');
-                else alert("❌ Dados incompatíveis.");
-                return false;
-            }
+function blendComponentFat(component) {
+  if (component?.gorduraCustom !== '' && component?.gorduraCustom !== undefined) return Math.max(0, Math.min(100, toNumber(component.gorduraCustom)));
+  const cut = MEAT_CUTS.find(item => item.id === component?.corteId) || MEAT_CUTS[MEAT_CUTS.length - 1];
+  const profile = normalizeMeatProfile(component?.perfil, cut.id);
+  return profile === 'com_gordura' ? toNumber(cut.comGordura) : toNumber(cut.semGordura);
+}
 
-            let nuvemDB = normalizarBanco(dadosNuvem);
-            nuvemDB.configs.url = inputUrl;
-            nuvemDB.configs.dadosBaixados = true;
-            nuvemDB.configs.ultimaSincronizacao = Date.now();
-            db = nuvemDB;
-            salvarBanco({ sincronizar: false, marcarLocal: false });
-            alert(origem === 'inicial' ? "✅ Dados carregados. Agora faça login." : "✅ Concluído!");
-            location.reload();
-            return true;
-        } catch(e) {
-            if(origem === 'inicial') exibirErroLogin('setupUrlErro', 'Não foi possível puxar os dados dessa URL.');
-            else alert("❌ Falha.");
-            return false;
-        } finally {
-            document.getElementById('loadingOverlay').style.display = 'none';
-        }
-    }
+function blendComponentSource(component) {
+  const cut = MEAT_CUTS.find(item => item.id === component?.corteId) || MEAT_CUTS[MEAT_CUTS.length - 1];
+  if (component?.gorduraCustom !== '' && component?.gorduraCustom !== undefined) return 'Teor de gordura ajustado pelo usuário para esta matéria-prima.';
+  const profile = normalizeMeatProfile(component?.perfil, cut.id);
+  return profile === 'com_gordura' ? cut.fonteCom : cut.fonteSem;
+}
 
-    async function salvarURLInicial() {
-        return salvarURLComValor(document.getElementById('setupUrlApp').value, 'inicial');
-    }
+function normalizeMeatProfile(profile, cutId) {
+  const cut = MEAT_CUTS.find(item => item.id === cutId) || MEAT_CUTS[MEAT_CUTS.length - 1];
+  const migrated = profile === 'normal' ? 'com_gordura' : profile === 'magra' ? 'sem_gordura' : profile;
+  if (migrated === 'com_gordura' && cut.comGordura !== null && cut.comGordura !== undefined) return 'com_gordura';
+  if (migrated === 'sem_gordura' && cut.semGordura !== null && cut.semGordura !== undefined) return 'sem_gordura';
+  if (cut.semGordura !== null && cut.semGordura !== undefined) return 'sem_gordura';
+  return 'com_gordura';
+}
 
-    async function salvarURL() {
-        return salvarURLComValor(document.getElementById('configUrlApp').value, 'avancada');
-    }
+function ingredientSuggestion(ingredient) {
+  const name = String(ingredient?.nome || '').toLowerCase();
+  const isSeasoning = ingredient?.tipo === 'condimento_especiaria';
+  const isSaltOrSugar = ['ing_sal', 'ing_acucar'].includes(ingredient?.id) || /\bsal\b/.test(name) || name.includes('açúcar') || name.includes('acucar') || name.includes('dextrose');
+  if (!ingredient || (!isSeasoning && !isSaltOrSugar)) return null;
+  const byId = {
+    ing_sal: { suave: 1.5, acentuado: 2 },
+    ing_alho_po: { suave: 0.5, acentuado: 1.5 },
+    ing_pimenta_reino: { suave: 0.1, acentuado: 0.4 },
+    ing_pimenta_branca: { suave: 0.1, acentuado: 0.35 },
+    ing_paprica_doce: { suave: 0.2, acentuado: 0.7 },
+    ing_cebola_desidratada: { suave: 0.6, acentuado: 1.5 },
+    ing_salsa_desidratada: { suave: 0.2, acentuado: 0.8 },
+    ing_acucar: { suave: 0.2, acentuado: 0.8 }
+  };
+  if (byId[ingredient?.id]) return byId[ingredient.id];
+  const byType = {
+    basico_nao_carneo: { suave: 1.5, acentuado: 2 },
+    condimento_especiaria: { suave: 0.3, acentuado: 1 }
+  };
+  return byType[ingredient?.tipo] || null;
+}
 
-    async function sincronizarFundo(forcado = false, apenasEmpurrar = false) {
-        if(!db.configs.url || isSyncingFundo) return;
+function productCategories(product) {
+  return normalizeCategoryIds(product).map(id => PRODUCT_CATEGORIES.find(category => category.id === id)).filter(Boolean);
+}
 
-        syncPendente = false;
-        isSyncingFundo = true;
-        const syncStartedAt = Date.now();
-        let indicador = document.getElementById('syncIndicador');
-        indicador.style.opacity = '1';
+function productCategory(product) {
+  return productCategories(product)[0] || PRODUCT_CATEGORIES.find(category => category.produtos.includes(product?.id));
+}
 
-        try {
-            let res = await fetch(db.configs.url, {
-                method: 'POST',
-                redirect: "follow",
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'salvar_banco', dados: db, baseRevision: db.configs.syncRevision || 0 })
-            });
-            if(!res.ok) throw new Error("Falha ao salvar na nuvem");
-            let retorno = await res.json().catch(() => null);
-            if(retorno && retorno.ok) {
-                if(retorno.dados && validarBancoImportado(retorno.dados)) {
-                    aplicarBancoAtualizado(retorno.dados, { syncStartedAt });
-                } else {
-                    db.configs.syncRevision = retorno.revision || db.configs.syncRevision || 0;
-                    db.configs.ultimaSincronizacao = Date.now();
-                    localStorage.setItem('cooptrans_v1', JSON.stringify(db));
-                }
-            }
-        } catch(e) {
-            syncPendente = true;
-        } finally {
-            isSyncingFundo = false;
-            indicador.style.opacity = '0';
-            if(syncPendente) {
-                clearTimeout(syncTimer);
-                syncTimer = setTimeout(() => sincronizarFundo(false, true), 5000);
-            }
-        }
-    }
+function productCategoryLabel(product) {
+  const categories = productCategories(product);
+  if (!categories.length) return 'Categoria não definida';
+  return categories.map(category => theoryTitle(category.id)).join(' + ');
+}
 
-    async function puxarDadosNuvem(silencioso = true) {
-        if(!db.configs.url || isSyncingFundo) return;
-        if(syncPendente || temMudancaLocalPendente()) {
-            sincronizarFundo(false, true);
-            return;
-        }
+function theoryTitle(id) {
+  return getTheoryContent(id)?.titulo || PRODUCT_CATEGORIES.find(category => category.id === id)?.titulo || 'Assunto teórico';
+}
 
-        try {
-            let fetchUrl = db.configs.url + (db.configs.url.includes('?') ? '&' : '?') + 'nocache=' + Date.now();
-            let res = await fetch(fetchUrl, { redirect: "follow", cache: "no-store" });
-            if(!res.ok) throw new Error("Falha ao puxar dados da nuvem");
-            let nuvemDB = await res.json();
-            if(!validarBancoImportado(nuvemDB)) return;
+function normalizeCategoryIds(product, defaultProduct = null) {
+  const ids = [];
+  const add = (id) => {
+    if (id && PRODUCT_CATEGORIES.some(category => category.id === id) && !ids.includes(id)) ids.push(id);
+  };
+  (Array.isArray(product?.categoriaIds) ? product.categoriaIds : []).forEach(add);
+  add(product?.categoriaId);
+  (Array.isArray(defaultProduct?.categoriaIds) ? defaultProduct.categoriaIds : []).forEach(add);
+  add(defaultProduct?.categoriaId);
+  inferProductCategoryIds(product).forEach(add);
+  return ids;
+}
 
-            nuvemDB = normalizarBanco(nuvemDB);
-            let revisaoNuvem = parseInt(nuvemDB.configs.syncRevision || 0);
-            let revisaoLocal = parseInt(db.configs.syncRevision || 0);
-            if(revisaoNuvem <= revisaoLocal) return;
+function inferProductCategoryIds(product) {
+  const ids = PRODUCT_CATEGORIES.filter(category => category.produtos.includes(product?.id)).map(category => category.id);
+  if (product?.tipo === 'linguica_frescal') ids.push('embutidos');
+  const categoryText = String(product?.categoria || '').toLowerCase();
+  if (product?.tipo === 'hamburguer' || categoryText.includes('reestruturado')) ids.push('reestruturados');
+  if (categoryText.includes('emulsionado')) ids.push('emulsionados');
+  if (categoryText.includes('embutido')) ids.push('embutidos');
+  return Array.from(new Set(ids));
+}
 
-            aplicarBancoAtualizado(nuvemDB);
-        } catch(e) {
-            if(!silencioso) alert("Não foi possível puxar os dados da nuvem.");
-        }
-    }
-    async function forcarEnvioNuvemCompleto() { if(!db.configs.url) return alert("Configure a URL!"); document.getElementById('loadingOverlay').style.display = 'flex'; try { let syncStartedAt = Date.now(); let res = await fetch(db.configs.url, { method: 'POST', redirect: "follow", headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'salvar_banco', dados: db }) }); if(!res.ok) throw new Error("Erro"); let retorno = await res.json().catch(() => null); if(retorno && retorno.dados && validarBancoImportado(retorno.dados)) aplicarBancoAtualizado(retorno.dados, { syncStartedAt }); alert("✅ Backup salvo!"); } catch(e) { alert("❌ Falha."); } finally { document.getElementById('loadingOverlay').style.display = 'none'; } }
-    
-    function exportarDadosBackup() { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db)); const downloadAnchorNode = document.createElement('a'); downloadAnchorNode.setAttribute("href", dataStr); downloadAnchorNode.setAttribute("download", "cooptrans_bkp_" + getHojeSTR() + ".json"); document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove(); }
-    function importarDadosBackup(event) {
-        const file = event.target.files[0];
-        if(!file) return;
+function inferProductCategoryId(product) {
+  return inferProductCategoryIds(product)[0] || '';
+}
 
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const importedDb = JSON.parse(e.target.result);
-                if(!validarBancoImportado(importedDb)) return alert("Backup inválido ou incompatível.");
+function defaultFormulaBase(product) {
+  const categoryIds = normalizeCategoryIds(product);
+  return categoryIds.includes('reestruturados') ? 'massa_carnea' : 'produto_final';
+}
 
-                let urlSalva = db.configs.url;
-                db = normalizarBanco(importedDb);
-                if(urlSalva) db.configs.url = urlSalva;
-                salvarBanco();
-                alert("✅ Restaurado!");
-                location.reload();
-            } catch(err) {
-                alert("Erro ao ler.");
-            }
-        };
-        reader.readAsText(file);
-        event.target.value = '';
-    }
+function formulaBaseMode(formula, product = findProduct(formula?.produtoId)) {
+  return formula?.baseCalculo || defaultFormulaBase(product);
+}
 
-    function validarBancoImportado(dados) {
-        return !!(dados && dados.app_id === "cooptrans" && dados.cooperativa && typeof dados.cooperativa === 'object');
-    }
-    async function excluirTodoHistorico() { let frase = document.getElementById('inputExcluirTudo').value.trim().toLowerCase(); if(frase === "quero excluir todo o histórico") { if(!confirm("⚠️ TEM CERTEZA?")) return; db.contribuintes.forEach(c => { (c.pagamentos || []).forEach(pg => registrarExclusao('pagamentos', pg.id)); c.pagamentos = []; tocarRegistro(c); }); registrarAuditoria('Histórico de pagamentos apagado', 'Todos os lançamentos foram removidos'); marcarMudancaEstrutural(); document.getElementById('inputExcluirTudo').value = ''; fecharModal('modalConfigAvancadas'); alert("✅ Limpo!"); renderizarLista(); } else { alert("Frase incorreta."); } }
-    async function forcarAtualizacao() {
-        if(!confirm("Deseja forçar a atualização do aplicativo?")) return;
-        try {
-            if('serviceWorker' in navigator) {
-                const registrations = await navigator.serviceWorker.getRegistrations();
-                await Promise.all(registrations.map(registration => registration.unregister()));
-            }
-            if(window.caches) {
-                const keys = await caches.keys();
-                await Promise.all(keys.map(key => caches.delete(key)));
-            }
-        } catch(e) {
-            console.warn("Não foi possível limpar todo o cache automaticamente.", e);
-        }
-        window.location.replace(window.location.pathname + '?nocache=' + Date.now());
-    }
+function formulaBaseLabel(mode) {
+  return mode === 'massa_carnea' ? 'Massa cárnea/carne base' : 'Produto final';
+}
 
+function formulaItemGrams(formula, item) {
+  return (toNumber(formula?.pesoReferencia) || 0) * toNumber(item?.percentual) / 100;
+}
 
+function timelineHTML(items) {
+  return (items || []).map((item, index) => `<div class="timeline-step"><span>${index + 1}</span><p>${escapeHTML(item)}</p></div>`).join('');
+}
 
+function equipmentHTML(items) {
+  const list = Array.isArray(items) ? items : [];
+  if (!list.length) return '<div class="notice-card slim">Nenhum equipamento cadastrado para esta prática.</div>';
+  return list.map((item, index) => `<button type="button" class="equipment-item" data-equipment-check="${index}"><span></span>${escapeHTML(item)}</button>`).join('');
+}
 
+function toggleEquipmentCheck(btn) {
+  btn.classList.toggle('checked');
+  const mark = btn.querySelector('span');
+  if (mark) mark.textContent = btn.classList.contains('checked') ? '✓' : '';
+}
 
+function analyzeFormula(formula) {
+  const product = findProduct(formula.produtoId);
+  const baseMode = formulaBaseMode(formula, product);
+  const weight = toNumber(formula.pesoReferencia) || 1000;
+  let totalPct = 0;
+  let meatBasePct = 0;
+  let finalWeight = 0;
+  let fatGrams = 0;
+  let proteinGrams = 0;
+  let carbGrams = 0;
+  let pncGrams = 0;
+  let costTotal = 0;
+  const blendState = formulaBlendState(formula);
+  const useDetailedBlend = (blendState.useBlend ? blendState.components.length : Boolean(blendState.singleComponent));
+  formula.itens.forEach(item => {
+    const ing = findIngredient(item.insumoId);
+    const pct = toNumber(item.percentual);
+    if (!ing) return;
+    const grams = formulaItemGrams(formula, item);
+    totalPct += pct;
+    if (isMeatIngredient(ing)) meatBasePct += pct;
+    finalWeight += grams;
+    if (!(useDetailedBlend && isMeatIngredient(ing))) fatGrams += grams * toNumber(ing.gordura) / 100;
+    proteinGrams += grams * toNumber(ing.proteina) / 100;
+    carbGrams += grams * toNumber(ing.carboidrato) / 100;
+    if (ing.proteinaNaoCarnea || isFunctionalProtein(ing)) pncGrams += grams;
+    costTotal += (grams / 1000) * toNumber(ing.custo);
+  });
+  if (useDetailedBlend) fatGrams += blendState.fatGrams;
+  const compositionWeight = finalWeight || weight;
+  const fatPct = compositionWeight ? fatGrams / compositionWeight * 100 : 0;
+  const proteinPct = compositionWeight ? proteinGrams / compositionWeight * 100 : 0;
+  const carbPct = compositionWeight ? carbGrams / compositionWeight * 100 : 0;
+  const pncPct = compositionWeight ? pncGrams / compositionWeight * 100 : 0;
+  const alerts = [];
+  const params = product?.parametros || {};
+  if (product && params.mostrarValidacao !== false) {
+    addLimitAlert(alerts, fatPct, params.gorduraMax, 'Gordura', 'max');
+    addLimitAlert(alerts, proteinPct, params.proteinaMin, 'Proteína estimada', 'min');
+    addLimitAlert(alerts, carbPct, params.carbMax, 'Carboidratos estimados', 'max');
+    const pncLabel = product.tipo === 'linguica_frescal' ? 'Proteína agregada' : 'Proteína não cárnea agregada';
+    if (params.proibeProteinaNaoCarnea && pncPct > 0) alerts.push({ type: 'danger', text: `${pncLabel}: há ingrediente marcado como proteína agregada, mas o produto não permite esse uso.` });
+    else addLimitAlert(alerts, pncPct, params.proteinaNaoCarneaMax, pncLabel, 'max');
+  }
+  return { product, baseMode, baseLabel: formulaBaseLabel(baseMode), weight, totalPct, meatBasePct, finalWeight, fatPct, proteinPct, carbPct, pncPct, costTotal, alerts };
+}
 
+function addLimitAlert(alerts, value, limit, label, mode) {
+  if (limit === '' || limit === null || limit === undefined || Number.isNaN(Number(limit))) return;
+  const ok = mode === 'max' ? value <= Number(limit) + 0.0001 : value + 0.0001 >= Number(limit);
+  alerts.push({ type: ok ? 'ok' : 'danger', text: `${label}: ${fmt(value)}% ${ok ? 'dentro do parâmetro' : 'fora do parâmetro'} (${mode === 'max' ? 'limite máximo' : 'limite mínimo'} ${fmt(limit)}%).` });
+}
 
+function analysisHTML(a) {
+  const importantAlerts = a.alerts.filter(alert => alert.type !== 'ok');
+  return `<div class="analysis-grid">
+    <div class="analysis-metric"><strong>${fmt(a.finalWeight)} g</strong><span>Massa final estimada</span></div>
+    <div class="analysis-metric"><strong>${fmt(a.fatPct)}%</strong><span>Gordura estimada</span></div>
+    <div class="analysis-metric"><strong>${fmt(a.proteinPct)}%</strong><span>Proteína estimada</span></div>
+    <div class="analysis-metric"><strong>${fmt(a.carbPct)}%</strong><span>Carboidratos estimados</span></div>
+    <div class="analysis-metric"><strong>${fmt(a.pncPct)}%</strong><span>Prot. agregada</span></div>
+    <div class="analysis-metric"><strong>${money(a.costTotal)}</strong><span>Custo estimado do lote</span></div>
+  </div>
+  ${importantAlerts.length ? `<div class="alert-list">${importantAlerts.map(alert => `<div class="alert ${alert.type}">${escapeHTML(alert.text)}</div>`).join('')}</div>` : ''}`;
+}
+
+function showFormulaReport(formulaId = null) {
+  const formula = formulaId ? findFormula(formulaId) : getFormulaFromModal(false);
+  if (!formula) return toast('Formulação não encontrada.');
+  $('#relatorioTexto').value = buildReport(formula);
+  openModal('modalRelatorio');
+}
+
+function buildReport(formula) {
+  const product = findProduct(formula.produtoId);
+  const analysis = analyzeFormula(formula);
+  const lines = [];
+  lines.push('RELATÓRIO DA AULA PRÁTICA - PROCESSAMENTO DE ALIMENTOS DE ORIGEM ANIMAL');
+  lines.push('');
+  lines.push(`Produto: ${product?.nome || 'Não informado'}`);
+  lines.push(`Formulação: ${formula.nome}`);
+  lines.push(`Base de cálculo: ${analysis.baseLabel}`);
+  lines.push(`Peso base: ${fmt(formula.pesoReferencia)} g`);
+  lines.push(`Massa final estimada: ${fmt(analysis.finalWeight)} g`);
+  if (formula.rendimento !== '') lines.push(`Rendimento esperado: ${fmt(formula.rendimento)}%`);
+  lines.push('');
+  const blend = formulaBlendState(formula);
+  if (blend.useBlend && blend.components.length) {
+    lines.push('Blend de matérias-primas:');
+    blend.components.forEach(component => {
+      lines.push(`- ${component.cut.nome} (${component.perfil === 'com_gordura' ? 'com gordura' : 'sem gordura'}): ${fmt(component.gramas)} g, gordura de referência ${fmt(blendComponentFat(component))}%`);
+    });
+    lines.push(`- Gordura estimada do blend: ${fmt(blend.fatPct)}%`);
+    lines.push('');
+  } else if (blend.singleComponent) {
+    const cut = MEAT_CUTS.find(item => item.id === blend.singleComponent.corteId);
+    lines.push(`Matéria-prima cárnea: ${cut?.nome || 'Não informada'} (${blend.singleComponent.perfil === 'com_gordura' ? 'com gordura' : 'sem gordura'}), ${fmt(blend.singleComponent.gramas)} g`);
+    lines.push('');
+  }
+  lines.push('Formulação:');
+  formula.itens.forEach(item => {
+    const ing = findIngredient(item.insumoId);
+    const grams = formulaItemGrams(formula, item);
+    lines.push(`- ${ing?.nome || 'Insumo'}: ${fmt(item.percentual)}% = ${fmt(grams)} g`);
+  });
+  lines.push('');
+  lines.push('Resumo técnico estimado:');
+  lines.push(`- Gordura estimada: ${fmt(analysis.fatPct)}%`);
+  lines.push(`- Proteína estimada: ${fmt(analysis.proteinPct)}%`);
+  lines.push(`- Carboidratos estimados: ${fmt(analysis.carbPct)}%`);
+  lines.push(`- Proteína agregada: ${fmt(analysis.pncPct)}%`);
+  lines.push(`- Custo estimado do lote: ${money(analysis.costTotal)}`);
+  lines.push('');
+  lines.push('Alertas:');
+  analysis.alerts.forEach(a => lines.push(`- ${a.text}`));
+  if (formula.observacoes) {
+    lines.push('');
+    lines.push('Observações:');
+    lines.push(formula.observacoes);
+  }
+  lines.push('');
+  lines.push('Roteiro da prática:');
+  (product?.fluxo || []).forEach((step, idx) => lines.push(`${idx + 1}. ${step}`));
+  lines.push('');
+  lines.push('Perguntas para discussão:');
+  (product?.perguntas || []).forEach(q => lines.push(`- ${q}`));
+  return lines.join('\n');
+}
+
+async function copyReport() {
+  await copyText($('#relatorioTexto').value);
+  toast('Relatório copiado.');
+}
+
+async function copyLesson() {
+  const p = findProduct(activeProductId || db.configs.ultimoProdutoAula || db.produtos[0]?.id);
+  if (!p) return;
+  const text = [
+    `ROTEIRO DE AULA PRÁTICA - ${p.nome}`,
+    '',
+    `Objetivo: ${p.objetivo || ''}`,
+    '',
+    'Fluxograma:',
+    ...(p.fluxo || []).map((s, i) => `${i + 1}. ${s}`),
+    '',
+    'Pontos de controle:',
+    ...(p.pontos || []).map(s => `- ${s}`),
+    '',
+    'Perguntas:',
+    ...(p.perguntas || []).map(s => `- ${s}`)
+  ].join('\n');
+  await copyText(text);
+  toast('Roteiro copiado.');
+}
+
+function exportData() {
+  downloadJSON(db, `paoa_lab_backup_${dateStamp()}.json`);
+  toast('Backup gerado.');
+}
+
+function downloadTemplate() {
+  downloadJSON(DEFAULT_DB, 'paoa_lab_modelo_dados.json');
+}
+
+async function importData(ev) {
+  const file = ev.target.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const imported = JSON.parse(text);
+    if (!imported.produtos || !imported.insumos) throw new Error('Arquivo inválido');
+    db = normalizeDB(imported);
+    saveDB();
+    renderAll();
+    closeModal('modalConfig');
+    toast('Dados importados.');
+  } catch (err) {
+    console.error(err);
+    toast('Não foi possível importar esse arquivo.');
+  } finally {
+    ev.target.value = '';
+  }
+}
+
+function resetDemo() {
+  if (!confirm('Restaurar a base demonstrativa? Seus dados atuais serão substituídos neste navegador.')) return;
+  db = normalizeDB(clone(DEFAULT_DB));
+  saveDB();
+  renderAll();
+  closeModal('modalConfig');
+  toast('Base demonstrativa restaurada.');
+}
+
+function registerServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker.js').catch(err => console.warn('Service worker não registrado', err));
+  }
+}
+
+function openModal(id) {
+  const modal = $('#' + id);
+  if (!modal) return;
+  modal.style.zIndex = String(++modalZIndex);
+  modal.classList.add('show');
+  modal.scrollTop = 0;
+  const panel = modal.querySelector('.modal');
+  if (panel) panel.scrollTop = 0;
+  requestAnimationFrame(() => {
+    modal.scrollTop = 0;
+    if (panel) panel.scrollTop = 0;
+  });
+}
+function closeModal(id) { $('#' + id)?.classList.remove('show'); }
+function openConfirmation({ title = 'Confirmar ação', message = '', confirmLabel = 'Confirmar', action } = {}) {
+  pendingConfirmationAction = typeof action === 'function' ? action : null;
+  $('#confirmacaoTitulo').textContent = title;
+  $('#confirmacaoMensagem').textContent = message;
+  $('#btnConfirmarAcao').textContent = confirmLabel;
+  openModal('modalConfirmacao');
+}
+function closeConfirmation() {
+  pendingConfirmationAction = null;
+  closeModal('modalConfirmacao');
+}
+function confirmPendingAction() {
+  const action = pendingConfirmationAction;
+  pendingConfirmationAction = null;
+  closeModal('modalConfirmacao');
+  action?.();
+}
+function findProduct(id) { return db.produtos.find(p => p.id === id); }
+function findIngredient(id) { return db.insumos.find(i => i.id === id); }
+function findFormula(id) { return db.formulacoes.find(f => f.id === id); }
+function toNumber(value) { const n = Number(String(value ?? '').replace(',', '.')); return Number.isFinite(n) ? n : 0; }
+function numberOrBlank(value) { if (String(value ?? '').trim() === '') return ''; return toNumber(value); }
+function fmt(n) { return toNumber(n).toLocaleString('pt-BR', { maximumFractionDigits: 2, minimumFractionDigits: Number.isInteger(toNumber(n)) ? 0 : 1 }); }
+function fmtInput(n) {
+  const value = Math.round(toNumber(n) * 100) / 100;
+  return Number.isInteger(value) ? String(value) : String(value).replace(',', '.');
+}
+function money(n) { return toNumber(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+function linesFrom(text) { return Array.isArray(text) ? text : String(text || '').split('\n').map(s => s.trim()).filter(Boolean); }
+function multiSelectValues(select) { return Array.from(select?.selectedOptions || []).map(option => option.value).filter(Boolean); }
+function setMultiSelectValues(select, values) {
+  const wanted = new Set(values || []);
+  Array.from(select?.options || []).forEach(option => { option.selected = wanted.has(option.value); });
+}
+function cssEscape(value) { return window.CSS?.escape ? CSS.escape(value) : String(value).replace(/["\\]/g, '\\$&'); }
+function uid(prefix) { return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`; }
+function capitalize(text) { return String(text || '').charAt(0).toUpperCase() + String(text || '').slice(1); }
+function capitalizeFirst(text) { return capitalize(String(text || '').trim()); }
+function ingredientSubtypes(type) { return TYPES.find(t => t.value === type)?.subtipos || []; }
+function normalizeIngredientType(ingredient = {}) {
+  const id = ingredient.id || '';
+  const text = [ingredient.nome, ingredient.categoria, ingredient.tipo].join(' ').toLowerCase();
+  if (id === 'ing_tripa_suina' || text.includes('tripa') || text.includes('envoltório') || text.includes('embalagem')) return 'envoltorio_apresentacao';
+  if (id === 'ing_fosfato' || text.includes('nitrito') || text.includes('nitrato') || text.includes('fosfato') || text.includes('eritorbato')) return 'aditivo_alimentar';
+  if (id === 'ing_agua_gelada' || id === 'ing_sal' || id === 'ing_acucar' || text.includes('água') || text.includes('gelo') || /\bsal\b/.test(text) || text.includes('açúcar') || text.includes('acucar') || text.includes('dextrose')) return 'basico_nao_carneo';
+  if (id.includes('carne') || id.includes('gordura') || id.includes('pernil') || id.includes('toucinho') || id.includes('figado') || id.includes('fígado') || text.includes('matéria-prima cárnea') || text.includes('gordura animal')) return 'materia_prima_carnea';
+  if (text.includes('condimento') || text.includes('pimenta') || text.includes('alho') || text.includes('cebola') || text.includes('páprica') || text.includes('salsa')) return 'condimento_especiaria';
+  if (text.includes('cultura') || text.includes('fermento')) return 'cultura_fermento';
+  if (text.includes('mix') || text.includes('mistura') || text.includes('preparado')) return 'mistura_comercial';
+  return LEGACY_TYPE_MAP[ingredient.tipo] || (TYPES.some(t => t.value === ingredient.tipo) ? ingredient.tipo : 'funcional_nao_aditivo');
+}
+function normalizeIngredientSubtype(ingredient = {}) {
+  const type = normalizeIngredientType(ingredient);
+  const existing = ingredient.subtipo;
+  if (existing && ingredientSubtypes(type).includes(existing)) return existing;
+  const text = [ingredient.nome, ingredient.categoria, ingredient.tipo].join(' ').toLowerCase();
+  if (type === 'condimento_especiaria') {
+    if (ingredient.id === 'ing_pimenta_reino' || ingredient.id === 'ing_pimenta_branca' || text.includes('moíd') || text.includes('moid')) return 'moídos';
+    if (text.includes('pó') || text.includes('po')) return 'em pó';
+    if (text.includes('desidrat')) return 'desidratados';
+    if (text.includes('fresc')) return 'frescos';
+  }
+  if (type === 'funcional_nao_aditivo') {
+    if (text.includes('proteína') || text.includes('proteina')) return 'proteínas';
+    if (text.includes('amido') || text.includes('farinha') || text.includes('fécula') || text.includes('fecula')) return 'amidos/farinhas';
+    if (text.includes('leite') || text.includes('lácteo') || text.includes('lacteo')) return 'lácteos';
+    if (text.includes('ovo')) return 'ovos';
+  }
+  if (type === 'envoltorio_apresentacao') {
+    if (text.includes('tripa') || text.includes('comestível') || text.includes('comestivel')) return 'envoltório comestível';
+    if (text.includes('embalagem')) return 'embalagem';
+  }
+  return '';
+}
+function isMeatIngredient(ingredient) { return normalizeIngredientType(ingredient || {}) === 'materia_prima_carnea'; }
+function isFunctionalProtein(ingredient = {}) {
+  const type = normalizeIngredientType(ingredient);
+  const subtype = ingredient.subtipo || normalizeIngredientSubtype(ingredient);
+  return type === 'funcional_nao_aditivo' && subtype === 'proteínas';
+}
+function typeLabel(value) { return TYPES.find(t => t.value === value)?.label || 'Outro'; }
+function inferProductTypeFromName(name = '') {
+  const text = String(name).toLowerCase();
+  if (text.includes('hamb')) return 'hamburguer';
+  if (text.includes('lingui')) return 'linguica_frescal';
+  return 'geral';
+}
+function productTypeLabel(value) {
+  return ({ hamburguer: 'RTIQ hambúrguer', linguica_frescal: 'RTIQ linguiça frescal', geral: 'Produto geral' })[value] || 'Produto geral';
+}
+function ingredientIcon(type) {
+  return ({ materia_prima_carnea: 'MP', basico_nao_carneo: 'B', condimento_especiaria: 'CE', funcional_nao_aditivo: 'FN', aditivo_alimentar: 'AD', coadjuvante_tecnologia: 'CT', cultura_fermento: 'CF', envoltorio_apresentacao: 'EA', mistura_comercial: 'MC' })[type] || 'IN';
+}
+function photoOrInitial(p) {
+  return p.fotos?.[0] ? `<img src="${escapeAttr(p.fotos[0])}" alt="${escapeAttr(p.nome)}">` : escapeHTML((p.nome || '?').slice(0, 1).toUpperCase());
+}
+function emptyHTML(text) { return `<div class="notice-card">${escapeHTML(text)}</div>`; }
+function orderedList(items) { return `<ol class="lesson-list">${(items || []).map(i => `<li>${escapeHTML(i)}</li>`).join('')}</ol>`; }
+function unorderedList(items) { return `<ul class="lesson-list">${(items || []).map(i => `<li>${escapeHTML(i)}</li>`).join('')}</ul>`; }
+function dateStamp() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function escapeHTML(str) { return String(str ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c])); }
+function escapeAttr(str) { return escapeHTML(str); }
+function limitBadge(value, limit, mode) {
+  if (limit === '' || limit === null || limit === undefined || Number.isNaN(Number(limit))) return 'info';
+  return mode === 'max' ? (value <= Number(limit) + 0.0001 ? 'ok' : 'danger') : (value + 0.0001 >= Number(limit) ? 'ok' : 'danger');
+}
+function toast(msg) {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+function downloadJSON(data, filename) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  downloadBlob(blob, filename);
+}
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
+  const area = document.createElement('textarea');
+  area.value = text;
+  document.body.appendChild(area);
+  area.select();
+  document.execCommand('copy');
+  area.remove();
+}
+
+function fileToDataURL(file, maxSize = 1200, quality = 0.86) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const ratio = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * ratio);
+        canvas.height = Math.round(img.height * ratio);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
