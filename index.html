@@ -1,451 +1,831 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="theme-color" content="#1F6F68" />
-  <link rel="manifest" href="manifest.json" />
-  <link rel="icon" href="icon.png" />
-  <link rel="apple-touch-icon" href="icon.png" />
-  <link rel="stylesheet" href="style.css?v=28" />
-  <title>Processamento de Alimentos de Origem Animal</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Cooptrans">
+    <meta name="theme-color" content="#008C4A" id="metaThemeColor">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <link rel="icon" href="icons/icon-192.png">
+    <title>Cooptrans v1.0.45</title>
+    <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+    <!-- Biblioteca Chart.js para Gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+    <link rel="stylesheet" href="style.css?v=1.0.45-relatorio-pg">
 </head>
 <body>
-  <div id="splashScreen" class="splash-screen">
-    <img src="icon.png" alt="Processamento de Alimentos de Origem Animal" class="splash-logo" />
-    <div class="splash-title">Processamento de Alimentos de Origem Animal</div>
-  </div>
 
-  <div class="app-shell">
-    <header class="topbar">
-      <div>
-        <div class="app-title">Processamento de Alimentos de Origem Animal</div>
-        <div class="app-period" id="activePeriodLabel"></div>
-      </div>
-      <div class="top-actions">
-        <button class="icon-btn" id="btnInstall" title="Instalar app" hidden>⇩</button>
-        <button class="icon-btn" id="btnConfig" title="Configurações">⚙️</button>
-      </div>
-    </header>
+<div id="splashScreen">
+    <img id="splashLogoObj" style="max-height: 100px; object-fit: contain; margin-bottom: 20px; border-radius: 10px; display: none;">
+    <div class="splash-versao" id="splashVersao">v1.0.45</div>
+    <button onclick="forcarAtualizacao()" style="margin-top: 40px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
+</div>
 
-    <main class="content">
-      <section id="pageInicio" class="page active">
-        <div class="summary-hero home-summary">
-          <div class="home-summary-actions">
-            <button class="summary-action primary" data-page-target="Aulas">
-              <span class="summary-action-copy">
-                <strong>Aulas</strong>
-              </span>
-              <span class="summary-action-media" style="background-image: url('assets/home-aulas.png')"></span>
-            </button>
-            <button class="summary-action" data-page-target="Produtos">
-              <span class="summary-action-copy">
-                <strong>Produtos</strong>
-              </span>
-              <span class="summary-action-media" style="background-image: url('assets/home-produtos.png')"></span>
-            </button>
-            <button class="summary-action" data-page-target="Cronograma">
-              <span class="summary-action-copy">
-                <strong>Cronograma de aulas</strong>
-              </span>
-              <span class="summary-action-media" style="background-image: url('assets/home-cronograma.png')"></span>
-            </button>
-            <button class="summary-action" data-page-target="Regras">
-              <span class="summary-action-copy">
-                <strong>Regras do laboratório</strong>
-              </span>
-              <span class="summary-action-media" style="background-image: url('assets/home-regras.png')"></span>
-            </button>
-          </div>
-          <div class="home-external-links">
-            <a class="lpdc-link" href="https://www.ct.ufpb.br/lpdc/" target="_blank" rel="noopener">🌐 LPDC</a>
-            <a class="instagram-link" href="https://www.instagram.com/eng.alimentos.ufpb/" target="_blank" rel="noopener" aria-label="Instagram Engenharia de Alimentos UFPB">
-              <img src="assets/instagram.png" alt="" />
-            </a>
-          </div>
+<!-- Overlay da Letra Gigante na Rolagem -->
+<div id="letterIndicator">A</div>
+
+<div id="syncIndicador"></div>
+<div id="loadingOverlay">
+    <div class="spinner"></div>
+    <div id="loadingText">Processando...<br><span style="font-size: 14px; font-weight: normal; margin-top: 10px; display: block;">Aguarde.</span></div>
+</div>
+
+<!-- CONFIGURAÇÃO INICIAL DO BACK-END -->
+<div class="modal-overlay login-overlay" id="modalSetupUrl">
+    <div class="modal login-modal">
+        <div class="login-title">
+            <strong>Cooptrans</strong>
+            <span id="setupAppVersion">v1.0.45</span>
         </div>
-      </section>
-
-      <section id="pageProdutos" class="page">
-        <div id="produtosOverview">
-          <div class="toolbar">
-            <input id="searchProdutos" type="search" placeholder="Buscar produto..." />
-          </div>
-          <div id="produtosList" class="stack-list"></div>
+        <p class="login-subtitle">Informe a URL do back-end para carregar os dados da cooperativa.</p>
+        <div class="form-group">
+            <label>URL do Back-end</label>
+            <input type="url" id="setupUrlApp" placeholder="https://script.google.com/macros/s/..." autocomplete="url">
         </div>
-        <div id="produtoWorkspace" class="product-workspace" hidden></div>
-      </section>
-
-      <section id="pageCronograma" class="page">
-        <div class="section-header page-heading">
-          <div>
-            <h2>Cronograma de aulas</h2>
-          </div>
+        <div id="setupUrlErro" class="login-error"></div>
+        <div class="modal-actions login-actions">
+            <button class="btn-action" onclick="salvarURLInicial()">Conectar e Puxar Dados</button>
         </div>
-        <div id="cronogramaContent"></div>
-      </section>
+    </div>
+</div>
 
-      <section id="pageAulas" class="page">
-        <div class="section-header page-heading">
-          <div>
-            <h2>Aulas teóricas</h2>
-          </div>
+<!-- LOGIN DO USUÁRIO -->
+<div class="modal-overlay login-overlay" id="modalLoginAdmin">
+    <div class="modal login-modal">
+        <div class="login-title">
+            <strong>Cooptrans</strong>
+            <span id="loginAppVersion">v1.0.45</span>
         </div>
-        <div id="aulaContent"></div>
-      </section>
+        <p class="login-subtitle" id="loginAdminTexto">Escolha o usuário e informe a senha.</p>
+        <div class="form-group">
+            <label>Usuário</label>
+            <select id="loginAdminUsuario"></select>
+        </div>
+        <div class="form-group">
+            <label>Senha</label>
+            <input type="password" id="loginAdminSenha" inputmode="numeric" pattern="[0-9]*" autocomplete="current-password" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+        </div>
+        <div id="loginAdminErro" class="login-error"></div>
+        <div class="modal-actions login-actions">
+            <button id="btnCancelarLoginAdmin" class="btn-cancel" onclick="cancelarTrocaPerfil()" style="display:none;">Voltar</button>
+            <button class="btn-action" onclick="entrarAdmin()">Entrar</button>
+        </div>
+    </div>
+</div>
 
-      <section id="pageRegras" class="page">
-        <div class="rules-page">
-          <div class="rules-hero">
+<!-- PERFIL ATIVO -->
+<div class="modal-overlay" id="modalPerfilAdmin" style="z-index: 2100;">
+    <div class="modal profile-modal">
+        <div class="modal-title">
+            <span>Perfil</span>
+            <button class="icon-btn" onclick="fecharModal('modalPerfilAdmin')">✖</button>
+        </div>
+        <div class="profile-current">
+            <span class="profile-current-icon">👤</span>
             <div>
-              <div class="hero-label">Conduta e segurança</div>
-              <h2>Regras do laboratório</h2>
-              <p>Orientações para manter a prática organizada, higiênica e segura durante as aulas de Processamento de Alimentos de Origem Animal.</p>
+                <small>Perfil conectado</small>
+                <strong id="perfilAtualNome">Administrador</strong>
             </div>
-          </div>
-          <div class="rules-grid" id="rulesGrid"></div>
+            <button class="profile-password-btn" onclick="abrirTrocaSenhaPerfil(false)">Trocar senha</button>
         </div>
-      </section>
-    </main>
-
-    <nav class="bottom-nav" aria-label="Navegação principal">
-      <button class="nav-btn active" data-page="Inicio"><span class="nav-icon">🏠︎</span><span>Início</span></button>
-      <button class="nav-btn" data-page="Aulas"><span class="nav-icon">📚</span><span>Aulas</span></button>
-      <button class="nav-btn" data-page="Produtos"><span class="nav-icon">🍔</span><span>Produtos</span></button>
-      <button class="nav-btn" data-page="Cronograma"><span class="nav-icon">🗓️</span><span>Cronograma</span></button>
-    </nav>
-  </div>
-
-  <div class="modal-overlay" id="modalProduto">
-    <div class="modal large-modal">
-      <button type="button" class="modal-close" data-close="modalProduto" aria-label="Fechar">×</button>
-      <div class="modal-title">Produto</div>
-      <input type="hidden" id="produtoId" />
-      <div class="form-grid two-cols">
-        <div class="form-group"><label>Nome do produto</label><input id="produtoNome" type="text" placeholder="Ex: Hambúrguer bovino" /></div>
-        <div class="form-group"><label>Categoria</label><input id="produtoCategoria" type="text" placeholder="Ex: Embutido cárneo fresco" /></div>
-      </div>
-      <div class="form-group"><label>Categorias didáticas</label><select id="produtoCategoriaDidatica" multiple size="3"></select></div>
-      <div class="form-group"><label>Descrição didática</label><textarea id="produtoDescricao" rows="3"></textarea></div>
-      <div class="form-group"><label>Objetivo da prática</label><textarea id="produtoObjetivo" rows="3"></textarea></div>
-
-      <div class="collapsible-box">
-        <button type="button" class="collapsible-title" data-toggle="produtoParametros">Parâmetros e alertas</button>
-        <div id="produtoParametros" class="collapsible-content open">
-          <div class="form-grid four-cols">
-            <div class="form-group"><label>Gordura máx. (%)</label><input id="paramGorduraMax" type="number" step="0.01" /></div>
-            <div class="form-group"><label>Proteína mín. (%)</label><input id="paramProteinaMin" type="number" step="0.01" /></div>
-            <div class="form-group"><label>Carboidratos máx. (%)</label><input id="paramCarbMax" type="number" step="0.01" /></div>
-            <div class="form-group"><label>Prot. agregada máx. (%)</label><input id="paramPncMax" type="number" step="0.01" /></div>
-          </div>
-          <label class="check-row"><input id="paramProibePnc" type="checkbox" /> Denominação sem proteína agregada permitida</label>
-          <label class="check-row"><input id="paramMostrarValidacao" type="checkbox" checked /> Mostrar validação automática nas formulações</label>
+        <div class="profile-actions">
+            <button class="btn-action" onclick="trocarPerfilAdmin()">Trocar Perfil</button>
+            <button class="btn-cancel" onclick="sairPerfilAdmin()">Sair do Perfil</button>
         </div>
-      </div>
-
-      <div class="form-group"><label>Fluxograma de processamento, uma etapa por linha</label><textarea id="produtoFluxo" rows="5"></textarea></div>
-      <div class="form-group"><label>Pontos de controle, um por linha</label><textarea id="produtoPontos" rows="5"></textarea></div>
-      <div class="form-group"><label>Equipamentos e utensílios, um por linha</label><textarea id="produtoEquipamentos" rows="4"></textarea></div>
-      <div class="form-group"><label>Perguntas para discussão, uma por linha</label><textarea id="produtoPerguntas" rows="4"></textarea></div>
-      <div class="form-group"><label>Fotos do produto ou da prática</label><input id="produtoFotos" type="file" accept="image/*" multiple /></div>
-      <div id="produtoFotosPreview" class="photo-strip"></div>
-      <div class="modal-actions">
-        <button class="danger-btn" id="btnExcluirProduto">Excluir</button>
-        <button class="secondary-btn" data-close="modalProduto">Cancelar</button>
-        <button class="primary-btn" id="btnSalvarProduto">Salvar produto</button>
-      </div>
     </div>
-  </div>
+</div>
 
-  <div class="modal-overlay" id="modalInsumo">
-    <div class="modal">
-      <button type="button" class="modal-close" data-close="modalInsumo" aria-label="Fechar">×</button>
-      <div class="modal-title">Insumo</div>
-      <input type="hidden" id="insumoId" />
-      <div class="form-group"><label>Nome</label><input id="insumoNome" type="text" placeholder="Ex: Sal" /></div>
-      <div class="form-group"><label>Categoria</label><select id="insumoTipo"></select></div>
-      <div class="form-group"><label>Subdivisão</label><select id="insumoSubtipo"></select></div>
-      <div class="form-group"><label>Função tecnológica</label><textarea id="insumoFuncao" rows="4" placeholder="Diga para que serve na formulação"></textarea></div>
-      <div class="form-group"><label>Observação didática</label><textarea id="insumoObs" rows="3"></textarea></div>
-      <div class="form-group"><label>Foto do insumo</label><input id="insumoFoto" type="file" accept="image/*" /></div>
-      <div id="insumoFotoPreview" class="photo-strip"></div>
-      <div class="form-grid four-cols">
-        <div class="form-group"><label>Gordura (%)</label><input id="insumoGordura" type="number" step="0.01" /></div>
-        <div class="form-group"><label>Proteína (%)</label><input id="insumoProteina" type="number" step="0.01" /></div>
-        <div class="form-group"><label>Carboidrato (%)</label><input id="insumoCarbo" type="number" step="0.01" /></div>
-        <div class="form-group"><label>Custo/kg (R$)</label><input id="insumoCusto" type="number" step="0.01" /></div>
-      </div>
-      <div class="form-group">
-        <label>Pode ser adicionado às formulações?</label>
-        <div class="segmented-choice">
-          <label><input id="insumoUsadoSim" type="radio" name="insumoUsadoNaFormulacao" value="sim" checked /><span>Sim</span></label>
-          <label><input id="insumoUsadoNao" type="radio" name="insumoUsadoNaFormulacao" value="nao" /><span>Não</span></label>
+<!-- TROCA DE SENHA -->
+<div class="modal-overlay" id="modalTrocaSenha" style="z-index: 2300;">
+    <div class="modal login-modal">
+        <div class="modal-title">
+            <span id="tituloTrocaSenha">Trocar senha</span>
+            <button class="icon-btn" id="btnFecharTrocaSenha" onclick="fecharModal('modalTrocaSenha')">✖</button>
         </div>
-      </div>
-      <label class="check-row"><input id="insumoPnc" type="checkbox" /> Contabilizar como proteína agregada não cárnea</label>
-      <label class="check-row"><input id="insumoAlergeno" type="checkbox" /> Pode envolver alérgeno ou declaração em rótulo</label>
-      <div class="modal-actions">
-        <button class="danger-btn" id="btnExcluirInsumo">Excluir</button>
-        <button class="secondary-btn" data-close="modalInsumo">Cancelar</button>
-        <button class="primary-btn" id="btnSalvarInsumo">Salvar insumo</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="modalInsumoView">
-    <div class="modal">
-      <button type="button" class="modal-close" data-close="modalInsumoView" aria-label="Fechar">×</button>
-      <div class="modal-title" id="insumoViewTitle">Insumo</div>
-      <div id="insumoViewContent"></div>
-      <div class="modal-actions">
-        <button class="primary-btn" data-close="modalInsumoView">Fechar</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="modalFormula">
-    <div class="modal large-modal">
-      <button type="button" class="modal-close" data-close="modalFormula" aria-label="Fechar">×</button>
-      <div class="modal-title">Formulação</div>
-      <input type="hidden" id="formulaId" />
-      <div class="form-grid two-cols">
-        <div class="form-group"><label>Produto</label><select id="formulaProduto"></select></div>
-        <div class="form-group"><label>Nome da formulação</label><input id="formulaNome" type="text" placeholder="Ex: Formulação base" /></div>
-      </div>
-      <div class="form-grid two-cols">
-        <div class="form-group"><label>Peso base para cálculo (g)</label><input id="formulaPeso" type="number" step="1" value="1000" /></div>
+        <p class="login-subtitle" id="textoTrocaSenha">Informe a senha atual e escolha uma nova senha numérica.</p>
+        <input type="hidden" id="trocaSenhaObrigatoria" value="false">
         <div class="form-group">
-          <label>Base dos percentuais</label>
-          <select id="formulaBaseCalculo">
-            <option value="massa_carnea">Massa cárnea / carne base</option>
-            <option value="produto_final">Produto final fechado em 100%</option>
-          </select>
+            <label>Senha Atual</label>
+            <input type="password" id="trocaSenhaAtual" inputmode="numeric" pattern="[0-9]*" autocomplete="current-password" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
         </div>
-      </div>
-      <div class="form-grid two-cols">
-        <div class="form-group"><label>Rendimento esperado (%)</label><input id="formulaRendimento" type="number" step="0.01" placeholder="Opcional" /></div>
-        <div class="formula-help">Ex.: alho em pó a 1,5% sobre 1.000 g de carne = 15 g de alho.</div>
-      </div>
-      <div class="formula-table-wrap">
-        <table class="formula-table">
-          <thead><tr><th>Insumo</th><th>%</th><th>g</th><th></th></tr></thead>
-          <tbody id="formulaItens"></tbody>
-        </table>
-      </div>
-      <button class="secondary-btn full" id="btnAddFormulaItem">Adicionar insumo</button>
-      <div id="formulaResumo" class="analysis-box"></div>
-      <div class="form-group"><label>Observações da prática</label><textarea id="formulaObs" rows="4"></textarea></div>
-      <div class="modal-actions">
-        <button class="danger-btn" id="btnExcluirFormula">Excluir</button>
-        <button class="secondary-btn" id="btnGerarRelatorio">Relatório</button>
-        <button class="secondary-btn" data-close="modalFormula">Cancelar</button>
-        <button class="primary-btn" id="btnSalvarFormula">Salvar formulação</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="modalRelatorio">
-    <div class="modal">
-      <button type="button" class="modal-close" data-close="modalRelatorio" aria-label="Fechar">×</button>
-      <div class="modal-title">Relatório da prática</div>
-      <div class="form-group"><textarea id="relatorioTexto" rows="15"></textarea></div>
-      <div class="modal-actions">
-        <button class="secondary-btn" data-close="modalRelatorio">Fechar</button>
-        <button class="primary-btn" id="btnCopiarRelatorio">Copiar texto</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="modalConfig">
-    <div class="modal config-menu-modal">
-      <button type="button" class="modal-close" data-close="modalConfig" aria-label="Fechar">×</button>
-      <div class="config-brand">
-        <strong>Processamento de Alimentos de Origem Animal</strong>
-        <span id="configAppVersion"></span>
-      </div>
-      <div class="modal-title">Configurações</div>
-      <div class="config-menu-grid">
-        <button type="button" class="config-menu-card" data-open-config-modal="modalConfigProdutos">Gerenciar produtos</button>
-        <button type="button" class="config-menu-card" data-open-config-modal="modalConfigInsumos">Gerenciar insumos</button>
-        <button type="button" class="config-menu-card" data-open-config-modal="modalConfigConteudos">Gerenciar conteúdos</button>
-        <button type="button" class="config-menu-card" data-open-config-modal="modalConfigCronograma">Cronograma</button>
-        <button type="button" class="config-menu-card" data-open-config-modal="modalConfigRegras">Regras do laboratório</button>
-        <button type="button" class="config-menu-card" data-open-config-modal="modalConfigAvancadas">Configurações avançadas</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="modalConfigProdutos">
-    <div class="modal large-modal">
-      <button type="button" class="modal-close" data-close="modalConfigProdutos" aria-label="Fechar">×</button>
-      <div class="modal-title">Gerenciar produtos</div>
-        <div class="toolbar in-modal">
-          <input id="searchConfigProdutos" type="search" placeholder="Buscar produto..." />
-          <button class="primary-btn compact" data-action="open-product">Novo produto</button>
+        <div class="form-group">
+            <label>Nova Senha</label>
+            <input type="password" id="trocaSenhaNova" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
         </div>
-        <div id="configProdutosList" class="stack-list compact-list"></div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="modalConfigInsumos">
-    <div class="modal large-modal">
-      <button type="button" class="modal-close" data-close="modalConfigInsumos" aria-label="Fechar">×</button>
-      <div class="modal-title">Gerenciar insumos</div>
-        <div class="toolbar in-modal">
-          <input id="searchInsumos" type="search" placeholder="Buscar insumo ou função..." />
-          <button class="primary-btn compact" data-action="open-ingredient">Novo insumo</button>
+        <div class="form-group">
+            <label>Confirmar Nova Senha</label>
+            <input type="password" id="trocaSenhaNova2" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
         </div>
-        <div class="chips" id="ingredientTypeFilters"></div>
-        <div id="insumosList" class="stack-list compact-list"></div>
+        <div id="trocaSenhaErro" class="login-error"></div>
+        <div class="modal-actions login-actions">
+            <button class="btn-cancel" id="btnCancelarTrocaSenha" onclick="fecharModal('modalTrocaSenha')">Cancelar</button>
+            <button class="btn-action" onclick="salvarTrocaSenhaPerfil()">Salvar Senha</button>
+        </div>
     </div>
-  </div>
+</div>
 
-  <div class="modal-overlay" id="modalConfigCronograma">
-    <div class="modal large-modal">
-      <button type="button" class="modal-close" data-close="modalConfigCronograma" aria-label="Fechar">×</button>
-      <div class="modal-title">Cronograma</div>
-        <div class="period-panel">
-          <div class="form-grid two-cols">
-            <div class="form-group">
-              <label>Período</label>
-              <select id="periodoAtivoSelect"></select>
+<div class="app-container">
+    <div class="header">
+        <div class="header-month-slot">
+            <div class="month-picker-box" onclick="abrirSeletorMes('filtroMesGeral')">
+                📅 <span id="lblMesVisivel">Abril 2026</span>
             </div>
-            <div class="period-actions">
-              <button type="button" class="secondary-btn compact" id="btnNovoPeriodo">Novo período</button>
-              <button type="button" class="secondary-btn compact" id="btnArquivarNovoPeriodo">Arquivar e criar novo</button>
+            <input type="hidden" id="filtroMesGeral">
+        </div>
+        
+        <!-- Logo Ampliada -->
+        <div class="header-logo-wrap">
+            <img id="headerLogo" src="" style="height: 85px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); display: none; background: transparent;">
+        </div>
+
+        <div class="header-actions">
+            <button onclick="abrirPainelResultados(true)" title="Painel">📊</button>
+            <button id="btnPerfilAdmin" class="profile-switch-btn" onclick="abrirMenuPerfil()" title="Perfil"><span>👤</span><span id="perfilAdminNome" class="profile-name">Entrar</span></button>
+            <button onclick="abrirModal('modalPainelUnificado')">⚙️</button>
+        </div>
+    </div>
+    
+    <div class="area-conteudo">
+        <div class="filters" id="containerFiltros">
+            <div class="chip active" id="chipTodos" onclick="clickFiltroTodos()">Todos</div>
+            <input type="text" id="inputBuscaNome" placeholder="Buscar nome..." oninput="renderizarLista()">
+            <div class="chip a-vencer" id="chipPendentes" onclick="setFiltroView('aVencer')">Pagamento a Vencer</div>
+            <div class="chip vencido" id="chipPagamentosVencidos" onclick="setFiltroView('vencidos')">Pagamento Vencido</div>
+            <div class="chip alerta" id="chipVencimentos" onclick="setFiltroView('vencimentos')">Documentos a Vencer</div>
+            <button class="filter-report-btn" title="Lista de acompanhamento manual" onclick="abrirRelatorioManual()">📋</button>
+        </div>
+        
+        <div class="scroll-area" id="mainScrollArea"><ul class="list" id="listaPrincipal"></ul></div>
+    </div>
+</div>
+
+<!-- Modal Personalizado para Selecionar Mês e Ano -->
+<div class="modal-overlay" id="modalMonthPicker" style="z-index: 2000;">
+    <div class="modal" style="width: 320px; padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+            <button onclick="mpChangeYear(-1)" style="background:none; border:none; font-size:24px; font-weight:bold; color:var(--theme-base); cursor:pointer;">&lt;</button>
+            <div style="font-size: 20px; font-weight: bold; color: #333;" id="mpYearLabel">2026</div>
+            <button onclick="mpChangeYear(1)" style="background:none; border:none; font-size:24px; font-weight:bold; color:var(--theme-base); cursor:pointer;">&gt;</button>
+        </div>
+        <div class="month-grid" id="mpMonthGrid"></div>
+        <div class="modal-actions" style="margin-top: 20px;">
+            <button class="btn-cancel" style="width: 100%;" onclick="fecharModal('modalMonthPicker')">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+<!-- RELATÓRIO MANUAL -->
+<div class="modal-overlay" id="modalRelatorioManual">
+    <div class="modal manual-report-modal">
+        <div class="modal-title">
+            <span>Lista de Acompanhamento</span>
+            <button class="icon-btn" onclick="fecharModal('modalRelatorioManual')">✖</button>
+        </div>
+        <div class="manual-report-controls">
+            <div>
+                <label>Mês Inicial</label>
+                <div class="month-picker-box field-month" onclick="abrirSeletorMes('relManualIni')">
+                    📅 <span id="lblRelManualIni">Mai 2026</span>
+                </div>
+                <input type="hidden" id="relManualIni">
             </div>
-          </div>
-          <div class="form-grid three-cols">
-            <div class="form-group"><label>Nome do período</label><input id="periodoNome" type="text" placeholder="Ex: 2026.1" /></div>
-            <div class="form-group"><label>Início</label><input id="periodoInicio" type="date" /></div>
-            <div class="form-group"><label>Fim</label><input id="periodoFim" type="date" /></div>
-          </div>
-          <div class="period-actions">
-            <button type="button" class="secondary-btn compact" id="btnArquivarPeriodo">Arquivar período</button>
-            <button type="button" class="primary-btn compact" id="btnAdicionarAula">Adicionar aula</button>
-          </div>
+            <div>
+                <label>Mês Final</label>
+                <div class="month-picker-box field-month" onclick="abrirSeletorMes('relManualFim')">
+                    📅 <span id="lblRelManualFim">Mai 2026</span>
+                </div>
+                <input type="hidden" id="relManualFim">
+            </div>
         </div>
-        <div id="configCronogramaList" class="config-schedule-list"></div>
+        <div class="modal-actions manual-report-actions">
+            <button class="btn-action" onclick="imprimirRelatorioManual()">Imprimir</button>
+        </div>
+        <div id="printRelatorioManual" class="manual-report-print"></div>
     </div>
-  </div>
+</div>
 
-  <div class="modal-overlay" id="modalConfigConteudos">
-    <div class="modal large-modal">
-      <button type="button" class="modal-close" data-close="modalConfigConteudos" aria-label="Fechar">×</button>
-      <div class="modal-title">Gerenciar conteúdos</div>
-      <div class="toolbar in-modal">
-        <button type="button" class="primary-btn compact" id="btnNovoConteudo">Novo conteúdo</button>
-      </div>
-      <div id="configConteudosList" class="config-content-list"></div>
+<!-- MENU PRINCIPAL -->
+<div class="modal-overlay" id="modalPainelUnificado">
+    <div class="modal" style="padding-top: 25px;">
+        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.45</span></h2>
+        <button class="btn-outline" onclick="abrirCooperativaComPermissao()">🏢 Dados da Cooperativa</button>
+        <button class="btn-outline" onclick="abrirGerenciarContribuintes()">👥 Gerenciar Contribuintes</button>
+        <button class="btn-outline" onclick="abrirConfigGeraisComPermissao()">⚙️ Configurações Gerais</button>
+        <button class="btn-outline" onclick="abrirUsuariosComPermissao()">👤 Gerenciar Usuários</button>
+        <button class="btn-outline" onclick="abrirAuditoriaComPermissao()">📋 Auditoria</button>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+        <h3 style="font-size: 16px; color: #d32f2f; margin-top: 15px; margin-bottom: 10px;">Avançado</h3>
+        <button class="btn-danger" style="width: 100%; margin-bottom: 10px;" onclick="solicitarAcessoAvancado()">⚠️ Configurações Avançadas</button>
+        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalPainelUnificado')">Fechar</button></div>
     </div>
-  </div>
+</div>
 
-  <div class="modal-overlay" id="modalConteudoEditor">
-    <div class="modal large-modal">
-      <button type="button" class="modal-close" data-close="modalConteudoEditor" aria-label="Fechar">×</button>
-      <div class="modal-title">Conteúdo teórico</div>
-      <input type="hidden" id="conteudoId" />
-      <div class="form-grid two-cols">
-        <div class="form-group">
-          <label>Nome do assunto teórico</label>
-          <input type="text" id="conteudoTitulo" />
+<!-- AUDITORIA -->
+<div class="modal-overlay" id="modalAuditoria">
+    <div class="modal audit-modal">
+        <div class="modal-title">
+            <span>Auditoria</span>
+            <button class="icon-btn" onclick="fecharModal('modalAuditoria'); abrirModal('modalPainelUnificado');">✖</button>
         </div>
-        <div class="form-group">
-          <label>Formato do conteúdo</label>
-          <select id="conteudoModo">
-            <option value="texto">Texto e tópicos</option>
-            <option value="slides">Imagens de slides</option>
-          </select>
+        <input type="text" id="buscaAuditoria" class="manage-search-input" placeholder="Buscar mudança, usuário..." oninput="renderAuditoria()" style="display:block;">
+        <div id="listaAuditoria" class="audit-list"></div>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="fecharModal('modalAuditoria'); abrirModal('modalPainelUnificado');">Voltar</button>
         </div>
-      </div>
-      <div id="conteudoTextoFields">
-        <div class="form-group">
-          <label>Resumo do assunto</label>
-          <textarea rows="4" id="conteudoResumo"></textarea>
-        </div>
-        <div class="form-grid two-cols">
-          <div class="form-group">
-            <label>Tópicos, um por linha</label>
-            <textarea rows="6" id="conteudoTopicos"></textarea>
-          </div>
-          <div class="form-group">
-            <label>Perguntas, uma por linha</label>
-            <textarea rows="6" id="conteudoPerguntas"></textarea>
-          </div>
-        </div>
-      </div>
-      <div class="form-group">
-        <label>Imagens ou slides do assunto</label>
-        <input type="file" id="conteudoImagens" accept="image/*" multiple />
-      </div>
-      <div id="conteudoImagensPreview" class="content-image-preview"></div>
-      <div class="schedule-link-grid">
-        <div>
-          <div class="linked-title">Produtos relacionados</div>
-          <div id="conteudoProdutos" class="check-pill-grid"></div>
-        </div>
-        <div>
-          <div class="linked-title">Insumos citados</div>
-          <div id="conteudoInsumos" class="check-pill-grid"></div>
-        </div>
-      </div>
-      <div class="modal-actions">
-        <button type="button" class="danger-btn" id="btnExcluirConteudo">Excluir</button>
-        <button type="button" class="secondary-btn" data-close="modalConteudoEditor">Cancelar</button>
-        <button type="button" class="primary-btn" id="btnSalvarConteudo">Salvar conteúdo</button>
-      </div>
     </div>
-  </div>
+</div>
 
-  <div class="modal-overlay" id="modalConteudoView">
-    <div class="modal large-modal">
-      <button type="button" class="modal-close" data-close="modalConteudoView" aria-label="Fechar">×</button>
-      <div class="modal-title" id="conteudoViewTitle">Conteúdo teórico</div>
-      <div id="conteudoViewBody"></div>
+<!-- PAINEL DE RESULTADOS (DASHBOARD) -->
+<div class="modal-overlay" id="modalPainelResultados">
+    <div class="modal" style="width: 95%; max-width: 600px; height: 90vh;">
+        <div class="modal-title">
+            <span style="display:flex; align-items:center; gap:8px;">📊 Painel de Resultados</span>
+            <button style="background:none; border:none; font-size:24px; cursor:pointer; color:#666; line-height:1;" onclick="fecharPainelResultados()">✖</button>
+        </div>
+        
+        <div class="section-title" style="margin-top:0;">Resumo do Mês</div>
+        <div class="form-group" style="display:flex; justify-content:center; margin-bottom: 15px;">
+            <div class="month-picker-box" onclick="abrirSeletorMes('dashMesSingle')" style="width: 100%; justify-content:center; padding: 10px; font-size: 16px; background:#f0f0f0; border-color:#ccc; color:#333;">
+                📅 <span id="lblDashMesSingle">Abril 2026</span>
+            </div>
+            <input type="hidden" id="dashMesSingle">
+        </div>
+
+        <div class="dash-cards">
+            <div class="dash-card">
+                <div class="title">Contribuintes Ativos</div>
+                <div class="value" id="dashTotalContrib">0</div>
+            </div>
+            <div class="dash-card">
+                <div class="title">Veículos Ativos</div>
+                <div class="value" id="dashTotalCarros">0</div>
+                <div class="sub-value" id="dashTotalCarrosTipo">0 grandes | 0 pequenos</div>
+            </div>
+            <div class="dash-card full" style="background:#E3F2FD; border-color:#1565C0;">
+                <div class="title" style="color:#0D47A1;">Total Esperado (Mês)</div>
+                <div class="value" id="dashTotalEsperado" style="color:#1565C0; font-size:24px;">R$ 0,00</div>
+            </div>
+            <div class="dash-card">
+                <div class="title">Recebido</div>
+                <div class="value" id="dashRecebidoVal">R$ 0,00</div>
+                <div class="sub-value" id="dashRecebidoQtd">0 contribuintes</div>
+            </div>
+            <div class="dash-card red">
+                <div class="title">Pendente</div>
+                <div class="value" id="dashPendenteVal">R$ 0,00</div>
+                <div class="sub-value" id="dashPendenteQtd">0 contribuintes</div>
+            </div>
+        </div>
+
+        <div class="section-title">Comparativo (Gráficos)</div>
+        
+        <div style="display:flex; align-items:center; justify-content:space-between; background:#f9f9f9; padding:15px 10px; border-radius:8px; border:1px solid #ddd; width: 100%; box-sizing: border-box;">
+            <div style="flex:1; text-align:center; min-width:0;">
+                <div style="font-size:11px; color:#666; font-weight:bold; margin-bottom:4px; text-transform:uppercase;">Início</div>
+                <div class="month-picker-box" onclick="abrirSeletorMes('dashGrafIni')" style="background:#fff; border-color:#ccc; color:#333; width:85%; justify-content:center; padding:8px 5px; font-size:12px;">📅 <span id="lblDashGrafIni">Jan 2026</span></div>
+                <input type="hidden" id="dashGrafIni">
+            </div>
+            <div style="font-size:24px; color:#ccc; font-weight:bold; padding-top:15px; flex:none; transform: translateX(1px);">➔</div>
+            <div style="flex:1; text-align:center; min-width:0;">
+                <div style="font-size:11px; color:#666; font-weight:bold; margin-bottom:4px; text-transform:uppercase;">Fim</div>
+                <div class="month-picker-box" onclick="abrirSeletorMes('dashGrafFim')" style="background:#fff; border-color:#ccc; color:#333; width:85%; justify-content:center; padding:8px 5px; font-size:12px;">📅 <span id="lblDashGrafFim">Dez 2026</span></div>
+                <input type="hidden" id="dashGrafFim">
+            </div>
+        </div>
+        
+        <div id="dashResumoPeriodo" style="text-align:center; font-size:14px; font-weight:bold; margin-top:10px; margin-bottom:15px; color:#333;"></div>
+        
+        <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:140px; display:flex; justify-content:center; align-items:center; gap:8px; background:#eee; padding:8px; border-radius:20px;">
+                <span id="lblSwValor" style="font-size:12px; font-weight:bold; color:var(--theme-base);">R$ Valor</span>
+                <label class="switch" style="margin:0;">
+                    <input type="checkbox" id="dashSwTipoDado" onchange="toggleDashTipoDado()">
+                    <span class="slider"></span>
+                </label>
+                <span id="lblSwQtd" style="font-size:12px; font-weight:bold; color:#777;">Qtd Contribuintes</span>
+            </div>
+            <div style="flex:1; min-width:140px; display:flex; justify-content:center; align-items:center; gap:8px; background:#eee; padding:8px; border-radius:20px;">
+                <span id="lblSwBarra" style="font-size:12px; font-weight:bold; color:var(--theme-base);">Barras</span>
+                <label class="switch" style="margin:0;">
+                    <input type="checkbox" id="dashSwTipoGrafico" onchange="toggleDashTipoGrafico()">
+                    <span class="slider"></span>
+                </label>
+                <span id="lblSwLinha" style="font-size:12px; font-weight:bold; color:#777;">Linhas</span>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <canvas id="chartArrecadacao" height="200"></canvas>
+        </div>
+        <div style="margin-bottom: 20px;">
+            <canvas id="chartInadimplencia" height="200"></canvas>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn-cancel" style="width: 100%;" onclick="fecharPainelResultados()">Voltar</button>
+        </div>
     </div>
-  </div>
+</div>
 
-  <div class="modal-overlay" id="modalConfigRegras">
-    <div class="modal large-modal">
-      <button type="button" class="modal-close" data-close="modalConfigRegras" aria-label="Fechar">×</button>
-      <div class="modal-title">Regras do laboratório</div>
-      <div class="toolbar in-modal">
-        <button type="button" class="primary-btn compact" id="btnAddRule">Nova regra</button>
-      </div>
-      <div id="configRulesList" class="config-rules-list"></div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="modalConfigAvancadas">
+<!-- ZONA DE RISCO E NUVEM -->
+<div class="modal-overlay" id="modalSenhaAvancada">
     <div class="modal">
-      <button type="button" class="modal-close" data-close="modalConfigAvancadas" aria-label="Fechar">×</button>
-      <div class="modal-title">Configurações avançadas</div>
-        <p class="muted">Os dados ficam salvos neste navegador. Use exportação JSON para backup e para levar a base para outro computador.</p>
-        <div class="config-grid">
-          <button class="secondary-btn full" id="btnExportar">Exportar dados JSON</button>
-          <button class="secondary-btn full" id="btnImportar">Importar dados JSON</button>
-          <input id="fileImportar" type="file" accept="application/json,.json" hidden />
-          <button class="secondary-btn full" id="btnBaixarModelo">Baixar modelo de dados</button>
-          <button class="danger-btn full" id="btnResetDemo">Restaurar base demonstrativa</button>
+        <div class="modal-title" style="color:#d32f2f;">Zona de Risco</div>
+        <div class="form-group"><label>Senha Avançada:</label><input type="password" id="senhaAvancada" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')"></div>
+        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalSenhaAvancada')">Cancelar</button></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modalConfigAvancadas">
+    <div class="modal" style="max-height: 90vh; overflow-y: auto;">
+        <div class="modal-title" style="color:#d32f2f;">Zona de Risco</div>
+        <div class="form-group">
+            <label>URL Google Script:</label>
+            <input type="text" id="configUrlApp" placeholder="https://script.google.com/macros/s/...">
+            <button class="btn-action" style="width: 100%; margin-top: 10px;" onclick="salvarURL()">💾 Salvar URL e Puxar Dados</button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
+            <button class="btn-action" style="margin: 0; width: 100%; font-size: 15px; margin-bottom: 10px;" onclick="forcarEnvioNuvemCompleto()">☁️ Forçar Envio Completo pra Nuvem</button>
+            <div style="display: flex; gap: 8px; width: 100%;">
+                <button class="btn-outline" style="margin: 0; flex: 1; font-size: 13px; text-align: center;" onclick="exportarDadosBackup()">⬇️ Exportar Backup</button>
+                <button class="btn-outline" style="margin: 0; flex: 1; font-size: 13px; border-color:#d32f2f; color:#d32f2f; text-align: center;" onclick="document.getElementById('fileImportBkp').click()">⬆️ Importar Backup</button>
+                <input type="file" id="fileImportBkp" style="display:none;" accept=".json" onchange="importarDadosBackup(event)">
+            </div>
+        </div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+        <div class="form-group"><label>Para apagar todo o histórico de lançamentos, digite: <b>quero excluir todo o histórico</b></label><input type="text" id="inputExcluirTudo" placeholder="digite a frase exata"><button class="btn-danger" style="margin-top: 10px; width: 100%;" onclick="excluirTodoHistorico()">🗑️ Apagar Todo o Histórico</button></div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+        <div class="form-group"><label>App travou ou quer puxar versão nova?</label><button class="btn-outline" style="border-color:#fbc02d; color:#fbc02d; width: 100%; text-align: center;" onclick="forcarAtualizacao()">🔄 Forçar Atualização do App</button></div>
+        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalConfigAvancadas'); abrirModal('modalPainelUnificado');">Voltar</button></div>
+    </div>
+</div>
+
+<!-- LISTAGENS GENÉRICAS -->
+<div class="modal-overlay" id="modalListagem">
+    <div class="modal" style="width: 95%; height: 85vh; display: flex; flex-direction: column;">
+        <div class="modal-title" id="tituloListagem" style="flex-shrink: 0;">Gerenciar</div>
+        
+        <div id="boxAcoesExtrasExcel" class="excel-actions">
+            <button class="excel-btn excel-export" onclick="exportarExcel()">⬇️ <span>Exportar</span><small>.xlsx</small></button>
+            <button class="excel-btn excel-import" onclick="document.getElementById('fileImportExcel').click()">⬆️ <span>Importar</span><small>.xlsx</small></button>
+            <button class="excel-btn excel-model" onclick="baixarModeloExcel()">📄 <span>Modelo</span><small>planilha</small></button>
+            <input type="file" id="fileImportExcel" style="display:none;" accept=".xlsx, .xls" onchange="importarExcel(event)">
+        </div>
+        <input type="text" id="inputBuscaGerenciarContrib" class="manage-search-input" placeholder="Buscar contribuinte..." oninput="renderGerenciarContribuintesLista()" style="display:none;">
+
+        <div style="display: flex; gap: 5px; margin-bottom: 15px; flex-shrink: 0; flex-wrap:wrap;">
+            <button class="btn-action" id="btnNovoListagem" style="flex: 2; padding: 10px; font-size: 14px; border-radius: 8px; display: flex; justify-content: center; align-items: center; gap: 8px;">
+                <span style="font-size: 18px; font-weight: bold; line-height: 1;">+</span> Novo
+            </button>
+        </div>
+        <div id="conteudoListagem" style="flex: 1; overflow-y: auto; padding-right: 5px;"></div>
+        <div class="modal-actions" style="flex-shrink: 0;"><button class="btn-cancel" id="btnVoltarListagem" onclick="fecharModal('modalListagem'); abrirModal('modalPainelUnificado');" style="width: 100%;">Voltar</button></div>
+    </div>
+</div>
+
+<!-- DADOS DA COOPERATIVA -->
+<div class="modal-overlay" id="modalFormCooperativa">
+    <div class="modal">
+        <div class="modal-title">Dados da Cooperativa</div>
+        <div class="form-group">
+            <label>Logo (Aparece no Cabeçalho):</label>
+            <input type="file" accept="image/*" onchange="converterLogo(this)">
+            <input type="hidden" id="coopLogoBase64">
+            <div id="previewLogo" style="margin-top:5px;"></div>
+        </div>
+        <div class="form-group"><label>Razão Social:</label><input type="text" id="coopRazao"></div>
+        <div class="form-group"><label>Nome Fantasia:</label><input type="text" id="coopFantasia"></div>
+        <div class="form-group"><label>CNPJ:</label><input type="text" id="coopCNPJ" inputmode="numeric" oninput="maskCNPJ(this)" placeholder="00.000.000/0000-00"></div>
+        
+        <div class="section-title">Chaves PIX da Cooperativa</div>
+        <div class="form-group">
+            <div style="display: flex; gap: 5px; margin-bottom: 5px; align-items:stretch;">
+                <select id="novoPixTipoCoop" style="width: auto; padding: 8px 4px;" onchange="document.getElementById('novoPixInputCoop').value=''; document.getElementById('novoPixInputCoop').focus();">
+                    <option value="CNPJ">CNPJ</option>
+                    <option value="CPF">CPF</option>
+                    <option value="Celular">Celular</option>
+                    <option value="E-mail">E-mail</option>
+                    <option value="Aleatória">Aleatória</option>
+                </select>
+                <input type="text" id="novoPixInputCoop" placeholder="Chave PIX" style="flex: 1; padding: 8px; min-width: 0;">
+            </div>
+            <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+                <input type="text" id="novoPixBenCoop" placeholder="Nome do Beneficiário" style="flex: 1; padding: 8px;">
+                <button class="btn-action" onclick="addPixCoop()" style="flex: none; width: 45px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold;">+</button>
+            </div>
+            <div id="listaPixCoop" class="pix-list-box"></div>
+        </div>
+
+        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalFormCooperativa'); abrirModal('modalPainelUnificado');">Cancelar</button><button class="btn-action" onclick="salvarCooperativa()">Salvar</button></div>
+    </div>
+</div>
+
+<!-- CONFIG GERAIS -->
+<div class="modal-overlay" id="modalConfigGerais">
+    <div class="modal" style="max-height: 90vh;">
+        <div class="modal-title">Configurações Gerais</div>
+        
+        <div class="section-title">Cores do Sistema</div>
+        <div class="form-group" style="display:flex; align-items:center; gap:10px; background:#f9f9f9; padding:10px; border-radius:5px;">
+            <label style="margin:0; flex:1;">Cor Principal:</label>
+            <input type="color" id="confCorTema" style="height:40px; width:60px; padding:0; border:none; cursor:pointer;">
+            <button class="btn-outline" style="margin:0; padding:8px; font-size:12px;" onclick="document.getElementById('confCorTema').value='#008C4A'">Restaurar</button>
+        </div>
+        <div class="form-group" style="display:flex; align-items:center; gap:10px; background:#f9f9f9; padding:10px; border-radius:5px; margin-top:5px;">
+            <label style="margin:0; flex:1;">Cor do Sub-Cabeçalho:</label>
+            <input type="color" id="confCorSub" style="height:40px; width:60px; padding:0; border:none; cursor:pointer;">
+            <button class="btn-outline" style="margin:0; padding:8px; font-size:12px;" onclick="document.getElementById('confCorSub').value='#ffffff'">Restaurar</button>
+        </div>
+
+        <div class="section-title">Avisos de Vencimento</div>
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; background:#f9f9f9; padding:8px; border-radius:5px; margin-bottom:5px;">
+            <div style="display:flex; align-items:center;">
+                <label class="switch"><input type="checkbox" id="confAlertaLaudo" onchange="toggleConfAlerta('Laudo')"><span class="slider"></span></label>
+                <span style="font-weight:bold; font-size:12px; color:#333;">Laudo</span>
+            </div>
+            <div id="boxDiasLaudo" style="display:none; align-items:center; gap:5px;">
+                <span style="font-size:11px; color:#666;">Avisar (dias):</span>
+                <input type="number" id="confDiasLaudo" style="width:50px; padding:4px; text-align:center;" value="7">
+            </div>
+        </div>
+
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; background:#f9f9f9; padding:8px; border-radius:5px; margin-bottom:5px;">
+            <div style="display:flex; align-items:center;">
+                <label class="switch"><input type="checkbox" id="confAlertaSeguro" onchange="toggleConfAlerta('Seguro')"><span class="slider"></span></label>
+                <span style="font-weight:bold; font-size:12px; color:#333;">Seguro</span>
+            </div>
+            <div id="boxDiasSeguro" style="display:none; align-items:center; gap:5px;">
+                <span style="font-size:11px; color:#666;">Avisar (dias):</span>
+                <input type="number" id="confDiasSeguro" style="width:50px; padding:4px; text-align:center;" value="7">
+            </div>
+        </div>
+
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; background:#f9f9f9; padding:8px; border-radius:5px; margin-bottom:15px;">
+            <div style="display:flex; align-items:center;">
+                <label class="switch"><input type="checkbox" id="confAlertaLicenca" onchange="toggleConfAlerta('Licenca')"><span class="slider"></span></label>
+                <span style="font-weight:bold; font-size:12px; color:#333;">Licença</span>
+            </div>
+            <div id="boxDiasLicenca" style="display:none; align-items:center; gap:5px;">
+                <span style="font-size:11px; color:#666;">Avisar (dias):</span>
+                <input type="number" id="confDiasLicenca" style="width:50px; padding:4px; text-align:center;" value="7">
+            </div>
+        </div>
+
+        <div class="section-title">Atualização de Cadastro</div>
+        <div class="form-group annual-reset-box">
+            <label>Data anual para zerar “Cadastro atualizado”:</label>
+            <div class="annual-reset-inputs">
+                <div>
+                    <span>Dia</span>
+                    <input type="number" id="confResetCadastroDia" min="1" max="31" inputmode="numeric">
+                </div>
+                <div>
+                    <span>Mês</span>
+                    <input type="number" id="confResetCadastroMes" min="1" max="12" inputmode="numeric">
+                </div>
+            </div>
+        </div>
+
+        <div class="section-title">Categorias de Veículos e Valores</div>
+        <input type="hidden" id="editIdxCat" value="">
+        
+        <div id="boxEditCat" style="background: #f9f9f9; padding: 10px; border-radius: 5px; border: 1px solid #ccc; transition: 0.3s; margin-bottom: 10px;">
+            <div style="font-size:12px; font-weight:bold; color:var(--theme-base); margin-bottom:5px;" id="lblModoCat">Adicionar Nova Categoria</div>
+            <div style="display: flex; gap: 5px;">
+                <select id="novaCatEmoji" style="flex: 0 0 auto; padding: 8px 4px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; background: white; width: 50px;">
+                    <option value="🚗">🚗</option>
+                    <option value="🚙">🚙</option>
+                    <option value="🛻">🛻</option>
+                    <option value="🚌">🚌</option>
+                    <option value="🚛">🚛</option>
+                    <option value="🚜">🚜</option>
+                </select>
+                <input type="text" id="novaCatNome" placeholder="Categoria (Ex: Van)" style="flex: 1; min-width: 0;">
+                <input type="text" id="novaCatValor" placeholder="R$ 0,00" inputmode="numeric" oninput="maskMoeda(this)" style="flex: 0 0 80px; min-width: 0;">
+                <button class="btn-action" onclick="addCategoria()" style="flex: 0 0 45px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold;" id="btnSalvarCat">+</button>
+                <button class="btn-cancel" id="btnCancelarEditCat" style="display:none; flex: 0 0 45px; padding: 0; align-items: center; justify-content: center; font-weight: bold;" onclick="cancelarEditCategoria()">X</button>
+            </div>
+        </div>
+        
+        <div id="listaCategorias" style="background: #f9f9f9; padding: 10px; border-radius: 5px; margin-bottom: 15px; max-height: 150px; overflow-y: auto;"></div>
+
+        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalConfigGerais'); abrirModal('modalPainelUnificado');">Cancelar</button><button class="btn-action" onclick="salvarConfigGerais()">Salvar Tudo</button></div>
+    </div>
+</div>
+
+<!-- CONFIRMAR EXCLUSÃO DE CATEGORIA -->
+<div class="modal-overlay" id="modalExcluirCategoria" style="z-index: 2400;">
+    <div class="modal">
+        <div class="modal-title">
+            <span>Apagar Categoria</span>
+            <button class="icon-btn" onclick="fecharModal('modalExcluirCategoria')">✖</button>
+        </div>
+        <div class="transfer-note">Para apagar a categoria <b id="nomeCategoriaExcluir"></b>, digite a frase exata e informe a senha do painel avançado.</div>
+        <input type="hidden" id="idxCategoriaExcluir">
+        <div class="form-group"><label>Frase de confirmação</label><input type="text" id="fraseExcluirCategoria" placeholder="eu quero apagar essa categoria"></div>
+        <div class="form-group"><label>Senha do painel avançado</label><input type="password" id="senhaExcluirCategoria" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')"></div>
+        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalExcluirCategoria')">Cancelar</button><button class="btn-danger" onclick="confirmarExclusaoCategoria()">Apagar</button></div>
+    </div>
+</div>
+
+<!-- FORM USUÁRIO -->
+<div class="modal-overlay" id="modalFormAdmin">
+    <div class="modal">
+        <div class="modal-title">Usuário</div>
+        <input type="hidden" id="adminId">
+        <div class="form-group"><label>Nome do Usuário:</label><input type="text" id="adminNome"></div>
+        <div class="form-group"><label>Senha do Usuário:</label><input type="password" id="adminSenha" placeholder="Senha numérica" inputmode="numeric" pattern="[0-9]*" autocomplete="new-password" oninput="this.value = this.value.replace(/[^0-9]/g, '')"></div>
+        <label class="permission-check"><input type="checkbox" id="adminForcarTrocaSenha"> Usuário cadastra nova senha no primeiro acesso</label>
+        <label class="permission-check"><input type="checkbox" id="adminIsAdmin" onchange="togglePermissoesUsuario()"> Administrador</label>
+        <div id="boxPermissoesUsuario" class="permissions-box">
+            <label class="permission-check"><input type="checkbox" id="permCooperativa"> Acesso aos dados da cooperativa</label>
+            <label class="permission-check"><input type="checkbox" id="permConfigGerais"> Acesso às configurações gerais</label>
+            <label class="permission-check"><input type="checkbox" id="permUsuarios"> Acesso a gerenciar usuários</label>
+        </div>
+        <div class="modal-actions"><button class="btn-cancel" onclick="fecharModal('modalFormAdmin'); abrirGerenciar('administradores');">Cancelar</button><button class="btn-action" onclick="salvarAdmin()">Salvar</button></div>
+    </div>
+</div>
+
+<!-- FORM CONTRIBUINTE -->
+<div class="modal-overlay" id="modalFormContribuinte">
+    <div class="modal" style="padding-top:15px; width: 95%; height: 90vh;">
+        <div class="modal-title">Cadastro de Contribuinte</div>
+        <input type="hidden" id="contId">
+        <input type="hidden" id="contFromAcoes" value="false">
+        
+        <div class="section-title">Dados Pessoais</div>
+        <div class="form-group"><label>Nome Completo:</label><input type="text" id="contNome"></div>
+        
+        <div class="form-group">
+            <label>Telefones (WhatsApp):</label>
+            <div class="phone-field-row">
+                <input type="text" id="contTelefonePrincipal" placeholder="Telefone principal" inputmode="numeric" oninput="maskTelefone(this)">
+                <button class="btn-action phone-add-btn" type="button" onclick="mostrarTelefoneAlternativo()" title="Adicionar telefone alternativo">+</button>
+            </div>
+            <div id="boxTelefoneAlternativo" class="phone-field-row phone-alternate-row" style="display:none;">
+                <input type="text" id="contTelefoneAlternativo" placeholder="Telefone alternativo" inputmode="numeric" oninput="maskTelefone(this)">
+                <button class="phone-remove-btn" type="button" onclick="removerTelefoneAlternativo()" title="Remover telefone alternativo">X</button>
+            </div>
+        </div>
+
+        <div class="section-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+            <span style="flex:1;">Veículos Vinculados</span>
+            <button class="btn-action" style="padding:6px 12px; font-size:12px; width:auto; flex-shrink: 0;" onclick="abrirFormCarro(null)">+ Carro</button>
+        </div>
+        <div id="listaCarros" style="background:#f9f9f9; padding:8px; border-radius:4px; min-height:50px; margin-bottom:15px;"></div>
+
+        <div class="form-group due-day-card">
+            <label>Dia do Vencimento:</label>
+            <input type="number" id="contDiaVencimento" min="1" max="31" inputmode="numeric" placeholder="30">
+        </div>
+
+        <div class="form-group contributor-total-box">
+            <div class="contributor-total-grid">
+                <div><label>Desconto Base (R$):</label><input type="text" id="contDesconto" inputmode="numeric" oninput="maskMoeda(this); calcTotalContribuinte();" placeholder="0,00"></div>
+                <div><label>Total a Pagar (R$):</label><input type="text" id="contValor" readonly></div>
+            </div>
+            <div class="contributor-total-note">*Desconto fixo concedido por mês.</div>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="cancelarFormContribuinte()">Cancelar</button>
+            <button class="btn-action" onclick="salvarContribuinte()">Salvar</button>
         </div>
     </div>
-  </div>
+</div>
 
-  <div class="modal-overlay" id="modalConfirmacao">
-    <div class="modal confirmation-modal">
-      <button type="button" class="modal-close" data-close="modalConfirmacao" aria-label="Fechar">×</button>
-      <div class="modal-title" id="confirmacaoTitulo">Confirmar exclusão</div>
-      <p class="confirmation-message" id="confirmacaoMensagem"></p>
-      <div class="modal-actions">
-        <button type="button" class="secondary-btn" id="btnCancelarConfirmacao">Cancelar</button>
-        <button type="button" class="danger-btn" id="btnConfirmarAcao">Excluir</button>
-      </div>
+<!-- FORM CARRO -->
+<div class="modal-overlay" id="modalFormCarro" style="z-index: 1500;">
+    <div class="modal">
+        <div class="modal-title" id="tituloModalCarro">Dados do Veículo</div>
+        <input type="hidden" id="carroEditId">
+        
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex:1;"><label>Placa:</label><input type="text" id="carPlaca" style="text-transform:uppercase;"></div>
+            <div class="form-group" style="flex:1;"><label>Ano (AAAA):</label><input type="text" id="carAno" inputmode="numeric" maxlength="4" oninput="this.value = this.value.replace(/[^0-9]/g, '')"></div>
+        </div>
+        
+        <div class="form-group">
+            <label>Categoria:</label>
+            <select id="carCategoria" onchange="autoFillValorCarro()"></select>
+        </div>
+        
+        <div class="form-group"><label>Valor Atribuído (R$):</label><input type="text" id="carValor" inputmode="numeric" oninput="maskMoeda(this)"></div>
+        
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex:1;">
+                <label>Data Laudo:</label>
+                <input type="date" id="carLaudo" onchange="verificarDatasCarroUI()">
+                <div id="avisoCarLaudo" style="font-size:11px; color:#D32F2F; font-weight:bold; margin-top:4px; display:none;"></div>
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label>Data Seguro:</label>
+                <input type="date" id="carSeguro" onchange="verificarDatasCarroUI()">
+                <div id="avisoCarSeguro" style="font-size:11px; color:#D32F2F; font-weight:bold; margin-top:4px; display:none;"></div>
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex:1;">
+                <label>Data Licença:</label>
+                <input type="date" id="carLicenca" onchange="verificarDatasCarroUI()">
+                <div id="avisoCarLicenca" style="font-size:11px; color:#D32F2F; font-weight:bold; margin-top:4px; display:none;"></div>
+            </div>
+            <div class="form-group" style="flex:1;">
+                <label style="color:var(--theme-base);">Data Cadastro:</label>
+                <input type="date" id="carCadastro" onchange="verificarDatasCarroUI()" style="border: 1px solid var(--theme-base);">
+                <div id="avisoCarCadastro" style="font-size:11px; color:#D32F2F; font-weight:bold; margin-top:4px; display:none;"></div>
+            </div>
+        </div>
+
+        <div class="form-group vehicle-flags-row">
+            <div class="vehicle-flag-control vehicle-flag-updated">
+                <label class="switch"><input type="checkbox" id="carCadastroAtualizado"><span class="slider"></span></label>
+                <span>Cadastro atualizado</span>
+            </div>
+            <div class="vehicle-flag-control vehicle-flag-blocked">
+                <label class="switch"><input type="checkbox" id="carArquivado" onchange="toggleMotivoArquivamento()"><span class="slider"></span></label>
+                <span>Bloquear Veículo</span>
+            </div>
+        </div>
+        <div class="form-group" id="boxMotivoArqv" style="display:none;">
+            <label>Motivo do Bloqueio:</label>
+            <textarea id="carMotivo" rows="2" placeholder="Vendeu o carro, troca, etc..."></textarea>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn-danger vehicle-delete-btn" id="btnExcluirCarro" onclick="solicitarExclusaoCarroTemp()" style="display:none;">Excluir Veículo</button>
+            <button class="btn-cancel" onclick="fecharModal('modalFormCarro')">Cancelar</button>
+            <button class="btn-action" onclick="salvarCarroTemp()">Confirmar</button>
+        </div>
     </div>
-  </div>
+</div>
 
-  <div id="toast" class="toast"></div>
-  <script src="app.js?v=28"></script>
+<!-- AÇÕES DO CONTRIBUINTE (RECEBIMENTOS) -->
+<div class="modal-overlay" id="modalAcoesContribuinte">
+    <div class="modal modal-acoes">
+        <div class="modal-title modal-title-acoes">
+            <div class="acoes-title-text">
+                <span id="tituloAcoesContribuinte">Nome do Contribuinte</span>
+                <small id="lblMesAcoes"></small>
+            </div>
+            <div class="acoes-title-actions">
+                <button class="icon-btn" title="Editar contribuinte" onclick="abrirFormContribuinte(document.getElementById('acoesContId').value, true);">✏️</button>
+                <button class="icon-btn" title="Fechar" onclick="fecharModal('modalAcoesContribuinte')">✖</button>
+            </div>
+        </div>
+        <input type="hidden" id="acoesContId">
+
+        <div class="acoes-toolbar">
+            <div id="boxWAAcoes" class="acoes-whatsapp"></div>
+            <button class="btn-action action-pix-btn" onclick="enviarChavePixWhatsApp()">
+                <span>🔑</span> Enviar PIX
+            </button>
+        </div>
+
+        <div class="section-title" style="margin-top: 0;">Veículos Vinculados</div>
+        <div id="listaCarrosAcoes" class="vehicle-actions"></div>
+
+        <div class="section-title receipt-title">
+            <span>Recebimento</span>
+            <div class="multi-toggle receipt-toggle">
+                <label class="switch"><input type="checkbox" id="switchMultiMes" onchange="toggleMultiMes()"><span class="slider"></span></label>
+                <strong>Receber Múltiplos meses</strong>
+            </div>
+        </div>
+        <div class="payment-panel">
+            <div id="boxStatusPagamento" class="payment-status" style="display:none;"></div>
+
+            <!-- SINGLE MONTH PAYMENT -->
+            <div id="boxSingleMes" class="payment-mode-box open">
+                <div class="payment-grid single-payment-grid">
+                    <!-- Ajuste Mês Ref Box (30 e 31) -->
+                    <div>
+                        <label>Mês de Referência</label>
+                        <div class="month-picker-box field-month" onclick="abrirSeletorMes('pgMesRefSingle')">
+                            📅 <span id="lblPgMesRefSingle">Abril 2026</span>
+                        </div>
+                        <input type="hidden" id="pgMesRefSingle">
+                    </div>
+                    <div>
+                        <label>Dia do Vencimento</label>
+                        <input type="hidden" id="pgDataSingle">
+                        <div id="pgVencimentoSingle" class="due-day-display">Dia 30</div>
+                    </div>
+                    <div>
+                        <label>Valor a Receber</label>
+                        <div id="pgValorSingleBox" class="input-affix money-affix amount-due-affix">
+                            <span>R$</span>
+                            <input type="text" id="pgValorSingle" oninput="maskMoeda(this)" class="money-input amount-due-input">
+                        </div>
+                    </div>
+                </div>
+                <button id="btnRegistrarSingle" class="btn-action primary-wide payment-confirm-btn" onclick="registrarPagamentoSingle()"><span class="payment-btn-emoji">💲</span><span>Registrar Pagamento do Mês</span></button>
+            </div>
+
+            <!-- MULTI MONTH PAYMENT -->
+            <div id="boxMultiMes" class="payment-mode-box multi-payment-box">
+                <div class="payment-grid">
+                    <div>
+                        <label>Mês Inicial</label>
+                        <div class="month-picker-box field-month" onclick="abrirSeletorMes('pgIni')">
+                            📅 <span id="lblPgIni">Abril 2026</span>
+                        </div>
+                        <input type="hidden" id="pgIni">
+                    </div>
+                    <div>
+                        <label>Mês Final</label>
+                        <div class="month-picker-box field-month" onclick="abrirSeletorMes('pgFim')">
+                            📅 <span id="lblPgFim">Abril 2026</span>
+                        </div>
+                        <input type="hidden" id="pgFim">
+                    </div>
+                </div>
+                <div class="payment-grid">
+                    <div class="discount-dual-field">
+                        <label>Desconto Extra</label>
+                        <div class="discount-dual-grid">
+                            <div class="input-affix money-affix">
+                                <span>R$</span>
+                                <input type="text" id="pgDescontoMulti" oninput="maskMoeda(this); calcPgtoMulti(false, 'valor');" placeholder="0,00">
+                            </div>
+                            <div class="input-affix percent-affix">
+                                <input type="text" id="pgDescontoPctMulti" oninput="maskPercentual(this); calcPgtoMulti(false, 'pct');" placeholder="0">
+                                <span>%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <label>Total Calculado</label>
+                        <div class="input-affix money-affix total-affix">
+                            <span>R$</span>
+                            <input type="text" id="pgValorMulti" readonly class="money-input readonly">
+                        </div>
+                    </div>
+                </div>
+                <div id="avisoErroMulti" class="multi-error"></div>
+                <div class="payment-grid payment-grid-action">
+                    <div>
+                        <label>Dia do Vencimento</label>
+                        <input type="hidden" id="pgDataMulti">
+                        <div id="pgVencimentoMulti" class="due-day-display">Dia 30</div>
+                    </div>
+                    <button class="btn-action primary-wide payment-confirm-btn" onclick="registrarPagamentoMulti()"><span class="payment-btn-emoji">💲</span><span>Confirmar Período</span></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-title" style="margin-top: 0; margin-bottom: 5px;">Histórico de Pagamentos</div>
+        <div id="listaHistoricoPagamentos" class="history-box"></div>
+        
+        <div class="modal-actions"><button class="btn-cancel" style="width: 100%;" onclick="fecharModal('modalAcoesContribuinte')">Voltar</button></div>
+    </div>
+</div>
+
+<!-- DECISÃO DE PAGAMENTO MENOR -->
+<div class="modal-overlay" id="modalPagamentoMenor" style="z-index: 2200;">
+    <div class="modal modal-payment-decision">
+        <div class="modal-title">
+            <span>Valor menor que o previsto</span>
+            <button class="icon-btn" onclick="fecharModal('modalPagamentoMenor')">✖</button>
+        </div>
+        <p id="textoPagamentoMenor" class="payment-decision-text"></p>
+        <div class="payment-decision-actions">
+            <button class="payment-decision-card partial" onclick="confirmarPagamentoMenor('parcial')">
+                <strong>Receber como parcial</strong>
+                <span>Abate esse valor e mantém o restante pendente.</span>
+            </button>
+            <button class="payment-decision-card discount" onclick="confirmarPagamentoMenor('desconto')">
+                <strong>Quitar com desconto</strong>
+                <span>Considera o mês pago e registra a diferença como desconto.</span>
+            </button>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="fecharModal('modalPagamentoMenor')">Voltar e conferir</button>
+        </div>
+    </div>
+</div>
+
+<!-- ESCOLHER PIX PARA ENVIO -->
+<div class="modal-overlay" id="modalEscolherPix" style="z-index: 2100;">
+    <div class="modal modal-pix-choice">
+        <div class="modal-title">
+            <span>Escolher PIX</span>
+            <button class="icon-btn" onclick="fecharModal('modalEscolherPix')">✖</button>
+        </div>
+        <div id="listaPixEnvio" class="pix-choice-list"></div>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="fecharModal('modalEscolherPix')">Cancelar</button>
+        </div>
+    </div>
+</div>
+<script src="app.js?v=1.0.45-relatorio-pg"></script>
 </body>
 </html>
