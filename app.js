@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.45";
+﻿const APP_VERSION = "v1.0.46";
 const SYNC_PULL_INTERVAL_MS = 30000;
 const COBRANCA_INICIO_MES = "2026-05";
 const AUDITORIA_RETENCAO_DIAS = 15;
@@ -893,6 +893,39 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         salvarBanco();
     }
 
+    function aplicarCadastroAtualizadoInicialV1046() {
+        db.configs = { ...criarBancoBase().configs, ...(db.configs || {}) };
+        if(db.configs.cadastroAtualizadoInicialV1046) return;
+
+        const cfg = getConfigResetCadastroAtualizado();
+        const hoje = getHojeSTR();
+        const ano = hoje.substring(0, 4);
+        const dataReset = `${ano}-${cfg.mes}-${cfg.dia}`;
+        db.configs.cadastroAtualizadoInicialV1046 = true;
+
+        if(hoje > dataReset) {
+            salvarBanco();
+            return;
+        }
+
+        let alterou = false;
+        (db.contribuintes || []).forEach(c => {
+            let alterouContribuinte = false;
+            (c.carros || []).forEach(car => {
+                if(!car.cadastroAtualizado) {
+                    car.cadastroAtualizado = true;
+                    tocarRegistro(car);
+                    alterou = true;
+                    alterouContribuinte = true;
+                }
+            });
+            if(alterouContribuinte) tocarRegistro(c);
+        });
+
+        if(alterou) registrarAuditoria('Cadastro atualizado ativado', 'Todos os veículos foram marcados na atualização v1.0.46');
+        salvarBanco();
+    }
+
     document.addEventListener("DOMContentLoaded", () => { 
         document.title = `Cooptrans ${APP_VERSION}`;
         document.getElementById('splashVersao').innerText = APP_VERSION;
@@ -903,6 +936,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         aplicarTema();
         renderizarCabecalhoPrincipal();
         aplicarResetCadastroAtualizadoSeNecessario();
+        aplicarCadastroAtualizadoInicialV1046();
         setTimeout(() => {
             document.getElementById('splashScreen').style.opacity = '0';
             setTimeout(()=>{document.getElementById('splashScreen').style.display = 'none';}, 500); 
@@ -1557,7 +1591,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 let catObj = db.categorias.find(x => x.nome === car.categoria);
                 let emojiCarro = catObj && catObj.emoji ? catObj.emoji : '🚗';
                 let tickAtualizado = car.cadastroAtualizado ? '<span class="vehicle-updated-tick">✅</span>' : '';
-                emojisCarros += `<span class="vehicle-emoji-wrap">${escapeHTML(emojiCarro)}${tickAtualizado}</span>`;
+                let classeAtualizacao = car.cadastroAtualizado ? 'vehicle-updated' : 'vehicle-outdated';
+                emojisCarros += `<span class="vehicle-emoji-wrap ${classeAtualizacao}"><span class="vehicle-emoji-symbol">${escapeHTML(emojiCarro)}</span>${tickAtualizado}</span>`;
             });
             if(temPendenciaAnterior) {
                 emojisCarros += '<span class="past-debt-dot" title="Possui pendência em meses anteriores"></span>';
@@ -1620,9 +1655,10 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
 
     function abrirRelatorioManual() {
         const ini = getMesAtualSTR();
-        const fim = adicionarMeses(ini, 5);
+        const fim = adicionarMeses(ini, 2);
         document.getElementById('relManualIni').value = ini;
         document.getElementById('relManualFim').value = fim;
+        document.getElementById('relManualOcultarAdimplentes').checked = false;
         setLabelsRelatorioManual();
         gerarRelatorioManual();
         abrirModal('modalRelatorioManual');
@@ -1643,14 +1679,17 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         }
         setLabelsRelatorioManual();
 
+        const ocultarAdimplentes = !!document.getElementById('relManualOcultarAdimplentes')?.checked;
         const contribs = [...db.contribuintes]
             .filter(c => !estaArquivadoContribuinte(c) && (c.carros || []).some(car => car.ativo))
+            .filter(c => !ocultarAdimplentes || !meses.every(m => isMesPago(c, m)))
             .sort((a,b) => (a.nome || '').localeCompare(b.nome || ''));
         const cabecalhoMeses = meses.map(m => `<th class="pg-col">${escapeHTML(formatMesColunaManual(m))}</th>`).join('');
-        const linhas = contribs.map(c => {
+        const linhas = contribs.map((c, idx) => {
             const valorAPagar = calcularValorEsperado(c, ini);
             return `
             <tr>
+                <td class="order-col">${idx + 1}</td>
                 <td class="manual-row-name">${escapeHTML(c.nome || 'Sem nome')}</td>
                 <td class="due-col">${String(getDiaVencimento(c)).padStart(2, '0')}</td>
                 ${meses.map(m => `<td class="manual-pg-cell">${isMesPago(c, m) ? 'PG' : ''}</td>`).join('')}
@@ -1659,7 +1698,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         `;
         }).join('');
 
-        const colspanVazio = meses.length + 3;
+        const colspanVazio = meses.length + 4;
         document.getElementById('printRelatorioManual').innerHTML = `
             <div class="manual-report-sheet">
                 <div class="manual-report-head">
@@ -1669,6 +1708,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 <table class="manual-report-table">
                     <thead>
                         <tr>
+                            <th class="order-col">#</th>
                             <th class="name-col">Nome</th>
                             <th class="due-col">Dia</th>
                             ${cabecalhoMeses}
@@ -1697,7 +1737,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             .manual-report-table tr { break-inside: avoid; page-break-inside: avoid; }
             .manual-report-table th, .manual-report-table td { border: 1px solid #333; padding: 3px 2px; height: 22px; vertical-align: middle; }
             .manual-report-table th { background: #eee; text-align: center; font-weight: 800; }
-            .manual-report-table .name-col { width: 52%; text-align: left; }
+            .manual-report-table .order-col { width: 24px; text-align: center; color: #111; font-weight: 900; }
+            .manual-report-table .name-col { width: 50%; text-align: left; }
             .manual-report-table .due-col { width: 26px; text-align: center; color: #111; font-weight: 900; }
             .manual-report-table .pg-col { width: 28px; text-align: center; color: #111; }
             .manual-report-table .value-col { width: 54px; text-align: center; color: #111; font-weight: 900; }

@@ -192,10 +192,13 @@
         .vehicle-flags-row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; background:#f9f9f9; padding:10px; border-radius:5px; margin-bottom:5px; margin-top:15px; }
         .vehicle-flag-control { display:flex; align-items:center; gap:2px; min-width:0; }
         .vehicle-flag-control span { font-weight:bold; font-size:12px; color:#333; white-space:nowrap; }
-        .vehicle-flag-blocked { justify-content:flex-end; margin-left:auto; }
+        .vehicle-flag-blocked { justify-content:flex-start; }
         .vehicle-flag-blocked span { color:#D32F2F; text-align:right; }
+        .vehicle-flag-updated { justify-content:flex-end; margin-left:auto; }
         .vehicle-flag-updated span { color:#2E7D32; }
         .vehicle-emoji-wrap { position:relative; display:inline-flex; align-items:center; justify-content:center; line-height:1; flex:0 0 auto; }
+        .vehicle-emoji-symbol { display:inline-block; }
+        .vehicle-emoji-wrap.vehicle-outdated .vehicle-emoji-symbol { filter: grayscale(1) contrast(1.18); opacity:0.62; }
         .vehicle-updated-tick { position:absolute; right:-1px; bottom:-1px; font-size:10px; line-height:1; background:#fff; border-radius:999px; box-shadow:0 1px 3px rgba(0,0,0,0.18); }
         .annual-reset-box { background:#f9f9f9; padding:10px; border-radius:5px; margin-bottom:15px; }
         .annual-reset-box > label { font-size:12px; color:#333; font-weight:700; margin-bottom:8px; display:block; }
@@ -330,8 +333,12 @@
         .payment-decision-card.partial { border-color:#FFE082; background:#FFFDE7; }
         .payment-decision-card.discount { border-color:#A5D6A7; background:#F1F8E9; }
         .manual-report-modal { max-width: 900px; width: 96%; height: 88vh; display:flex; flex-direction:column; }
-        .manual-report-controls { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
+        .manual-report-controls { display:grid; grid-template-columns:minmax(130px, 180px) minmax(130px, 180px) minmax(210px, 1fr); gap:10px; margin-bottom:10px; align-items:end; }
         .manual-report-controls label { display:block; color:#555; font-weight:800; font-size:11px; margin-bottom:4px; }
+        .manual-month-control .field-month { width:100%; min-height:46px; box-sizing:border-box; padding:8px 10px; font-size:16px; }
+        .manual-switch-card { height:46px; margin:0; padding:8px 10px; border:1px solid rgba(0,140,74,0.22); background:var(--theme-light); border-radius:8px; display:flex !important; align-items:center; justify-content:space-between; gap:12px; color:#222 !important; font-size:13px !important; cursor:pointer; }
+        .manual-switch-card > span:first-child { font-weight:900; white-space:nowrap; }
+        .manual-switch-card .switch { margin:0; }
         .manual-report-actions { margin-top:0; margin-bottom:10px; }
         .manual-report-print { flex:1; overflow:auto; background:#fff; border:1px solid #ddd; border-radius:8px; padding:12px; }
         .manual-report-sheet { color:#111; font-family: Arial, sans-serif; }
@@ -341,7 +348,8 @@
         .manual-report-table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:12px; }
         .manual-report-table th, .manual-report-table td { border:1px solid #777; padding:5px 4px; height:26px; }
         .manual-report-table th { background:#eee; text-align:center; font-size:11px; }
-        .manual-report-table .name-col { width:52%; text-align:left; }
+        .manual-report-table .order-col { width:30px; text-align:center; color:#111; font-weight:900; }
+        .manual-report-table .name-col { width:50%; text-align:left; }
         .manual-report-table .due-col { width:30px; text-align:center; color:#111; font-weight:900; }
         .manual-report-table .pg-col { width:28px; text-align:center; color:#111; }
         .manual-report-table .value-col { width:58px; text-align:center; color:#111; font-weight:900; }
@@ -378,7 +386,8 @@
             .alert-home-box { max-width: calc(100% - 84px); }
             .alert-chip-home { font-size: 10px; padding: 4px 6px; }
             .filter-report-btn { width:40px; height:40px; font-size:26px; }
-            .manual-report-controls { grid-template-columns:1fr; }
+            .manual-report-controls { grid-template-columns:1fr 1fr; }
+            .manual-switch-card { grid-column:1 / -1; }
             .vehicle-flags-row { gap:8px; }
             .vehicle-flag-control span { font-size:11px; }
             .acoes-toolbar { grid-template-columns: 1fr; }
@@ -421,5 +430,6 @@
             body.printing-manual-report .manual-report-table th,
             body.printing-manual-report .manual-report-table td { border-color:#333; height:24px; padding:3px; }
             body.printing-manual-report .manual-report-table tr { break-inside:avoid; page-break-inside:avoid; }
+            body.printing-manual-report .manual-report-table .order-col { width:24px; text-align:center; font-weight:900; }
         }
 

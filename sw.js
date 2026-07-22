@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.45-relatorio-pg';
-// Ajusta meses e pagamentos da lista manual e o botao de telefone.
+const CACHE_NAME = 'cooptrans-v1.0.46-lista-cadastro';
+// Ajusta lista manual, filtros e visual do cadastro atualizado.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=1.0.45-relatorio-pg',
-  './app.js?v=1.0.45-relatorio-pg',
+  './style.css?v=1.0.46-lista-cadastro',
+  './app.js?v=1.0.46-lista-cadastro',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',
