@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.46";
+﻿const APP_VERSION = "v1.0.47";
 const SYNC_PULL_INTERVAL_MS = 30000;
 const COBRANCA_INICIO_MES = "2026-05";
 const AUDITORIA_RETENCAO_DIAS = 15;
@@ -1590,9 +1590,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             (c.carros || []).filter(car=>car.ativo).forEach(car => {
                 let catObj = db.categorias.find(x => x.nome === car.categoria);
                 let emojiCarro = catObj && catObj.emoji ? catObj.emoji : '🚗';
-                let tickAtualizado = car.cadastroAtualizado ? '<span class="vehicle-updated-tick">✅</span>' : '';
                 let classeAtualizacao = car.cadastroAtualizado ? 'vehicle-updated' : 'vehicle-outdated';
-                emojisCarros += `<span class="vehicle-emoji-wrap ${classeAtualizacao}"><span class="vehicle-emoji-symbol">${escapeHTML(emojiCarro)}</span>${tickAtualizado}</span>`;
+                emojisCarros += `<span class="vehicle-emoji-wrap ${classeAtualizacao}"><span class="vehicle-emoji-symbol">${escapeHTML(emojiCarro)}</span></span>`;
             });
             if(temPendenciaAnterior) {
                 emojisCarros += '<span class="past-debt-dot" title="Possui pendência em meses anteriores"></span>';
