@@ -332,8 +332,8 @@
         .payment-decision-card.partial { border-color:#FFE082; background:#FFFDE7; }
         .payment-decision-card.discount { border-color:#A5D6A7; background:#F1F8E9; }
         .manual-report-modal { max-width: 900px; width: 96%; height: 88vh; display:flex; flex-direction:column; }
-        .manual-report-controls { display:grid; grid-template-columns:repeat(3, minmax(130px, 180px)); gap:10px; margin-bottom:10px; align-items:end; }
-        .manual-report-controls label { display:block; color:#555; font-weight:800; font-size:11px; margin-bottom:4px; }
+        .manual-report-controls { display:grid; grid-template-columns:repeat(3, minmax(130px, 180px)); gap:10px; margin-bottom:10px; align-items:start; }
+        .manual-report-controls label { display:block; color:#555; font-weight:800; font-size:11px; margin-bottom:4px; white-space:nowrap; }
         .manual-month-control .field-month { width:100%; min-height:46px; box-sizing:border-box; padding:8px 10px; font-size:16px; }
         .manual-switch-control { min-width:0; }
         .manual-switch-control .switch { display:block; margin:8px 0 0; }
@@ -384,8 +384,9 @@
             .alert-home-box { max-width: calc(100% - 84px); }
             .alert-chip-home { font-size: 10px; padding: 4px 6px; }
             .filter-report-btn { width:40px; height:40px; font-size:26px; }
-            .manual-report-controls { grid-template-columns:1fr 1fr; }
-            .manual-switch-control { grid-column:1 / -1; }
+            .manual-report-controls { grid-template-columns:repeat(3, minmax(0, 1fr)); gap:7px; }
+            .manual-month-control .field-month { min-height:42px; padding:7px 4px; font-size:14px; gap:4px; }
+            .manual-switch-control .switch { margin-top:7px; }
             .vehicle-flags-row { gap:8px; }
             .vehicle-flag-control span { font-size:11px; }
             .acoes-toolbar { grid-template-columns: 1fr; }

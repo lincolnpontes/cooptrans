@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.47-ajustes-visuais';
-// Refina controles da lista manual e visual dos veiculos atualizados.
+const CACHE_NAME = 'cooptrans-v1.0.48-alinha-switch';
+// Alinha o switch de ocultar adimplentes com os campos de mes.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=1.0.47-ajustes-visuais',
-  './app.js?v=1.0.47-ajustes-visuais',
+  './style.css?v=1.0.48-alinha-switch',
+  './app.js?v=1.0.48-alinha-switch',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',
