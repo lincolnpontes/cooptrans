@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.48-alinha-switch';
-// Alinha o switch de ocultar adimplentes com os campos de mes.
+const CACHE_NAME = 'cooptrans-v1.0.49-sync-cadastro';
+// Ajusta resumo de cadastro atualizado e protege reset anual apos sync.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=1.0.48-alinha-switch',
-  './app.js?v=1.0.48-alinha-switch',
+  './style.css?v=1.0.49-sync-cadastro',
+  './app.js?v=1.0.49-sync-cadastro',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',

@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.48";
+﻿const APP_VERSION = "v1.0.49";
 const SYNC_PULL_INTERVAL_MS = 30000;
 const COBRANCA_INICIO_MES = "2026-05";
 const AUDITORIA_RETENCAO_DIAS = 15;
@@ -133,6 +133,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
     let syncPendente = false;
     let pagamentoMenorPendente = null;
     let adminLogado = null;
+    let manutencaoAutomaticaLiberada = false;
 
     function criarBancoBase() {
         return {
@@ -904,7 +905,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         db.configs.cadastroAtualizadoInicialV1046 = true;
 
         if(hoje > dataReset) {
-            salvarBanco();
+            salvarBanco({ sincronizar: false, marcarLocal: false });
             return;
         }
 
@@ -923,7 +924,19 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         });
 
         if(alterou) registrarAuditoria('Cadastro atualizado ativado', 'Todos os veículos foram marcados na atualização v1.0.46');
-        salvarBanco();
+        salvarBanco(alterou ? {} : { sincronizar: false, marcarLocal: false });
+    }
+
+    function executarManutencaoAutomaticaPosSync() {
+        if(manutencaoAutomaticaLiberada) return;
+        manutencaoAutomaticaLiberada = true;
+        aplicarResetCadastroAtualizadoSeNecessario();
+        aplicarCadastroAtualizadoInicialV1046();
+    }
+
+    function executarManutencaoAutomaticaInicial() {
+        if(db.configs && db.configs.url) return;
+        executarManutencaoAutomaticaPosSync();
     }
 
     document.addEventListener("DOMContentLoaded", () => { 
@@ -935,8 +948,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         atualizarPerfilAdminUI();
         aplicarTema();
         renderizarCabecalhoPrincipal();
-        aplicarResetCadastroAtualizadoSeNecessario();
-        aplicarCadastroAtualizadoInicialV1046();
+        executarManutencaoAutomaticaInicial();
         setTimeout(() => {
             document.getElementById('splashScreen').style.opacity = '0';
             setTimeout(()=>{document.getElementById('splashScreen').style.display = 'none';}, 500); 
@@ -1232,6 +1244,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let totalCarrosAtivos = 0;
         let totalCarrosGrandes = 0;
         let totalCarrosPequenos = 0;
+        let totalCarrosAtualizados = 0;
+        let totalCarrosDesatualizados = 0;
         let recebidoVal = 0;
         let recebidoQtd = 0;
         let pendenteVal = 0;
@@ -1254,6 +1268,8 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 carrosAtivosMes.forEach(car => {
                     if(normalizarHeaderExcel(car.categoria).includes('grande')) totalCarrosGrandes++;
                     else totalCarrosPequenos++;
+                    if(car.cadastroAtualizado) totalCarrosAtualizados++;
+                    else totalCarrosDesatualizados++;
                 });
 
                 if(isMesPago(c, mesRef)) {
@@ -1271,6 +1287,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         document.getElementById('dashTotalContrib').innerText = totalContribAtivos;
         document.getElementById('dashTotalCarros').innerText = totalCarrosAtivos;
         document.getElementById('dashTotalCarrosTipo').innerText = `${totalCarrosGrandes} grandes | ${totalCarrosPequenos} pequenos`;
+        document.getElementById('dashTotalCarrosCadastro').innerText = `${totalCarrosAtualizados} atualizados | ${totalCarrosDesatualizados} desatualizados`;
         document.getElementById('dashTotalEsperado').innerText = `R$ ${formatMoeda(totalEsperadoMes)}`;
         
         document.getElementById('dashRecebidoVal').innerText = `R$ ${formatMoeda(recebidoVal)}`;
@@ -3489,6 +3506,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                     db.configs.ultimaSincronizacao = Date.now();
                     localStorage.setItem('cooptrans_v1', JSON.stringify(db));
                 }
+                executarManutencaoAutomaticaPosSync();
             }
         } catch(e) {
             syncPendente = true;
@@ -3519,9 +3537,13 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             nuvemDB = normalizarBanco(nuvemDB);
             let revisaoNuvem = parseInt(nuvemDB.configs.syncRevision || 0);
             let revisaoLocal = parseInt(db.configs.syncRevision || 0);
-            if(revisaoNuvem <= revisaoLocal) return;
+            if(revisaoNuvem <= revisaoLocal) {
+                executarManutencaoAutomaticaPosSync();
+                return;
+            }
 
             aplicarBancoAtualizado(nuvemDB);
+            executarManutencaoAutomaticaPosSync();
         } catch(e) {
             if(!silencioso) alert("Não foi possível puxar os dados da nuvem.");
         }
