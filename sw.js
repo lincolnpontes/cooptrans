@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.49-sync-cadastro';
-// Ajusta resumo de cadastro atualizado e protege reset anual apos sync.
+const CACHE_NAME = 'cooptrans-v1.0.50-recupera-cadastro';
+// Adiciona recuperacao de cadastros atualizados via backups da nuvem.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=1.0.49-sync-cadastro',
-  './app.js?v=1.0.49-sync-cadastro',
+  './style.css?v=1.0.50-recupera-cadastro',
+  './app.js?v=1.0.50-recupera-cadastro',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',

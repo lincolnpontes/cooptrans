@@ -13,18 +13,18 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <link rel="icon" href="icons/icon-192.png">
-    <title>Cooptrans v1.0.49</title>
+    <title>Cooptrans v1.0.50</title>
     <!-- Biblioteca SheetJS para Importar/Exportar Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
     <!-- Biblioteca Chart.js para Gráficos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
-    <link rel="stylesheet" href="style.css?v=1.0.49-sync-cadastro">
+    <link rel="stylesheet" href="style.css?v=1.0.50-recupera-cadastro">
 </head>
 <body>
 
 <div id="splashScreen">
     <img id="splashLogoObj" style="max-height: 100px; object-fit: contain; margin-bottom: 20px; border-radius: 10px; display: none;">
-    <div class="splash-versao" id="splashVersao">v1.0.49</div>
+    <div class="splash-versao" id="splashVersao">v1.0.50</div>
     <button onclick="forcarAtualizacao()" style="margin-top: 40px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 10px 20px; border-radius: 20px; font-size: 14px; cursor: pointer; pointer-events: auto;">🔄 Forçar Atualização</button>
 </div>
 
@@ -42,7 +42,7 @@
     <div class="modal login-modal">
         <div class="login-title">
             <strong>Cooptrans</strong>
-            <span id="setupAppVersion">v1.0.49</span>
+            <span id="setupAppVersion">v1.0.50</span>
         </div>
         <p class="login-subtitle">Informe a URL do back-end para carregar os dados da cooperativa.</p>
         <div class="form-group">
@@ -61,7 +61,7 @@
     <div class="modal login-modal">
         <div class="login-title">
             <strong>Cooptrans</strong>
-            <span id="loginAppVersion">v1.0.49</span>
+            <span id="loginAppVersion">v1.0.50</span>
         </div>
         <p class="login-subtitle" id="loginAdminTexto">Escolha o usuário e informe a senha.</p>
         <div class="form-group">
@@ -218,7 +218,7 @@
 <!-- MENU PRINCIPAL -->
 <div class="modal-overlay" id="modalPainelUnificado">
     <div class="modal" style="padding-top: 25px;">
-        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.49</span></h2>
+        <h2 class="menu-title">Cooptrans <span id="menuAppVersion">v1.0.50</span></h2>
         <button class="btn-outline" onclick="abrirCooperativaComPermissao()">🏢 Dados da Cooperativa</button>
         <button class="btn-outline" onclick="abrirGerenciarContribuintes()">👥 Gerenciar Contribuintes</button>
         <button class="btn-outline" onclick="abrirConfigGeraisComPermissao()">⚙️ Configurações Gerais</button>
@@ -363,6 +363,7 @@
                 <button class="btn-outline" style="margin: 0; flex: 1; font-size: 13px; border-color:#d32f2f; color:#d32f2f; text-align: center;" onclick="document.getElementById('fileImportBkp').click()">⬆️ Importar Backup</button>
                 <input type="file" id="fileImportBkp" style="display:none;" accept=".json" onchange="importarDadosBackup(event)">
             </div>
+            <button class="btn-outline recovery-sync-btn" onclick="recuperarCadastroAtualizadoNuvem()">♻️ Recuperar cadastros atualizados</button>
         </div>
         <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
         <div class="form-group"><label>Para apagar todo o histórico de lançamentos, digite: <b>quero excluir todo o histórico</b></label><input type="text" id="inputExcluirTudo" placeholder="digite a frase exata"><button class="btn-danger" style="margin-top: 10px; width: 100%;" onclick="excluirTodoHistorico()">🗑️ Apagar Todo o Histórico</button></div>
@@ -831,6 +832,6 @@
         </div>
     </div>
 </div>
-<script src="app.js?v=1.0.49-sync-cadastro"></script>
+<script src="app.js?v=1.0.50-recupera-cadastro"></script>
 </body>
 </html>

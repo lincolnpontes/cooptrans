@@ -1,4 +1,4 @@
-﻿const APP_VERSION = "v1.0.49";
+﻿const APP_VERSION = "v1.0.50";
 const SYNC_PULL_INTERVAL_MS = 30000;
 const COBRANCA_INICIO_MES = "2026-05";
 const AUDITORIA_RETENCAO_DIAS = 15;
@@ -3549,7 +3549,48 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         }
     }
     async function forcarEnvioNuvemCompleto() { if(!db.configs.url) return alert("Configure a URL!"); document.getElementById('loadingOverlay').style.display = 'flex'; try { let syncStartedAt = Date.now(); let res = await fetch(db.configs.url, { method: 'POST', redirect: "follow", headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'salvar_banco', dados: db }) }); if(!res.ok) throw new Error("Erro"); let retorno = await res.json().catch(() => null); if(retorno && retorno.dados && validarBancoImportado(retorno.dados)) aplicarBancoAtualizado(retorno.dados, { syncStartedAt }); alert("✅ Backup salvo!"); } catch(e) { alert("❌ Falha."); } finally { document.getElementById('loadingOverlay').style.display = 'none'; } }
-    
+
+    async function chamarBackendCadastroAtualizado(action) {
+        let res = await fetch(db.configs.url, {
+            method: 'POST',
+            redirect: "follow",
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action })
+        });
+        if(!res.ok) throw new Error("Falha na nuvem");
+        return await res.json();
+    }
+
+    async function recuperarCadastroAtualizadoNuvem() {
+        if(!db.configs.url) return alert("Configure a URL do back-end primeiro.");
+        document.getElementById('loadingOverlay').style.display = 'flex';
+        try {
+            const previa = await chamarBackendCadastroAtualizado('preview_recuperar_cadastro_atualizado');
+            if(!previa || !previa.ok) {
+                alert(previa && previa.erro ? previa.erro : "Não foi possível conferir os backups. Atualize o Code.gs no Apps Script e tente de novo.");
+                return;
+            }
+            if(!previa.encontrado || !previa.recuperaveis) {
+                alert("Não encontrei cadastros atualizados para recuperar nos backups disponíveis.");
+                return;
+            }
+
+            const dataBackup = previa.dataBackup ? formatDataBR(String(previa.dataBackup).substring(0, 10)) : 'backup encontrado';
+            const msg = `Encontrei ${previa.recuperaveis} veículo(s) que estavam como cadastro atualizado no backup de ${dataBackup} e hoje estão desatualizados.\n\nDeseja recuperar essa marcação agora?`;
+            if(!confirm(msg)) return;
+
+            const retorno = await chamarBackendCadastroAtualizado('recuperar_cadastro_atualizado');
+            if(!retorno || !retorno.ok) throw new Error(retorno && retorno.erro ? retorno.erro : "Falha na recuperação");
+            if(retorno.dados && validarBancoImportado(retorno.dados)) aplicarBancoAtualizado(retorno.dados);
+            alert(`✅ Recuperado: ${retorno.recuperados || 0} veículo(s).`);
+            renderizarLista();
+        } catch(e) {
+            alert("Não foi possível recuperar agora. Confira se o Code.gs atualizado já foi publicado no Apps Script.");
+        } finally {
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+    }
+
     function exportarDadosBackup() { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db)); const downloadAnchorNode = document.createElement('a'); downloadAnchorNode.setAttribute("href", dataStr); downloadAnchorNode.setAttribute("download", "cooptrans_bkp_" + getHojeSTR() + ".json"); document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove(); }
     function importarDadosBackup(event) {
         const file = event.target.files[0];
