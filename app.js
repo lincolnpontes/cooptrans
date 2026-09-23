@@ -1,6 +1,7 @@
-﻿const APP_VERSION = "v1.0.50";
+﻿const APP_VERSION = "v1.0.51";
 const SYNC_PULL_INTERVAL_MS = 30000;
 const COBRANCA_INICIO_MES = "2026-05";
+const RELATORIO_ISENCAO_INICIO_MES = "2026-08";
 const AUDITORIA_RETENCAO_DIAS = 15;
 const DIA_VENCIMENTO_PADRAO = 30;
 
@@ -116,6 +117,40 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             curr.setMonth(curr.getMonth() + 1);
         }
         return meses;
+    }
+
+    function criarEventoDescontoBase(valor, vigencia, origem = 'alteracao') {
+        return {
+            id: gerarIdLocal('desc'),
+            valor: Math.max(0, Number(valor) || 0),
+            vigencia,
+            registradoEm: Date.now(),
+            usuario: getUsuarioAuditoria(),
+            origem
+        };
+    }
+
+    function atualizarHistoricoDescontoBase(anterior, descontoNovo, vigencia) {
+        const descontoAnterior = parseMoeda(anterior?.desconto || '0');
+        const historico = Array.isArray(anterior?.historicoDescontoBase) ? [...anterior.historicoDescontoBase] : [];
+        const alterou = Math.round(descontoNovo * 100) !== Math.round(descontoAnterior * 100);
+        if(alterou) {
+            if(!historico.length) historico.push(criarEventoDescontoBase(descontoAnterior, `${COBRANCA_INICIO_MES}-01`, 'legado'));
+            historico.push(criarEventoDescontoBase(descontoNovo, vigencia));
+        }
+        return { historico, alterou, descontoAnterior };
+    }
+
+    function getDescontoBaseParaMes(c, mesRef) {
+        const historico = Array.isArray(c.historicoDescontoBase) ? c.historicoDescontoBase : [];
+        if(!historico.length) return parseMoeda(c.desconto || '0');
+        let vigente = null;
+        historico.forEach(evento => {
+            if(!evento || !isDataISOValida(evento.vigencia) || !evento.vigencia || evento.vigencia.substring(0, 7) > mesRef) return;
+            if(!vigente || evento.vigencia > vigente.vigencia ||
+                (evento.vigencia === vigente.vigencia && Number(evento._serverSeq || evento.registradoEm || 0) >= Number(vigente._serverSeq || vigente.registradoEm || 0))) vigente = evento;
+        });
+        return vigente ? parseMoeda(vigente.valor) : 0;
     }
 
     // DADOS BASE E TEMA
@@ -396,6 +431,17 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         return mesclarListaPorData(atual, nova, excluidos);
     }
 
+    function mesclarHistoricosDescontoBase(atual = [], novo = []) {
+        const eventos = [];
+        const ids = new Set();
+        [...atual, ...novo].forEach(evento => {
+            if(!evento || !evento.id || ids.has(evento.id)) return;
+            ids.add(evento.id);
+            eventos.push(evento);
+        });
+        return eventos;
+    }
+
     function mesclarContribuintesPorData(atual = [], nova = [], excluidos = {}) {
         const map = {};
         atual.forEach((item) => { if(item && item.id) map[item.id] = item; });
@@ -464,9 +510,16 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         local.contribuintes.forEach(cLocal => {
             if(!cLocal || !cLocal.id) return;
             let cServer = contribMap[cLocal.id] || { ...cLocal, carros: [], pagamentos: [] };
+            const historicoServidor = cServer.historicoDescontoBase || [];
             if(isPendenteDepois(cLocal, syncStartedAt)) cServer = { ...cServer, ...cLocal };
+            cServer.historicoDescontoBase = mesclarHistoricosDescontoBase(historicoServidor, cLocal.historicoDescontoBase || []);
             cServer.carros = mesclarListaPorData(cServer.carros || [], (cLocal.carros || []).filter(car => isPendenteDepois(car, syncStartedAt)), server._deleted.carros);
             cServer.pagamentos = mesclarPagamentosPorData(cServer.pagamentos || [], (cLocal.pagamentos || []).filter(pg => isPendenteDepois(pg, syncStartedAt)), server._deleted.pagamentos);
+            if(cServer.historicoDescontoBase.length) {
+                cServer.desconto = formatMoeda(getDescontoBaseParaMes(cServer, getMesAtualSTR()));
+                const somaCarros = cServer.carros.filter(car => car.ativo).reduce((soma, car) => soma + parseMoeda(car.valor), 0);
+                cServer.valorTotal = formatMoeda(Math.max(0, somaCarros - parseMoeda(cServer.desconto)));
+            }
             contribMap[cLocal.id] = cServer;
         });
         server.contribuintes = Object.values(contribMap).filter(c => {
@@ -1177,7 +1230,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
                 soma += parseMoeda(car.valor);
             }
         });
-        let desc = parseMoeda(c.desconto || "0");
+        let desc = getDescontoBaseParaMes(c, mesRef);
         return Math.max(0, soma - desc);
     }
 
@@ -1698,11 +1751,13 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         const ocultarAdimplentes = !!document.getElementById('relManualOcultarAdimplentes')?.checked;
         const contribs = [...db.contribuintes]
             .filter(c => !estaArquivadoContribuinte(c) && (c.carros || []).some(car => car.ativo))
-            .filter(c => !ocultarAdimplentes || !meses.every(m => isMesPago(c, m)))
+            .filter(c => meses.some(m => m < RELATORIO_ISENCAO_INICIO_MES || calcularValorEsperado(c, m) > 0))
+            .filter(c => !ocultarAdimplentes || !meses.every(m =>
+                (m >= RELATORIO_ISENCAO_INICIO_MES && calcularValorEsperado(c, m) <= 0) || isMesPago(c, m)))
             .sort((a,b) => (a.nome || '').localeCompare(b.nome || ''));
         const cabecalhoMeses = meses.map(m => `<th class="pg-col">${escapeHTML(formatMesColunaManual(m))}</th>`).join('');
         const linhas = contribs.map((c, idx) => {
-            const valorAPagar = calcularValorEsperado(c, ini);
+            const valorAPagar = meses.map(m => calcularValorEsperado(c, m)).reverse().find(valor => valor > 0) || 0;
             return `
             <tr>
                 <td class="order-col">${idx + 1}</td>
@@ -1907,6 +1962,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             document.getElementById('contNome').value = c.nome || '';
             document.getElementById('contDiaVencimento').value = getDiaVencimento(c);
             document.getElementById('contDesconto').value = c.desconto || '';
+            renderHistoricoDescontoBase(c);
             if(c.telefones) tempTelefones = [...c.telefones];
             if(c.carros) tempCarros = JSON.parse(JSON.stringify(c.carros));
         } else {
@@ -1914,6 +1970,7 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
             document.getElementById('contNome').value = '';
             document.getElementById('contDiaVencimento').value = DIA_VENCIMENTO_PADRAO;
             document.getElementById('contDesconto').value = '';
+            renderHistoricoDescontoBase(null);
         }
         carregarTelefonesFormulario(tempTelefones);
         renderListaCarros();
@@ -1933,6 +1990,21 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         let somaCarros = tempCarros.filter(c => c.ativo).reduce((acc, c) => acc + parseMoeda(c.valor), 0);
         let desc = parseMoeda(document.getElementById('contDesconto').value);
         document.getElementById('contValor').value = formatMoeda(Math.max(0, somaCarros - desc));
+    }
+
+    function renderHistoricoDescontoBase(c) {
+        const historico = Array.isArray(c?.historicoDescontoBase) ? c.historicoDescontoBase : [];
+        const box = document.getElementById('contHistoricoDesconto');
+        const lista = document.getElementById('contHistoricoDescontoLista');
+        box.style.display = historico.length || parseMoeda(c?.desconto) > 0 ? 'block' : 'none';
+        if(!historico.length) {
+            lista.innerHTML = `<div class="contributor-discount-history-row"><span>Data de concessão não registrada</span><strong>R$ ${formatMoeda(parseMoeda(c?.desconto))}</strong></div>`;
+            return;
+        }
+        lista.innerHTML = [...historico].sort((a, b) => b.vigencia.localeCompare(a.vigencia) || Number(b.registradoEm || 0) - Number(a.registradoEm || 0)).map(evento => {
+            const descricao = evento.origem === 'legado' ? 'Valor anterior à primeira alteração registrada' : `Desde ${formatDataBR(evento.vigencia)}`;
+            return `<div class="contributor-discount-history-row"><span>${escapeHTML(descricao)}</span><strong>R$ ${formatMoeda(parseMoeda(evento.valor))}</strong></div>`;
+        }).join('');
     }
 
     function validarDatasCarrosTemp() {
@@ -1987,13 +2059,20 @@ function toggleDiv(id) { let el = document.getElementById(id); el.style.display 
         
         let id = document.getElementById('contId').value || 'cont_' + Date.now();
         const anterior = db.contribuintes.find(x=>x.id===id);
+        const descontoNovo = parseMoeda(document.getElementById('contDesconto').value);
+        const mudancaDesconto = atualizarHistoricoDescontoBase(anterior, descontoNovo, getHojeSTR());
+        if(mudancaDesconto.alterou) {
+            registrarAuditoria('Desconto base alterado', `${nome}: R$ ${formatMoeda(mudancaDesconto.descontoAnterior)} → R$ ${formatMoeda(descontoNovo)}, válido desde ${formatDataBR(getHojeSTR())}`);
+        }
         tempCarrosExcluidos.forEach(carId => registrarExclusao('carros', carId));
         let novo = {
+            ...(anterior || {}),
             id: id,
             nome: nome,
             telefones: obterTelefonesFormulario(),
             diaVencimento: normalizarDiaVencimento(document.getElementById('contDiaVencimento').value),
             desconto: document.getElementById('contDesconto').value,
+            historicoDescontoBase: mudancaDesconto.historico,
             valorTotal: document.getElementById('contValor').value,
             carros: tempCarros,
             pagamentos: anterior?.pagamentos || [],

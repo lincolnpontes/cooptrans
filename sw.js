@@ -1,10 +1,10 @@
-const CACHE_NAME = 'cooptrans-v1.0.50-recupera-cadastro';
-// Adiciona recuperacao de cadastros atualizados via backups da nuvem.
+const CACHE_NAME = 'cooptrans-v1.0.51-desconto-historico';
+// Cache da versao instalada.
 const APP_SHELL = [
   './',
   './index.html',
-  './style.css?v=1.0.50-recupera-cadastro',
-  './app.js?v=1.0.50-recupera-cadastro',
+  './style.css?v=1.0.51-desconto-historico',
+  './app.js?v=1.0.51-desconto-historico',
   './manifest.json',
   './whatsapp.png',
   './icons/apple-touch-icon.png',
